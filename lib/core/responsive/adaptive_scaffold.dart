@@ -53,7 +53,7 @@ class AdaptiveScaffold extends StatelessWidget {
         body: Row(
           children: [
             _buildDesktopSidebar(context),
-            const VerticalDivider(width: 1, thickness: 1, color: AppColors.borderLight),
+            const VerticalDivider(width: 1, thickness: 1, color: Color(0xFF1E293B)),
             Expanded(child: body),
           ],
         ),
@@ -130,100 +130,149 @@ class AdaptiveScaffold extends StatelessWidget {
   }
 
   Widget _buildDesktopSidebar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.surfaceDark : AppColors.surfaceLight;
-
     return Container(
-      width: 250,
-      color: bg,
+      width: 260,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF090D16),
+            Color(0xFF0F172A),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 20,
+            offset: Offset(4, 0),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo & Marca
+          // Logo & Marca Executiva
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.accentGold, AppColors.goldDark],
+                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accentGold.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.menu_book, color: Colors.white, size: 24),
+                  child: const Icon(Icons.auto_stories, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Pregador Pro',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Pregador',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFB45309)],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'PRO',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      'Plataforma Homilética',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                      const SizedBox(height: 1),
+                      const Text(
+                        'Plataforma Homilética',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          letterSpacing: 0.2,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
 
-          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
-          const SizedBox(height: 12),
+          const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
+          const SizedBox(height: 14),
 
-          // Itens de Menu
+          // Itens de Menu com Pílulas 3D Gradientes
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               itemCount: destinations.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
               itemBuilder: (context, index) {
                 final item = destinations[index];
                 final isSelected = currentIndex == index;
 
                 return InkWell(
                   onTap: () => onNavigationIndexChanged(index),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? (isDark ? AppColors.surfaceVariantDark : const Color(0xFFEFF6FF))
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isSelected
-                          ? Border.all(
-                              color: isDark ? AppColors.accentGold : AppColors.primaryBlue,
-                              width: 1.2,
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             )
+                          : null,
+                      color: isSelected ? null : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.45),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
                           : null,
                     ),
                     child: Row(
                       children: [
                         Icon(
                           isSelected ? item.selectedIcon : item.icon,
-                          color: isSelected
-                              ? (isDark ? AppColors.goldLight : AppColors.primaryBlue)
-                              : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
                           size: 20,
                         ),
                         const SizedBox(width: 14),
@@ -231,12 +280,22 @@ class AdaptiveScaffold extends StatelessWidget {
                           item.label,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected
-                                ? (isDark ? AppColors.textPrimaryDark : AppColors.primaryBlue)
-                                : (isDark ? AppColors.textSecondaryDark : AppColors.textPrimaryLight),
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                            letterSpacing: -0.2,
                           ),
                         ),
+                        if (isSelected) ...[
+                          const Spacer(),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -245,21 +304,42 @@ class AdaptiveScaffold extends StatelessWidget {
             ),
           ),
 
-          // Footer de Perfil Pastoral
+          // Footer de Perfil Pastoral com Efeito 3D
           Padding(
             padding: const EdgeInsets.all(16),
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
-                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF334155), width: 1.2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.accentGold.withValues(alpha: 0.2),
-                    child: const Icon(Icons.person, color: AppColors.accentGold, size: 20),
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      ),
+                    ),
+                    child: const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Color(0xFF0F172A),
+                      child: Icon(Icons.person, color: Color(0xFFF59E0B), size: 18),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   const Expanded(
@@ -267,13 +347,20 @@ class AdaptiveScaffold extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pr. Titular',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          'Pr. Carlos Amaral',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          'Online / Sincronizado',
-                          style: TextStyle(fontSize: 10, color: AppColors.statusReady),
+                        SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.fiber_manual_record, size: 8, color: Color(0xFF10B981)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Online / Sincronizado',
+                              style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
                       ],
                     ),

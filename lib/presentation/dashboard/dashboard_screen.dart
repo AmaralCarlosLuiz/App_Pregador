@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/responsive/breakpoints.dart';
+import '../../core/services/sermon_share_service.dart';
 import '../../models/sermon_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sermon_provider.dart';
@@ -26,7 +27,6 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sermonState = ref.watch(sermonListProvider);
     final authState = ref.watch(authProvider);
-    final themeState = ref.watch(themeProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = Breakpoints.isMobile(context);
 
@@ -37,82 +37,59 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // App Bar Moderna com Saudação Pastoral
-          SliverAppBar(
-            floating: true,
-            pinned: false,
-            expandedHeight: isMobile ? 120 : 100,
-            backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 32,
-                  vertical: 16,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          capitalizedDate,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accentGold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Paz do Senhor, ${authState.userProfile?.fullName ?? 'Pastor'}',
-                          style: TextStyle(
-                            fontSize: isMobile ? 20 : 24,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          tooltip: 'Alternar Tema',
-                          icon: Icon(
-                            themeState.themeMode == ThemeMode.dark
-                                ? Icons.light_mode
-                                : Icons.dark_mode,
-                          ),
-                          onPressed: () {
-                            ref.read(themeProvider.notifier).toggleTheme();
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.15),
-                          child: const Icon(Icons.person, color: AppColors.primaryBlue),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+          // 1. BANNER HERO EXECUTIVO 3D COM SAUDAÇÃO & VERSÍCULO DO DIA
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                isMobile ? 16 : 32,
+                isMobile ? 16 : 24,
+                isMobile ? 16 : 32,
+                16,
+              ),
+              child: _buildHeroBanner(
+                context,
+                ref,
+                authState,
+                capitalizedDate,
+                isMobile,
+                isDark,
               ),
             ),
           ),
 
-          // Conteúdo Principal do Dashboard
+          // 2. CONTEÚDO PRINCIPAL (MÉTRICAS + AÇÕES + SERMÕES)
           SliverPadding(
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? 16 : 32,
-              vertical: 16,
+              vertical: 8,
             ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // 1. CARDS DE MÉTRICAS RÁPIDAS COM LINKS FILTRADOS
+                // CABEÇALHO DA SEÇÃO DE MÉTRICAS
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Visão Geral Ministerial',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
+                        color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                      ),
+                    ),
+                    Text(
+                      'Clique nos cards para filtrar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // CARDS DE MÉTRICAS RÁPIDAS COM LINKS FILTRADOS
                 if (isMobile) ...[
                   Row(
                     children: [
@@ -223,49 +200,66 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ],
 
-                const SizedBox(height: 28),
+                const SizedBox(height: 32),
 
-                // 2. AÇÕES RÁPIDAS
+                // SEÇÃO DE AÇÕES RÁPIDAS COM DESIGN 3D PROFISSIONAL
                 Text(
-                  'Ações Rápidas',
+                  'Ações Rápidas & Ferramentas',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: -0.3,
                     color: isDark ? Colors.white : AppColors.textPrimaryLight,
                   ),
                 ),
-                const SizedBox(height: 12),
-                _buildQuickActions(context, ref, isMobile),
+                const SizedBox(height: 14),
+                _buildQuickActions(context, ref, isMobile, isDark),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
 
-                // 3. CABEÇALHO SERMÕES RECENTES
+                // CABEÇALHO SERMÕES RECENTES
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Sermões Recentes',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Sermões Recentes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
+                            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryElectricBlue.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${sermonState.recentSermons.length}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryElectricBlue,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextButton(
+                    TextButton.icon(
                       onPressed: onNavigateToLibrary,
-                      child: const Row(
-                        children: [
-                          Text('Ver Todos'),
-                          SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 16),
-                        ],
-                      ),
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      label: const Text('Ver Todos'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
-                // 4. LISTA DE SERMÕES RECENTES
+                // LISTA DE SERMÕES RECENTES
                 if (sermonState.recentSermons.isEmpty)
                   _buildEmptySermonsCard(context, ref)
                 else
@@ -273,7 +267,7 @@ class DashboardScreen extends ConsumerWidget {
                     (sermon) => _buildRecentSermonCard(context, ref, sermon, isDark),
                   ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 48),
               ]),
             ),
           ),
@@ -282,49 +276,296 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, WidgetRef ref, bool isMobile) {
+  // ==========================================
+  // BANNER HERO EXECUTIVO 3D
+  // ==========================================
+  Widget _buildHeroBanner(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic authState,
+    String capitalizedDate,
+    bool isMobile,
+    bool isDark,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF090D16), // Obsidian Dark
+            Color(0xFF0F172A), // Slate 900
+            Color(0xFF1E3A8A), // Royal Navy Blue
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.28),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.35),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Efeito de Luz / Glow no canto superior direito
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF38BDF8).withValues(alpha: 0.25),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(isMobile ? 18 : 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Data & Badge PRO + Alternar Tema
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today, size: 12, color: Color(0xFFFBBF24)),
+                          const SizedBox(width: 6),
+                          Text(
+                            capitalizedDate,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFFBBF24),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.workspace_premium, size: 13, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text(
+                                'PREGADOR PRO',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Alternar Tema Claro / Escuro',
+                          icon: Icon(
+                            ref.watch(themeProvider).themeMode == ThemeMode.dark
+                                ? Icons.light_mode
+                                : Icons.dark_mode,
+                            color: Colors.white70,
+                          ),
+                          onPressed: () {
+                            ref.read(themeProvider.notifier).toggleTheme();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Título & Saudação Pastoral
+                Text(
+                  'Paz do Senhor, ${authState.userProfile?.fullName ?? 'Pastor'} 🕊️',
+                  style: TextStyle(
+                    fontSize: isMobile ? 22 : 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Sua bancada homilética de alta performance. Crie, edite e ministre mensagens com profunda exegese bíblica.',
+                  style: TextStyle(
+                    fontSize: isMobile ? 12.5 : 14,
+                    color: Colors.white.withValues(alpha: 0.78),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Card de Versículo Devocional Inspirador
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.format_quote, color: Color(0xFFFBBF24), size: 16),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '"Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar, que maneja bem a palavra da verdade." ',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 11.5 : 13,
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  height: 1.35,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '— 2 Timóteo 2:15',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFBBF24),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // SEÇÃO DE AÇÕES RÁPIDAS (CARDS 3D EM GRADIENTE)
+  // ==========================================
+  Widget _buildQuickActions(BuildContext context, WidgetRef ref, bool isMobile, bool isDark) {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildActionButton(
-          context: context,
+        _buildTactile3DButton(
           icon: Icons.add,
           label: 'Novo Sermão',
-          color: AppColors.primaryBlue,
-          isPrimary: true,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E40AF), Color(0xFF2563EB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: const Color(0xFF2563EB),
           onTap: () => _openNewSermon(context),
         ),
-        _buildActionButton(
-          context: context,
+        _buildTactile3DButton(
           icon: Icons.psychology_alt,
           label: 'Gerar com IA',
-          color: const Color(0xFF8B5CF6),
-          isPrimary: false,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: const Color(0xFF8B5CF6),
           onTap: () => _openAiAssistant(context),
         ),
-        _buildActionButton(
-          context: context,
+        _buildTactile3DButton(
+          icon: Icons.mic,
+          label: 'Modo Púlpito',
+          gradient: const LinearGradient(
+            colors: [Color(0xFFB45309), Color(0xFFF59E0B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: const Color(0xFFF59E0B),
+          onTap: () => _openPulpitMode(context, ref),
+        ),
+        _buildTactile3DButton(
           icon: Icons.folder_copy_outlined,
           label: 'Acervo de Modelos',
-          color: AppColors.accentGold,
-          isPrimary: false,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF047857), Color(0xFF10B981)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: const Color(0xFF10B981),
           onTap: onNavigateToTemplates,
         ),
       ],
     );
   }
 
-  Widget _buildActionButton({
-    required BuildContext context,
+  Widget _buildTactile3DButton({
     required IconData icon,
     required String label,
-    required Color color,
-    required bool isPrimary,
+    required LinearGradient gradient,
+    required Color shadowColor,
     VoidCallback? onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -332,50 +573,38 @@ class DashboardScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         child: Ink(
           decoration: BoxDecoration(
-            gradient: isPrimary
-                ? LinearGradient(
-                    colors: [color, color.withValues(alpha: 0.85)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: isPrimary
-                ? null
-                : (isDark ? color.withValues(alpha: 0.15) : color.withValues(alpha: 0.08)),
+            gradient: gradient,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isPrimary ? color : color.withValues(alpha: 0.35),
-              width: 1.2,
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
             ),
-            boxShadow: isPrimary
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            boxShadow: [
+              BoxShadow(
+                color: shadowColor.withValues(alpha: 0.38),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 20, color: isPrimary ? Colors.white : color),
+                Icon(icon, size: 20, color: Colors.white),
                 const SizedBox(width: 10),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: isPrimary ? Colors.white : color,
+                    color: Colors.white,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -387,19 +616,24 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  // ==========================================
+  // CARD DE SERMÃO RECENTE (DESIGN 3D EXECUTIVO)
+  // ==========================================
   Widget _buildRecentSermonCard(
     BuildContext context,
     WidgetRef ref,
     Sermon sermon,
     bool isDark,
   ) {
+    final isReady = sermon.status == 'ready';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF131B2E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
           width: 1.2,
         ),
         boxShadow: AppColors.cardShadow3D(isDark: isDark),
@@ -415,11 +649,17 @@ class DashboardScreen extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     sermon.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
+                  tooltip: sermon.isFavorite ? 'Remover dos Favoritos' : 'Marcar como Favorito',
                   icon: Icon(
                     sermon.isFavorite ? Icons.star : Icons.star_border,
                     color: sermon.isFavorite ? AppColors.accentGold : Colors.grey,
@@ -430,46 +670,92 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 6,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.menu_book, size: 14, color: AppColors.primaryBlue),
-                    const SizedBox(width: 6),
-                    Text(
-                      sermon.biblicalReference,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryBlue,
-                      ),
-                    ),
-                  ],
-                ),
+                // Referência Bíblica
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.accentGold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+                    color: AppColors.primaryElectricBlue.withValues(alpha: isDark ? 0.2 : 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.primaryElectricBlue.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.menu_book, size: 13, color: AppColors.primaryElectricBlue),
+                      const SizedBox(width: 6),
+                      Text(
+                        sermon.biblicalReference,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryElectricBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Categoria
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentGold.withValues(alpha: isDark ? 0.2 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     sermon.category,
                     style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.accentGold,
                     ),
                   ),
                 ),
-                Text(
-                  '${sermon.blocks.length} pontos',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                // Status Pronto / Rascunho
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isReady ? const Color(0xFF10B981) : Colors.grey).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isReady ? Icons.check_circle : Icons.edit_note,
+                        size: 13,
+                        color: isReady ? const Color(0xFF10B981) : Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isReady ? 'Pronto p/ Púlpito' : 'Rascunho',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isReady ? const Color(0xFF10B981) : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                // Contagem de pregações
+                if (sermon.preachCount > 0)
+                  Text(
+                    'Pregado ${sermon.preachCount}x',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -481,11 +767,12 @@ class DashboardScreen extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? Colors.grey[400] : Colors.grey[700],
-                  height: 1.4,
+                  height: 1.45,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
             ],
+            // Botões de Ação Direta no Card
             Wrap(
               alignment: WrapAlignment.end,
               spacing: 10,
@@ -499,13 +786,25 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.edit, size: 16),
+                  icon: const Icon(Icons.edit, size: 15),
                   label: const Text('Editar'),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF25D366),
+                    side: const BorderSide(color: Color(0xFF25D366)),
+                  ),
+                  onPressed: () {
+                    SermonShareService.showShareOptionsModal(context, sermon);
+                  },
+                  icon: const Icon(Icons.share, size: 15),
+                  label: const Text('WhatsApp'),
                 ),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.accentGold,
                     foregroundColor: Colors.white,
+                    elevation: 3,
                   ),
                   onPressed: () {
                     Navigator.of(context).push(
@@ -514,8 +813,8 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.mic, size: 16),
-                  label: const Text('Modo Púlpito'),
+                  icon: const Icon(Icons.mic, size: 15),
+                  label: const Text('Púlpito'),
                 ),
               ],
             ),
@@ -581,5 +880,23 @@ class DashboardScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => const AiAssistantSheet(),
     );
+  }
+
+  void _openPulpitMode(BuildContext context, WidgetRef ref) {
+    final sermonState = ref.read(sermonListProvider);
+    final readyOrRecent = sermonState.recentSermons.firstOrNull ?? sermonState.sermons.firstOrNull;
+    if (readyOrRecent != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PulpitModeScreen(sermon: readyOrRecent),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nenhum sermão cadastrado ainda. Crie um sermão para iniciar o Modo Púlpito.'),
+        ),
+      );
+    }
   }
 }

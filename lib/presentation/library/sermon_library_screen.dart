@@ -209,108 +209,150 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
     required bool isDark,
     required VoidCallback onTap,
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: isSelected
-          ? (isDark ? AppColors.surfaceVariantDark : const Color(0xFFEFF6FF))
-          : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF))
+            : (isDark ? const Color(0xFF131B2E) : Colors.white),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
           color: isSelected
-              ? AppColors.primaryBlue
-              : (isDark ? AppColors.borderDark : AppColors.borderLight),
-          width: isSelected ? 1.5 : 1,
+              ? AppColors.primaryElectricBlue
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+          width: isSelected ? 1.8 : 1.2,
         ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryElectricBlue.withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : AppColors.cardShadow3D(isDark: isDark),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      sermon.title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Compartilhar (WhatsApp)',
-                        icon: const Icon(Icons.share_outlined, size: 18, color: Colors.grey),
-                        onPressed: () {
-                          SermonShareService.showShareOptionsModal(context, sermon);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(
-                          sermon.isFavorite ? Icons.star : Icons.star_border,
-                          size: 20,
-                          color: sermon.isFavorite ? AppColors.accentGold : Colors.grey,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        sermon.title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14.5,
+                          letterSpacing: -0.2,
+                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
                         ),
-                        onPressed: () {
-                          ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
-                        },
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    sermon.biblicalReference,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryBlue,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentGold.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Compartilhar no WhatsApp',
+                          icon: const Icon(Icons.share_outlined, size: 17, color: Color(0xFF25D366)),
+                          onPressed: () {
+                            SermonShareService.showShareOptionsModal(context, sermon);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            sermon.isFavorite ? Icons.star : Icons.star_border,
+                            size: 19,
+                            color: sermon.isFavorite ? AppColors.accentGold : Colors.grey,
+                          ),
+                          onPressed: () {
+                            ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
+                          },
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      sermon.category,
-                      style: const TextStyle(fontSize: 10, color: AppColors.accentGold),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryElectricBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        sermon.biblicalReference,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryElectricBlue,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${sermon.blocks.length} pontos • ${sermon.estimatedDurationMinutes} min',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                  if (sermon.preachCount > 0)
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentGold.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        sermon.category,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accentGold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Text(
-                      'Pregado ${sermon.preachCount}x',
-                      style: const TextStyle(fontSize: 11, color: AppColors.statusReady, fontWeight: FontWeight.bold),
+                      '${sermon.blocks.length} pontos • ${sermon.estimatedDurationMinutes} min',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                      ),
                     ),
-                ],
-              ),
-            ],
+                    if (sermon.preachCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Pregado ${sermon.preachCount}x',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF10B981),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -274,13 +274,16 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
     final conclusion = template.content['conclusion'] as String? ?? '';
     final appeal = template.content['appeal'] as String? ?? '';
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF131B2E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          width: 1.2,
         ),
+        boxShadow: AppColors.cardShadow3D(isDark: isDark),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),

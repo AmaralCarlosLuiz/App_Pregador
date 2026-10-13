@@ -12,17 +12,17 @@ class AppColors {
   static const Color goldDark = Color(0xFFB45309);         // Amber 700
   static const Color sacredGoldLuminous = Color(0xFFF59E0B); // Amber 500
 
-  // Tons Neutros Claros
-  static const Color backgroundLight = Color(0xFFF8FAFC);
+  // Tons Neutros Claros (Alto contraste para cards brancos 3D)
+  static const Color backgroundLight = Color(0xFFF1F5F9); // Slate 100
   static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color surfaceVariantLight = Color(0xFFF1F5F9);
+  static const Color surfaceVariantLight = Color(0xFFE2E8F0);
   static const Color borderLight = Color(0xFFE2E8F0);
   static const Color textPrimaryLight = Color(0xFF0F172A);
   static const Color textSecondaryLight = Color(0xFF64748B);
 
   // Tons Neutros Escuros (Dark Mode Moderno & Profundo)
-  static const Color backgroundDark = Color(0xFF0B0F19);
-  static const Color surfaceDark = Color(0xFF131B2E);
+  static const Color backgroundDark = Color(0xFF090D16); // Obsidian Navy
+  static const Color surfaceDark = Color(0xFF0F172A);    // Slate 900
   static const Color surfaceVariantDark = Color(0xFF1E293B);
   static const Color borderDark = Color(0xFF334155);
   static const Color textPrimaryDark = Color(0xFFF8FAFC);
@@ -48,7 +48,13 @@ class AppColors {
   static const Color statusReady = Color(0xFF10B981);
   static const Color statusArchived = Color(0xFF94A3B8);
 
-  // GRADIENTES 3D PROFISSIONAIS
+  // GRADIENTES 3D PROFISSIONAIS (PALETA EXECUTIVA)
+  static const LinearGradient heroNavyGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF090D16), Color(0xFF0F172A), Color(0xFF1E3A8A)],
+  );
+
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -85,34 +91,40 @@ class AppColors {
     colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
   );
 
-  // SOMBRAS 3D EM CAMADAS (AMBIENTE + ELEVAÇÃO)
+  // SOMBRAS 3D EM CAMADAS (AMBIENTE + ELEVAÇÃO + GLOW)
   static List<BoxShadow> cardShadow3D({bool isDark = false, Color? accentColor}) {
     if (isDark) {
       return [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
+          color: Colors.black.withValues(alpha: 0.45),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
         ),
         if (accentColor != null)
           BoxShadow(
-            color: accentColor.withValues(alpha: 0.12),
-            blurRadius: 14,
+            color: accentColor.withValues(alpha: 0.16),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
       ];
     }
     return [
       BoxShadow(
-        color: (accentColor ?? Colors.black).withValues(alpha: 0.06),
-        blurRadius: 18,
+        color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+        blurRadius: 20,
         offset: const Offset(0, 8),
       ),
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.03),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.03),
         blurRadius: 6,
         offset: const Offset(0, 2),
       ),
+      if (accentColor != null)
+        BoxShadow(
+          color: accentColor.withValues(alpha: 0.12),
+          blurRadius: 14,
+          offset: const Offset(0, 4),
+        ),
     ];
   }
 
@@ -120,8 +132,13 @@ class AppColors {
     return [
       BoxShadow(
         color: color.withValues(alpha: 0.35),
-        blurRadius: 12,
-        offset: const Offset(0, 4),
+        blurRadius: 14,
+        offset: const Offset(0, 5),
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.12),
+        blurRadius: 4,
+        offset: const Offset(0, 2),
       ),
     ];
   }
