@@ -1,3 +1,4 @@
+import '../core/data/curated_sermon_templates.dart';
 import '../core/network/supabase_config.dart';
 import '../core/storage/offline_cache_service.dart';
 import '../models/sermon_block.dart';
@@ -190,107 +191,7 @@ class SermonRepository {
   }
 
   List<SermonTemplate> _getDefaultSeedTemplates() {
-    return [
-      const SermonTemplate(
-        id: 'tpl-1',
-        title: 'A Paz que Excede Todo Entendimento',
-        theme: 'Vencendo a Ansiedade pela Oração e Gratidão',
-        keyVerse: 'Filipenses 4:6-7',
-        sermonType: 'Expositivo',
-        tags: ['Ansiedade', 'Paz', 'Oração', 'Fé'],
-        content: {
-          'introduction': 'Em um mundo sobrecarregado, Paulo apresenta o antídoto de Deus para a inquietação da alma.',
-          'blocks': [
-            {
-              'id': 'b1',
-              'title': '1. O Mandamento: Não Andeis Ansiosos',
-              'biblicalReference': 'Filipenses 4:6a',
-              'explanation': 'A palavra grega merimnao significa ter a mente despedaçada ou dividida em direções opostas.',
-              'illustration': 'A corda esticada além do limite rompe-se no meio; assim fica a alma que tenta carregar o futuro sozinha.',
-              'application': 'Entregue o controle das incertezas no altar de Cristo hoje.',
-              'orderIndex': 0,
-            },
-            {
-              'id': 'b2',
-              'title': '2. A Prática: Oração com Gratidão Antecipada',
-              'biblicalReference': 'Filipenses 4:6b',
-              'explanation': 'Ações de graças ativam a memória dos livramentos passados do Senhor.',
-              'illustration': 'O pássaro que canta no escuro porque sabe que o sol certamente nascerá.',
-              'application': 'Agradeça a Deus pelo que Ele já fez antes de pedir o que você ainda não viu.',
-              'orderIndex': 1,
-            },
-            {
-              'id': 'b3',
-              'title': '3. A Guarda: A Paz Sentinela',
-              'biblicalReference': 'Filipenses 4:7',
-              'explanation': 'A paz de Deus age como phroureo (sentinela militar armada) guardando coração e mente.',
-              'illustration': 'O mar revolto na superfície, mas o fundo oceânico permanece sereno.',
-              'application': 'Deixe o Espírito Santo ser o sentinela dos seus pensamentos.',
-              'orderIndex': 2,
-            },
-          ],
-          'conclusion': 'A paz de Deus não depende do fim das tempestades, mas da presença do Senhor no barco.',
-          'appeal': 'Troque o seu jugo pesado pelo fardo suave de Jesus nesta noite.',
-        },
-      ),
-      const SermonTemplate(
-        id: 'tpl-2',
-        title: 'O Bom Samaritano: Amor Sem Fronteiras',
-        theme: 'A Compaixão que Age Praticamente',
-        keyVerse: 'Lucas 10:25-37',
-        sermonType: 'Expositivo',
-        tags: ['Amor', 'Misericórdia', 'Igreja Relevante'],
-        content: {
-          'introduction': 'Jesus desmascara a religiosidade teórica e chama a igreja à compaixão encarnada.',
-          'blocks': [
-            {
-              'id': 'b4',
-              'title': '1. O Perigo da Religiosidade Indiferente',
-              'biblicalReference': 'Lucas 10:31-32',
-              'explanation': 'O sacerdote e o levita viram a dor alheia, mas desviaram o caminho.',
-              'illustration': 'Um hospital que mantém suas portas trancadas para não sujar o chão com sangue.',
-              'application': 'Nossa fé não pode ser confinada às quatro paredes do templo.',
-              'orderIndex': 0,
-            },
-            {
-              'id': 'b5',
-              'title': '2. O Amor que Paga o Preço',
-              'biblicalReference': 'Lucas 10:33-35',
-              'explanation': 'O samaritano cuidou com azeite, vinho e recursos financeiros da sua própria bolsa.',
-              'illustration': 'As mãos que servem manifestam a glória do Evangelho com mais poder do que palavras vazias.',
-              'application': 'Identifique alguém ferido na sua rua ou família para estender as mãos.',
-              'orderIndex': 1,
-            },
-          ],
-          'conclusion': 'A ordem de Jesus ressoa viva: Vai e faze tu o mesmo.',
-          'appeal': 'Compromisso de viver um cristianismo autêntico e misericordioso.',
-        },
-      ),
-      const SermonTemplate(
-        id: 'tpl-3',
-        title: 'Firmados Sobre a Rocha',
-        theme: 'Princípios Inabaláveis para o Lar',
-        keyVerse: 'Mateus 7:24-27',
-        sermonType: 'Temático',
-        tags: ['Família', 'Fundamento', 'Obediência'],
-        content: {
-          'introduction': 'As mesmas chuvas e ventos testam a casa na rocha e a casa na areia.',
-          'blocks': [
-            {
-              'id': 'b6',
-              'title': '1. Ouvir e Praticar a Palavra',
-              'biblicalReference': 'Mateus 7:24',
-              'explanation': 'A rocha não é apenas a Bíblia na estante, mas a obediência diária aos preceitos de Cristo.',
-              'illustration': 'A fundação de um arranha-céu: invisível aos olhos de quem passa, mas responsável por toda a estabilidade.',
-              'application': 'Cultive o perdão e o altar da oração na sua casa todos os dias.',
-              'orderIndex': 0,
-            },
-          ],
-          'conclusion': 'Casas na areia caem no primeiro vendaval; casas na rocha resistem para a glória de Deus.',
-          'appeal': 'Consagração de casais e famílias ao Senhor.',
-        },
-      ),
-    ];
+    return kCuratedSermonTemplates;
   }
 
   /// Sermões iniciais de demonstração pré-carregados
