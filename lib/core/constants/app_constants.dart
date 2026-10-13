@@ -7,6 +7,7 @@ class AppConstants {
   // Categorias de Sermão
   static const List<String> sermonCategories = [
     'Todas',
+    'Geral',
     'Família',
     'Fé e Esperança',
     'Cura e Milagres',

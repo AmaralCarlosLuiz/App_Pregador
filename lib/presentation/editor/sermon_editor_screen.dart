@@ -166,7 +166,7 @@ class SermonEditorScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: AppConstants.sermonCategories.contains(sermon.category)
+                      initialValue: AppConstants.sermonCategories.contains(sermon.category) && sermon.category != 'Todas'
                           ? sermon.category
                           : 'Geral',
                       decoration: const InputDecoration(

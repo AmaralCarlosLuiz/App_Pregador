@@ -14,15 +14,21 @@ class SermonRepository {
     if (_initialized) return;
 
     final cached = await OfflineCacheService.getCachedSermons();
-    if (cached.length >= kCuratedSermonTemplates.length) {
+    final needsRefresh = cached.isEmpty ||
+        cached.length < kCuratedSermonTemplates.length ||
+        (cached.isNotEmpty && cached.first.blocks.length < 5);
+
+    if (!needsRefresh) {
       _inMemorySermons = cached;
     } else {
-      // Mescla os sermões existentes em cache com todos os 50 esboços homiléticos
+      // Mescla e atualiza os sermões para garantir a estrutura completa de 5 divisões
       final Map<String, Sermon> sermonMap = {
         for (final s in _getDefaultSeedSermons()) s.title.toLowerCase(): s,
       };
       for (final s in cached) {
-        sermonMap[s.title.toLowerCase()] = s;
+        if (!s.id.startsWith('sermon-tpl-')) {
+          sermonMap[s.title.toLowerCase()] = s;
+        }
       }
       _inMemorySermons = sermonMap.values.toList();
       await OfflineCacheService.cacheSermons(_inMemorySermons);
