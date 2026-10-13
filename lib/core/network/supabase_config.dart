@@ -3,8 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseConfig {
   SupabaseConfig._();
 
-  // Substitua pelas credenciais do seu projeto Supabase no Dashboard
-  static const String supabaseUrl = 'https://xyzcompany.supabase.co';
+  // Projeto Supabase Oficial - Pregador Pro
+  static const String supabaseUrl = 'https://yahvhltbfpebaievpumg.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWZlcmVuY2UiOiJ4eXpjb21wYW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDB9';
 
   static bool _isInitialized = false;
