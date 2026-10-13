@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/bible_model.dart';
 
@@ -122,8 +123,23 @@ class BibleVerseActionsDialog extends StatelessWidget {
           ),
           ListTile(
             dense: true,
+            leading: const Icon(Icons.chat_bubble, size: 20, color: Color(0xFF25D366)),
+            title: const Text('Enviar pelo WhatsApp'),
+            onTap: () async {
+              Navigator.of(context).pop();
+              final text = '📖 *${verse.bookName} ${verse.chapter}:${verse.verse}*\n"${verse.text}"\n\n_Compartilhado via Pregador Pro_';
+              final url = Uri.parse('https://api.whatsapp.com/send?text=${Uri.encodeComponent(text)}');
+              try {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } catch (_) {
+                await Clipboard.setData(ClipboardData(text: text));
+              }
+            },
+          ),
+          ListTile(
+            dense: true,
             leading: const Icon(Icons.share, size: 20, color: Colors.teal),
-            title: const Text('Compartilhar Versículo'),
+            title: const Text('Mais Opções de Compartilhar'),
             onTap: () {
               Navigator.of(context).pop();
               Share.share(verse.formattedCitation);

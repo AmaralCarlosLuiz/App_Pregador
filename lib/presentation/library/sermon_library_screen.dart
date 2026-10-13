@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/responsive/breakpoints.dart';
 import '../../core/services/pdf_export_service.dart';
+import '../../core/services/sermon_share_service.dart';
 import '../../models/sermon_model.dart';
 import '../../providers/sermon_provider.dart';
 import '../editor/sermon_editor_screen.dart';
@@ -92,7 +93,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
           // 2. BANNER DE FILTRO ATIVO (SE FILTRADO PELO DASHBOARD OU STATUS)
           if (sermonState.activeFilterLabel != null)
             Container(
-              margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+              margin: const EdgeInsets.fromLTRB(16, 2, 16, 4),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppColors.primaryBlue.withValues(alpha: 0.1),
@@ -105,7 +106,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Filtro Ativo: ${sermonState.activeFilterLabel} (${sermonState.sermons.length} sermões)',
+                      'Filtro Ativo: ${sermonState.activeFilterLabel} (${sermonState.sermons.length} de ${sermonState.totalSermons} mensagens)',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
                     ),
                   ),
@@ -116,57 +117,18 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                     ),
                     icon: const Icon(Icons.close, size: 14),
                     label: const Text('Limpar', style: TextStyle(fontSize: 11)),
-                    onPressed: sermonNotifier.resetFilters,
+                    onPressed: () {
+                      _searchController.clear();
+                      sermonNotifier.resetFilters();
+                    },
                   ),
                 ],
               ),
             ),
 
-          // 3. CHIPS DINÂMICOS DE CATEGORIA (exclui categorias vazias que poluem a tela)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                FilterChip(
-                  label: Text('Todas (${sermonState.totalSermons})'),
-                  selected: sermonState.selectedCategory == 'Todas',
-                  onSelected: (_) => sermonNotifier.setCategory('Todas'),
-                  selectedColor: AppColors.primaryBlue.withValues(alpha: 0.18),
-                  checkmarkColor: AppColors.primaryBlue,
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: sermonState.selectedCategory == 'Todas' ? FontWeight.bold : FontWeight.normal,
-                    color: sermonState.selectedCategory == 'Todas' ? AppColors.primaryBlue : null,
-                  ),
-                ),
-                ...sermonState.activeCategoriesWithCounts.entries.map((entry) {
-                  final cat = entry.key;
-                  final count = entry.value;
-                  final isSelected = sermonState.selectedCategory.toLowerCase() == cat.toLowerCase();
-                  return FilterChip(
-                    label: Text('$cat ($count)'),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      sermonNotifier.setCategory(selected ? cat : 'Todas');
-                    },
-                    selectedColor: AppColors.accentGold.withValues(alpha: 0.2),
-                    checkmarkColor: AppColors.accentGold,
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected
-                          ? (isDark ? AppColors.goldLight : AppColors.goldDark)
-                          : null,
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
+          // 3. BARRA DE FILTROS COMPACTA (DESIGN PROFISSIONAL - SEM OVERFLOW)
+          _buildCompactFilterBar(sermonState, sermonNotifier, isDark),
 
-          const SizedBox(height: 8),
           const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
 
           // 3. CONTEÚDO PRINCIPAL (Master-Detail em telas amplas, lista comum em mobile)
@@ -279,17 +241,32 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: Icon(
-                      sermon.isFavorite ? Icons.star : Icons.star_border,
-                      size: 20,
-                      color: sermon.isFavorite ? AppColors.accentGold : Colors.grey,
-                    ),
-                    onPressed: () {
-                      ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
-                    },
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Compartilhar (WhatsApp)',
+                        icon: const Icon(Icons.share_outlined, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          SermonShareService.showShareOptionsModal(context, sermon);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          sermon.isFavorite ? Icons.star : Icons.star_border,
+                          size: 20,
+                          color: sermon.isFavorite ? AppColors.accentGold : Colors.grey,
+                        ),
+                        onPressed: () {
+                          ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -384,6 +361,15 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Editar'),
                     onPressed: () => _openSermonInEditor(context, sermon),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF25D366),
+                      side: const BorderSide(color: Color(0xFF25D366)),
+                    ),
+                    icon: const Icon(Icons.share, size: 16),
+                    label: const Text('Compartilhar'),
+                    onPressed: () => SermonShareService.showShareOptionsModal(context, sermon),
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.print, size: 16),
@@ -487,5 +473,238 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
         builder: (_) => SermonEditorScreen(initialSermon: sermon),
       ),
     );
+  }
+
+  // BARRA DE FILTROS COMPACTA (DESIGN PROFISSIONAL - SEM OVERFLOW)
+  Widget _buildCompactFilterBar(
+    SermonListState state,
+    SermonListNotifier notifier,
+    bool isDark,
+  ) {
+    final hasCategoryFilter = state.selectedCategory != 'Todas';
+    final activeCount = state.activeCategoriesWithCounts[state.selectedCategory] ?? 0;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+      child: Row(
+        children: [
+          // 1. Botão Seletor de Categoria
+          ActionChip(
+            avatar: Icon(
+              Icons.folder_outlined,
+              size: 16,
+              color: hasCategoryFilter ? AppColors.accentGold : AppColors.primaryBlue,
+            ),
+            label: Text(
+              hasCategoryFilter
+                  ? 'Categoria: ${state.selectedCategory} ($activeCount)'
+                  : 'Todas as Categorias (${state.totalSermons})',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: hasCategoryFilter ? FontWeight.bold : FontWeight.w500,
+                color: hasCategoryFilter ? (isDark ? AppColors.goldLight : AppColors.goldDark) : null,
+              ),
+            ),
+            backgroundColor: hasCategoryFilter ? AppColors.accentGold.withValues(alpha: 0.15) : null,
+            onPressed: () => _showCategoryPickerDialog(context, state, notifier, isDark),
+          ),
+          if (hasCategoryFilter) ...[
+            const SizedBox(width: 4),
+            ActionChip(
+              avatar: const Icon(Icons.close, size: 14),
+              label: const Text('Limpar Categoria', style: TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => notifier.setCategory('Todas'),
+            ),
+          ],
+          const SizedBox(width: 8),
+
+          // 2. Menu Dropdown de Status
+          PopupMenuButton<String>(
+            tooltip: 'Filtrar por Status',
+            onSelected: notifier.setStatus,
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(value: '', child: Text('Todos os Status')),
+              const PopupMenuItem(value: 'ready', child: Text('Pronto p/ Ministrar')),
+              const PopupMenuItem(value: 'in_review', child: Text('Em Revisão')),
+              const PopupMenuItem(value: 'draft', child: Text('Rascunho')),
+            ],
+            child: Chip(
+              avatar: const Icon(Icons.flag_outlined, size: 15),
+              label: Text(
+                state.selectedStatus.isEmpty
+                    ? 'Status: Todos'
+                    : 'Status: ${_formatStatusName(state.selectedStatus)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // 3. Chip Rápido de Favoritos
+          FilterChip(
+            avatar: Icon(
+              state.onlyFavorites ? Icons.star : Icons.star_border,
+              size: 15,
+              color: state.onlyFavorites ? AppColors.accentGold : Colors.grey,
+            ),
+            label: Text('Favoritos (${state.favoriteSermons.length})', style: const TextStyle(fontSize: 12)),
+            selected: state.onlyFavorites,
+            selectedColor: AppColors.accentGold.withValues(alpha: 0.2),
+            onSelected: (_) => notifier.toggleOnlyFavorites(),
+          ),
+          const SizedBox(width: 8),
+
+          // 4. Chip Rápido de Já Ministrados
+          FilterChip(
+            avatar: const Icon(Icons.mic, size: 15),
+            label: Text(
+              'Ministrados (${state.allSermons.where((s) => s.preachCount > 0).length})',
+              style: const TextStyle(fontSize: 12),
+            ),
+            selected: state.onlyPreached,
+            selectedColor: AppColors.primaryBlue.withValues(alpha: 0.18),
+            onSelected: (_) => notifier.toggleOnlyPreached(),
+          ),
+
+          // 5. Botão Limpar Filtros
+          if (state.isAnyFilterActive) ...[
+            const SizedBox(width: 8),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: Colors.red.shade400,
+              ),
+              icon: const Icon(Icons.filter_alt_off, size: 14),
+              label: const Text('Limpar Filtros', style: TextStyle(fontSize: 12)),
+              onPressed: () {
+                _searchController.clear();
+                notifier.resetFilters();
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // DIÁLOGO BUSCÁVEL DE CATEGORIAS (UX PROFISSIONAL PARA DEZENAS DE CATEGORIAS)
+  void _showCategoryPickerDialog(
+    BuildContext context,
+    SermonListState state,
+    SermonListNotifier notifier,
+    bool isDark,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final categories = state.activeCategoriesWithCounts.entries.where((e) {
+              if (query.trim().isEmpty) return true;
+              return e.key.toLowerCase().contains(query.toLowerCase().trim());
+            }).toList();
+
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              title: const Row(
+                children: [
+                  Icon(Icons.folder_outlined, color: AppColors.primaryBlue),
+                  SizedBox(width: 8),
+                  Text('Filtrar por Categoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                height: 480,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: false,
+                      decoration: InputDecoration(
+                        hintText: 'Pesquisar categoria...',
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        suffixIcon: query.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () => setDialogState(() => query = ''),
+                              )
+                            : null,
+                      ),
+                      onChanged: (val) => setDialogState(() => query = val),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.all_inclusive, size: 18, color: AppColors.primaryBlue),
+                            title: const Text('Todas as Categorias', style: TextStyle(fontWeight: FontWeight.bold)),
+                            trailing: Badge(
+                              label: Text('${state.totalSermons}'),
+                              backgroundColor: AppColors.primaryBlue,
+                            ),
+                            selected: state.selectedCategory == 'Todas',
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              notifier.setCategory('Todas');
+                            },
+                          ),
+                          const Divider(),
+                          ...categories.map((entry) {
+                            final isSel = state.selectedCategory.toLowerCase() == entry.key.toLowerCase();
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                isSel ? Icons.check_circle : Icons.folder,
+                                size: 18,
+                                color: isSel ? AppColors.accentGold : Colors.grey,
+                              ),
+                              title: Text(entry.key),
+                              trailing: Badge(
+                                label: Text('${entry.value}'),
+                                backgroundColor: isSel ? AppColors.accentGold : Colors.grey.shade600,
+                              ),
+                              selected: isSel,
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                notifier.setCategory(entry.key);
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Fechar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatStatusName(String status) {
+    switch (status) {
+      case 'ready':
+        return 'Pronto';
+      case 'in_review':
+        return 'Em Revisão';
+      case 'draft':
+        return 'Rascunho';
+      default:
+        return status;
+    }
   }
 }

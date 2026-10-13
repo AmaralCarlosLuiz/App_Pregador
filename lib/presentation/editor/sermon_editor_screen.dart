@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/responsive/breakpoints.dart';
 import '../../core/services/pdf_export_service.dart';
+import '../../core/services/sermon_share_service.dart';
 import '../../models/sermon_model.dart';
 import '../../providers/sermon_editor_provider.dart';
 import '../ai_assistant/ai_assistant_sheet.dart';
@@ -92,12 +92,12 @@ class SermonEditorScreen extends ConsumerWidget {
             onPressed: () => PdfExportService.exportAndPrintSermon(sermon),
           ),
 
-          // Compartilhar
+          // Compartilhar (WhatsApp, Copiar, PDF, etc.)
           IconButton(
-            tooltip: 'Compartilhar Texto',
+            tooltip: 'Compartilhar (WhatsApp / Redes)',
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
-              Share.share(sermon.toMarkdown(), subject: sermon.title);
+              SermonShareService.showShareOptionsModal(context, sermon);
             },
           ),
 

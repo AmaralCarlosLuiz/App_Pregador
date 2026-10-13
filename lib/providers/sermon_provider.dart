@@ -84,7 +84,7 @@ class SermonListState {
   List<Sermon> get favoriteSermons => allSermons.where((s) => s.isFavorite).toList();
   List<Sermon> get recentSermons => allSermons.take(5).toList();
 
-  // Categorias que possuem sermões reais (elimina categorias vazias da interface)
+  // Categorias que possuem sermões reais (elimina categorias vazias da interface e ordena alfabeticamente)
   Map<String, int> get activeCategoriesWithCounts {
     final Map<String, int> counts = {};
     for (final s in allSermons) {
@@ -93,8 +93,17 @@ class SermonListState {
         counts[cat] = (counts[cat] ?? 0) + 1;
       }
     }
-    return counts;
+    final sortedKeys = counts.keys.toList()..sort((a, b) => a.compareTo(b));
+    return {for (final k in sortedKeys) k: counts[k]!};
   }
+
+  bool get isAnyFilterActive =>
+      selectedCategory != 'Todas' ||
+      selectedStatus.isNotEmpty ||
+      onlyFavorites ||
+      onlyPreached ||
+      searchQuery.isNotEmpty ||
+      activeFilterLabel != null;
 }
 
 class SermonListNotifier extends StateNotifier<SermonListState> {
@@ -115,12 +124,16 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
         onlyFavorites: state.onlyFavorites,
         onlyPreached: state.onlyPreached,
       );
+      final currentId = state.selectedSermonIdForMasterDetail;
+      final stillExists = filtered.any((s) => s.id == currentId);
+
       state = state.copyWith(
         allSermons: all,
         sermons: filtered,
         isLoading: false,
-        selectedSermonIdForMasterDetail: state.selectedSermonIdForMasterDetail ??
-            (filtered.isNotEmpty ? filtered.first.id : null),
+        selectedSermonIdForMasterDetail: stillExists
+            ? currentId
+            : (filtered.isNotEmpty ? filtered.first.id : null),
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -128,17 +141,52 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
   }
 
   void setCategory(String category) {
-    state = state.copyWith(selectedCategory: category);
+    state = state.copyWith(
+      selectedCategory: category,
+      onlyFavorites: false,
+      onlyPreached: false,
+      clearFilterLabel: true,
+      selectedSermonIdForMasterDetail: null,
+    );
     loadSermons();
   }
 
   void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+    state = state.copyWith(
+      searchQuery: query,
+      selectedSermonIdForMasterDetail: null,
+    );
     loadSermons();
   }
 
   void setStatus(String status) {
-    state = state.copyWith(selectedStatus: status);
+    state = state.copyWith(
+      selectedStatus: status,
+      clearFilterLabel: true,
+      selectedSermonIdForMasterDetail: null,
+    );
+    loadSermons();
+  }
+
+  void toggleOnlyFavorites() {
+    final next = !state.onlyFavorites;
+    state = state.copyWith(
+      onlyFavorites: next,
+      activeFilterLabel: next ? 'Favoritos' : null,
+      clearFilterLabel: !next,
+      selectedSermonIdForMasterDetail: null,
+    );
+    loadSermons();
+  }
+
+  void toggleOnlyPreached() {
+    final next = !state.onlyPreached;
+    state = state.copyWith(
+      onlyPreached: next,
+      activeFilterLabel: next ? 'Ministrados / Histórico' : null,
+      clearFilterLabel: !next,
+      selectedSermonIdForMasterDetail: null,
+    );
     loadSermons();
   }
 
@@ -150,6 +198,7 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
       onlyPreached: false,
       searchQuery: '',
       activeFilterLabel: label ?? (status == 'ready' ? 'Prontos para Ministrar' : status),
+      selectedSermonIdForMasterDetail: null,
     );
     loadSermons();
   }
@@ -162,6 +211,7 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
       onlyPreached: false,
       searchQuery: '',
       activeFilterLabel: 'Favoritos',
+      selectedSermonIdForMasterDetail: null,
     );
     loadSermons();
   }
@@ -174,6 +224,7 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
       onlyFavorites: false,
       searchQuery: '',
       activeFilterLabel: 'Ministrados / Histórico',
+      selectedSermonIdForMasterDetail: null,
     );
     loadSermons();
   }
