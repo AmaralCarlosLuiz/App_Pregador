@@ -99,7 +99,15 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'ARC',
-                child: Text('ARC (Revista e Corrigida)'),
+                child: Text('ARC (Almeida Revista e Corrigida)'),
+              ),
+              const PopupMenuItem(
+                value: 'ARA',
+                child: Text('ARA (Almeida Revista e Atualizada)'),
+              ),
+              const PopupMenuItem(
+                value: 'NAA',
+                child: Text('NAA (Nova Almeida Atualizada)'),
               ),
               const PopupMenuItem(
                 value: 'NVI',
@@ -107,7 +115,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               ),
               const PopupMenuItem(
                 value: 'ACF',
-                child: Text('ACF (Corrigida Fiel)'),
+                child: Text('ACF (Almeida Corrigida Fiel)'),
+              ),
+              const PopupMenuItem(
+                value: 'BKJ',
+                child: Text('BKJ 1611 (King James Fiel 1611)'),
               ),
             ],
             child: Container(

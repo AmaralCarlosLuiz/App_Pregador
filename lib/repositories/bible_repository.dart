@@ -114,6 +114,15 @@ class BibleRepository {
       case 'ACF':
         assetPath = 'assets/bible/pt_acf.json';
         break;
+      case 'ARA':
+        assetPath = 'assets/bible/pt_ara.json';
+        break;
+      case 'NAA':
+        assetPath = 'assets/bible/pt_naa.json';
+        break;
+      case 'BKJ':
+        assetPath = 'assets/bible/pt_bkj.json';
+        break;
       case 'ARC':
       default:
         assetPath = 'assets/bible/pt_arc.json';
