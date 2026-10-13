@@ -104,7 +104,7 @@ CREATE POLICY "Usuários podem excluir seus próprios sermões"
 -- 4. TABELA: SERMON_TEMPLATES (Modelos Homiléticos Públicos e Curados)
 CREATE TABLE IF NOT EXISTS public.sermon_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
     theme TEXT NOT NULL,
     key_verse TEXT NOT NULL,
     sermon_type TEXT NOT NULL DEFAULT 'Expositivo',
@@ -120,10 +120,12 @@ CREATE POLICY "Modelos de sermão são públicos para leitura"
     ON public.sermon_templates FOR SELECT
     USING (true);
 
--- 5. SEED DATA: MODELOS HOMILÉTICOS INICIAIS (Com ON CONFLICT DO NOTHING)
+-- 5. SEED DATA: MODELOS HOMILÉTICOS INICIAIS (Inserção segura condicional)
 INSERT INTO public.sermon_templates (title, theme, key_verse, sermon_type, tags, content)
-VALUES
-(
+SELECT v.title, v.theme, v.key_verse, v.sermon_type, v.tags, v.content
+FROM (
+  VALUES
+  (
     'A Paz que Excede Todo Entendimento',
     'Vencendo a Ansiedade pela Oração e Gratidão',
     'Filipenses 4:6-7',
@@ -157,8 +159,8 @@ VALUES
         "conclusion": "A paz não é a ausência de tempestades, mas a presença inegociável de Cristo no barco.",
         "appeal": "Convide aqueles que estão com o fardo pesado a trocarem sua ansiedade pelo fardo leve de Cristo."
     }'::jsonb
-),
-(
+  ),
+  (
     'O Bom Samaritano: A Prática do Amor Radical',
     'Quem é o meu Próximo?',
     'Lucas 10:25-37',
@@ -185,8 +187,8 @@ VALUES
         "conclusion": "Jesus encerra com o imperativo definitivo: Vai e faze tu o mesmo.",
         "appeal": "Desafie a igreja a ser as mãos estendidas de Jesus em sua comunidade e família nesta semana."
     }'::jsonb
-),
-(
+  ),
+  (
     'Edificando sobre a Rocha',
     'Fundamentos Inabaláveis para a Família',
     'Mateus 7:24-27',
@@ -213,5 +215,8 @@ VALUES
         "conclusion": "Casas bonitas na areia desmoronam no primeiro temporal. Casas na rocha permanecem para sempre.",
         "appeal": "Oração de consagração das famílias e casais ao Senhorio de Cristo."
     }'::jsonb
-)
-ON CONFLICT (title) DO NOTHING;
+  )
+) AS v(title, theme, key_verse, sermon_type, tags, content)
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.sermon_templates t WHERE t.title = v.title
+);
