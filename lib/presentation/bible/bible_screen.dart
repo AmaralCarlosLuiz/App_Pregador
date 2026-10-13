@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/bible_model.dart';
@@ -140,6 +141,18 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ),
           ),
 
+          // Comparar Versões da Bíblia (até 3 versões simultâneas)
+          IconButton(
+            tooltip: state.isComparing ? 'Sair do Modo Comparação' : 'Comparar até 3 Versões',
+            icon: Icon(
+              Icons.compare_arrows,
+              color: state.isComparing ? AppColors.accentGold : null,
+            ),
+            onPressed: () {
+              ref.read(bibleStateProvider.notifier).toggleComparisonMode();
+            },
+          ),
+
           // Alternar Barra de Busca
           IconButton(
             icon: Icon(_isSearchVisible ? Icons.search_off : Icons.search),
@@ -173,6 +186,10 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       ),
       body: Column(
         children: [
+          // Barra de Seleção de Versões Comparativas
+          if (state.isComparing)
+            _buildComparisonSelectorBar(state, isDark),
+
           // Barra de Pesquisa Condicional
           if (_isSearchVisible)
             Container(
@@ -244,18 +261,31 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           Expanded(
             child: state.searchQuery.isNotEmpty
                 ? _buildSearchResults(state, isDark)
-                : versesAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => Center(
-                      child: Text('Erro ao carregar versículos: $err'),
-                    ),
-                    data: (verses) {
-                      if (verses.isEmpty) {
-                        return const Center(child: Text('Nenhum texto disponível.'));
-                      }
-                      return _buildVersesList(verses, state, isDark);
-                    },
-                  ),
+                : state.isComparing
+                    ? ref.watch(currentChapterComparisonVersesProvider).when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (err, stack) => Center(
+                          child: Text('Erro ao comparar versões: $err'),
+                        ),
+                        data: (comparisons) {
+                          if (comparisons.isEmpty) {
+                            return const Center(child: Text('Nenhum texto disponível.'));
+                          }
+                          return _buildComparisonVerseView(comparisons, state, isDark);
+                        },
+                      )
+                    : versesAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (err, stack) => Center(
+                          child: Text('Erro ao carregar versículos: $err'),
+                        ),
+                        data: (verses) {
+                          if (verses.isEmpty) {
+                            return const Center(child: Text('Nenhum texto disponível.'));
+                          }
+                          return _buildVersesList(verses, state, isDark);
+                        },
+                      ),
           ),
 
           // Barra Inferior de Navegação entre Capítulos
@@ -457,5 +487,190 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         onInsertToSermon: widget.onVerseSelectedForSermon,
       ),
     );
+  }
+
+  Widget _buildComparisonSelectorBar(BibleState state, bool isDark) {
+    const availableVersions = ['ARC', 'ARA', 'NAA', 'NVI', 'ACF', 'BKJ'];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.compare_arrows, size: 18, color: AppColors.accentGold),
+          const SizedBox(width: 8),
+          const Text(
+            'Comparar (até 3 versões):',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: availableVersions.map((v) {
+                final isSelected = state.comparisonVersions.contains(v);
+                return FilterChip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(v, style: const TextStyle(fontSize: 11)),
+                  selected: isSelected,
+                  selectedColor: AppColors.primaryBlue.withValues(alpha: 0.2),
+                  checkmarkColor: AppColors.primaryBlue,
+                  onSelected: (_) {
+                    ref.read(bibleStateProvider.notifier).toggleComparisonVersion(v);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComparisonVerseView(
+    List<BibleVerseComparison> comparisons,
+    BibleState state,
+    bool isDark,
+  ) {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      itemCount: comparisons.length,
+      itemBuilder: (context, index) {
+        final comp = comparisons[index];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        comp.reference,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryBlue,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      tooltip: 'Copiar Comparação do Versículo',
+                      onPressed: () {
+                        final buffer = StringBuffer();
+                        buffer.writeln('${comp.reference}:');
+                        comp.textsByVersion.forEach((ver, text) {
+                          buffer.writeln('[$ver] $text');
+                        });
+                        Clipboard.setData(ClipboardData(text: buffer.toString()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Comparação do versículo ${comp.verse} copiada!'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...state.comparisonVersions.map((version) {
+                  final text = comp.textsByVersion[version] ?? '(versículo não encontrado)';
+                  final Color badgeColor = _getVersionBadgeColor(version);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            version,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: badgeColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              fontSize: state.fontSize,
+                              height: 1.45,
+                              color: isDark ? Colors.grey[200] : Colors.grey[800],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Color _getVersionBadgeColor(String version) {
+    switch (version) {
+      case 'ARC':
+        return AppColors.primaryBlue;
+      case 'ARA':
+        return const Color(0xFF2563EB);
+      case 'NAA':
+        return const Color(0xFF0D9488);
+      case 'NVI':
+        return const Color(0xFF059669);
+      case 'ACF':
+        return const Color(0xFFD97706);
+      case 'BKJ':
+        return const Color(0xFF7C3AED);
+      default:
+        return AppColors.primaryBlue;
+    }
   }
 }

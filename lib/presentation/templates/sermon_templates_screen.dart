@@ -33,9 +33,18 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Acervo de Modelos Homiléticos',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Acervo de Modelos Homiléticos',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              'Biblioteca de inspiração e esboços prontos para clonar e personalizar',
+              style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
+            ),
+          ],
         ),
       ),
       body: templatesAsync.when(
@@ -139,56 +148,47 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Filtros por Tipologia Homilética
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildTypeFilterChip('Todos', 'Todos (${allTemplates.length})', isDark),
-                          const SizedBox(width: 8),
-                          _buildTypeFilterChip('Expositivo', 'Expositivo ($countExpositivo)', isDark),
-                          const SizedBox(width: 8),
-                          _buildTypeFilterChip('Temático', 'Temático ($countTematico)', isDark),
-                          const SizedBox(width: 8),
-                          _buildTypeFilterChip('Textual', 'Textual ($countTextual)', isDark),
-                        ],
-                      ),
+                    // Filtros por Tipologia Homilética em Wrap Responsivo
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildTypeFilterChip('Todos', 'Todos (${allTemplates.length})', isDark),
+                        _buildTypeFilterChip('Expositivo', 'Expositivo ($countExpositivo)', isDark),
+                        _buildTypeFilterChip('Temático', 'Temático ($countTematico)', isDark),
+                        _buildTypeFilterChip('Textual', 'Textual ($countTextual)', isDark),
+                      ],
                     ),
 
                     if (topTags.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      // Tags Rápidas
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            if (_selectedTag != null) ...[
-                              ActionChip(
-                                avatar: const Icon(Icons.close, size: 14),
-                                label: Text('Limpar: $_selectedTag', style: const TextStyle(fontSize: 11)),
-                                onPressed: () => setState(() => _selectedTag = null),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const SizedBox(width: 6),
-                            ],
-                            ...topTags.map((tag) {
-                              final isSelected = _selectedTag == tag;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: ChoiceChip(
-                                  label: Text(tag, style: const TextStyle(fontSize: 11)),
-                                  selected: isSelected,
-                                  onSelected: (val) {
-                                    setState(() {
-                                      _selectedTag = val ? tag : null;
-                                    });
-                                  },
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
+                      const SizedBox(height: 10),
+                      // Tags Rápidas em Wrap (nunca cortam botões na borda)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (_selectedTag != null)
+                            ActionChip(
+                              avatar: const Icon(Icons.close, size: 14),
+                              label: Text('Limpar: $_selectedTag', style: const TextStyle(fontSize: 11)),
+                              onPressed: () => setState(() => _selectedTag = null),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ...topTags.map((tag) {
+                            final isSelected = _selectedTag == tag;
+                            return ChoiceChip(
+                              label: Text(tag, style: const TextStyle(fontSize: 11)),
+                              selected: isSelected,
+                              onSelected: (val) {
+                                setState(() {
+                                  _selectedTag = val ? tag : null;
+                                });
+                              },
+                              visualDensity: VisualDensity.compact,
+                            );
+                          }),
+                        ],
                       ),
                     ],
                   ],

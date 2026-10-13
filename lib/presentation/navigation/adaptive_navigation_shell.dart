@@ -23,9 +23,9 @@ class _AdaptiveNavigationShellState extends State<AdaptiveNavigationShell> {
       label: 'Dashboard',
     ),
     NavigationDestinationItem(
-      icon: Icons.auto_stories_outlined,
-      selectedIcon: Icons.auto_stories,
-      label: 'Sermões',
+      icon: Icons.library_books_outlined,
+      selectedIcon: Icons.library_books,
+      label: 'Meus Sermões',
     ),
     NavigationDestinationItem(
       icon: Icons.menu_book_outlined,
@@ -33,9 +33,9 @@ class _AdaptiveNavigationShellState extends State<AdaptiveNavigationShell> {
       label: 'Bíblia',
     ),
     NavigationDestinationItem(
-      icon: Icons.folder_copy_outlined,
-      selectedIcon: Icons.folder_copy,
-      label: 'Modelos',
+      icon: Icons.auto_awesome_outlined,
+      selectedIcon: Icons.auto_awesome,
+      label: 'Acervo de Modelos',
     ),
     NavigationDestinationItem(
       icon: Icons.person_outline,

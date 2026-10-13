@@ -9,40 +9,57 @@ final sermonRepositoryProvider = Provider<SermonRepository>((ref) {
 });
 
 class SermonListState {
+  final List<Sermon> allSermons;
   final List<Sermon> sermons;
   final bool isLoading;
   final String? errorMessage;
   final String selectedCategory;
   final String searchQuery;
   final String selectedStatus;
+  final bool onlyFavorites;
+  final bool onlyPreached;
+  final String? activeFilterLabel;
   final String? selectedSermonIdForMasterDetail;
 
   const SermonListState({
+    this.allSermons = const [],
     this.sermons = const [],
     this.isLoading = false,
     this.errorMessage,
     this.selectedCategory = 'Todas',
     this.searchQuery = '',
     this.selectedStatus = '',
+    this.onlyFavorites = false,
+    this.onlyPreached = false,
+    this.activeFilterLabel,
     this.selectedSermonIdForMasterDetail,
   });
 
   SermonListState copyWith({
+    List<Sermon>? allSermons,
     List<Sermon>? sermons,
     bool? isLoading,
     String? errorMessage,
     String? selectedCategory,
     String? searchQuery,
     String? selectedStatus,
+    bool? onlyFavorites,
+    bool? onlyPreached,
+    String? activeFilterLabel,
+    bool clearFilterLabel = false,
     String? selectedSermonIdForMasterDetail,
   }) {
     return SermonListState(
+      allSermons: allSermons ?? this.allSermons,
       sermons: sermons ?? this.sermons,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedStatus: selectedStatus ?? this.selectedStatus,
+      onlyFavorites: onlyFavorites ?? this.onlyFavorites,
+      onlyPreached: onlyPreached ?? this.onlyPreached,
+      activeFilterLabel: clearFilterLabel ? null : (activeFilterLabel ?? this.activeFilterLabel),
       selectedSermonIdForMasterDetail:
           selectedSermonIdForMasterDetail ?? this.selectedSermonIdForMasterDetail,
     );
@@ -59,13 +76,25 @@ class SermonListState {
     }
   }
 
-  // Estatísticas para o Dashboard
-  int get totalSermons => sermons.length;
-  int get readySermons => sermons.where((s) => s.status == 'ready').length;
-  int get draftSermons => sermons.where((s) => s.status == 'draft').length;
-  int get totalPreachCount => sermons.fold(0, (acc, s) => acc + s.preachCount);
-  List<Sermon> get favoriteSermons => sermons.where((s) => s.isFavorite).toList();
-  List<Sermon> get recentSermons => sermons.take(5).toList();
+  // Estatísticas Reais para o Dashboard (baseadas em allSermons para precisão matemática total)
+  int get totalSermons => allSermons.length;
+  int get readySermons => allSermons.where((s) => s.status == 'ready').length;
+  int get draftSermons => allSermons.where((s) => s.status == 'draft').length;
+  int get totalPreachCount => allSermons.fold(0, (acc, s) => acc + s.preachCount);
+  List<Sermon> get favoriteSermons => allSermons.where((s) => s.isFavorite).toList();
+  List<Sermon> get recentSermons => allSermons.take(5).toList();
+
+  // Categorias que possuem sermões reais (elimina categorias vazias da interface)
+  Map<String, int> get activeCategoriesWithCounts {
+    final Map<String, int> counts = {};
+    for (final s in allSermons) {
+      final cat = s.category.trim();
+      if (cat.isNotEmpty && cat.toLowerCase() != 'todas') {
+        counts[cat] = (counts[cat] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
 }
 
 class SermonListNotifier extends StateNotifier<SermonListState> {
@@ -78,16 +107,20 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
   Future<void> loadSermons() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final list = await _repository.getSermons(
+      final all = await _repository.getAllSermons();
+      final filtered = await _repository.getSermons(
         category: state.selectedCategory,
         searchQuery: state.searchQuery,
         status: state.selectedStatus,
+        onlyFavorites: state.onlyFavorites,
+        onlyPreached: state.onlyPreached,
       );
       state = state.copyWith(
-        sermons: list,
+        allSermons: all,
+        sermons: filtered,
         isLoading: false,
         selectedSermonIdForMasterDetail: state.selectedSermonIdForMasterDetail ??
-            (list.isNotEmpty ? list.first.id : null),
+            (filtered.isNotEmpty ? filtered.first.id : null),
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -106,6 +139,54 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
 
   void setStatus(String status) {
     state = state.copyWith(selectedStatus: status);
+    loadSermons();
+  }
+
+  void filterByStatus(String status, {String? label}) {
+    state = state.copyWith(
+      selectedStatus: status,
+      selectedCategory: 'Todas',
+      onlyFavorites: false,
+      onlyPreached: false,
+      searchQuery: '',
+      activeFilterLabel: label ?? (status == 'ready' ? 'Prontos para Ministrar' : status),
+    );
+    loadSermons();
+  }
+
+  void filterByFavorites() {
+    state = state.copyWith(
+      onlyFavorites: true,
+      selectedStatus: '',
+      selectedCategory: 'Todas',
+      onlyPreached: false,
+      searchQuery: '',
+      activeFilterLabel: 'Favoritos',
+    );
+    loadSermons();
+  }
+
+  void filterByPreached() {
+    state = state.copyWith(
+      onlyPreached: true,
+      selectedStatus: '',
+      selectedCategory: 'Todas',
+      onlyFavorites: false,
+      searchQuery: '',
+      activeFilterLabel: 'Ministrados / Histórico',
+    );
+    loadSermons();
+  }
+
+  void resetFilters() {
+    state = state.copyWith(
+      selectedCategory: 'Todas',
+      searchQuery: '',
+      selectedStatus: '',
+      onlyFavorites: false,
+      onlyPreached: false,
+      clearFilterLabel: true,
+    );
     loadSermons();
   }
 

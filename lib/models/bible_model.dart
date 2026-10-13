@@ -109,3 +109,21 @@ class BibleBookmark {
             : DateTime.now(),
       );
 }
+
+class BibleVerseComparison {
+  final String bookId;
+  final String bookName;
+  final int chapter;
+  final int verse;
+  final Map<String, String> textsByVersion;
+
+  const BibleVerseComparison({
+    required this.bookId,
+    required this.bookName,
+    required this.chapter,
+    required this.verse,
+    required this.textsByVersion,
+  });
+
+  String get reference => '$bookName $chapter:$verse';
+}

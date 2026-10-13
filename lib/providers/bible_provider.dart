@@ -15,6 +15,8 @@ class BibleState {
   final List<BibleVerse> searchResults;
   final bool isSearching;
   final List<BibleBookmark> bookmarks;
+  final bool isComparing;
+  final List<String> comparisonVersions;
 
   const BibleState({
     this.selectedBookId = 'jo', // Inicia em João
@@ -25,6 +27,8 @@ class BibleState {
     this.searchResults = const [],
     this.isSearching = false,
     this.bookmarks = const [],
+    this.isComparing = false,
+    this.comparisonVersions = const ['ARC', 'ARA', 'BKJ'],
   });
 
   BibleBookMetadata? get currentBook =>
@@ -48,6 +52,8 @@ class BibleState {
     List<BibleVerse>? searchResults,
     bool? isSearching,
     List<BibleBookmark>? bookmarks,
+    bool? isComparing,
+    List<String>? comparisonVersions,
   }) {
     return BibleState(
       selectedBookId: selectedBookId ?? this.selectedBookId,
@@ -58,6 +64,8 @@ class BibleState {
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
       bookmarks: bookmarks ?? this.bookmarks,
+      isComparing: isComparing ?? this.isComparing,
+      comparisonVersions: comparisonVersions ?? this.comparisonVersions,
     );
   }
 }
@@ -111,6 +119,29 @@ class BibleStateNotifier extends StateNotifier<BibleState> {
     state = state.copyWith(fontSize: size.clamp(14.0, 30.0));
   }
 
+  void toggleComparisonMode() {
+    state = state.copyWith(isComparing: !state.isComparing);
+  }
+
+  void toggleComparisonVersion(String version) {
+    final v = version.toUpperCase();
+    final current = List<String>.from(state.comparisonVersions);
+    if (current.contains(v)) {
+      if (current.length > 1) {
+        current.remove(v);
+        state = state.copyWith(comparisonVersions: current);
+      }
+    } else {
+      if (current.length < 3) {
+        current.add(v);
+      } else {
+        // Substitui a última para manter exatamente no máximo 3 versões
+        current[2] = v;
+      }
+      state = state.copyWith(comparisonVersions: current);
+    }
+  }
+
   Future<void> search(String query) async {
     final q = query.trim();
     if (q.isEmpty) {
@@ -155,5 +186,17 @@ final currentChapterVersesProvider = FutureProvider<List<BibleVerse>>((ref) asyn
     bookId: state.selectedBookId,
     chapter: state.selectedChapter,
     version: state.selectedVersion,
+  );
+});
+
+final currentChapterComparisonVersesProvider =
+    FutureProvider<List<BibleVerseComparison>>((ref) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  final state = ref.watch(bibleStateProvider);
+
+  return repo.getComparativeChapterVerses(
+    bookId: state.selectedBookId,
+    chapter: state.selectedChapter,
+    versions: state.comparisonVersions,
   );
 });

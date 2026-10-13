@@ -63,12 +63,19 @@ class SermonRepository {
     }
   }
 
+  /// Retorna todos os sermões em memória sem filtros (para estatísticas e contagem de categorias)
+  Future<List<Sermon>> getAllSermons() async {
+    await init();
+    return List.unmodifiable(_inMemorySermons);
+  }
+
   /// Retorna sermões com filtros aplicados
   Future<List<Sermon>> getSermons({
     String? category,
     String? searchQuery,
     String? status,
     bool onlyFavorites = false,
+    bool onlyPreached = false,
   }) async {
     await init();
 
@@ -84,6 +91,10 @@ class SermonRepository {
 
     if (onlyFavorites) {
       filtered = filtered.where((s) => s.isFavorite).toList();
+    }
+
+    if (onlyPreached) {
+      filtered = filtered.where((s) => s.preachCount > 0).toList();
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
@@ -177,9 +188,9 @@ class SermonRepository {
     }
   }
 
-  /// Lista de Modelos Homiléticos Curados (Templates - 50 Esboços Homiléticos)
+  /// Lista de Modelos Homiléticos Curados (Templates - 150 Esboços Homiléticos)
   Future<List<SermonTemplate>> getTemplates() async {
-    // 1. Inicia com todos os 50 modelos catalogados locais (Garantia Offline-first)
+    // 1. Inicia com todos os 150 modelos catalogados locais (Garantia Offline-first)
     final Map<String, SermonTemplate> map = {
       for (final tpl in kCuratedSermonTemplates) tpl.title.toLowerCase(): tpl,
     };

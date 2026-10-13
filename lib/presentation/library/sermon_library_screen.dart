@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/responsive/breakpoints.dart';
 import '../../core/services/pdf_export_service.dart';
 import '../../models/sermon_model.dart';
@@ -35,7 +34,16 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Biblioteca de Sermões', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Meus Sermões', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              '${sermonState.totalSermons} mensagens em seu acervo pessoal',
+              style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Atualizar / Sincronizar',
@@ -57,10 +65,11 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
         ],
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. BARRA DE BUSCA INSTANTÂNEA
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -80,24 +89,67 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
             ),
           ),
 
-          // 2. CHIPS DE FILTRO POR CATEGORIA
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: AppConstants.sermonCategories.length,
-              itemBuilder: (context, index) {
-                final category = AppConstants.sermonCategories[index];
-                final isSelected = sermonState.selectedCategory == category;
+          // 2. BANNER DE FILTRO ATIVO (SE FILTRADO PELO DASHBOARD OU STATUS)
+          if (sermonState.activeFilterLabel != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_alt, size: 16, color: AppColors.primaryBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Filtro Ativo: ${sermonState.activeFilterLabel} (${sermonState.sermons.length} sermões)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.close, size: 14),
+                    label: const Text('Limpar', style: TextStyle(fontSize: 11)),
+                    onPressed: sermonNotifier.resetFilters,
+                  ),
+                ],
+              ),
+            ),
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(category),
+          // 3. CHIPS DINÂMICOS DE CATEGORIA (exclui categorias vazias que poluem a tela)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                FilterChip(
+                  label: Text('Todas (${sermonState.totalSermons})'),
+                  selected: sermonState.selectedCategory == 'Todas',
+                  onSelected: (_) => sermonNotifier.setCategory('Todas'),
+                  selectedColor: AppColors.primaryBlue.withValues(alpha: 0.18),
+                  checkmarkColor: AppColors.primaryBlue,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: sermonState.selectedCategory == 'Todas' ? FontWeight.bold : FontWeight.normal,
+                    color: sermonState.selectedCategory == 'Todas' ? AppColors.primaryBlue : null,
+                  ),
+                ),
+                ...sermonState.activeCategoriesWithCounts.entries.map((entry) {
+                  final cat = entry.key;
+                  final count = entry.value;
+                  final isSelected = sermonState.selectedCategory.toLowerCase() == cat.toLowerCase();
+                  return FilterChip(
+                    label: Text('$cat ($count)'),
                     selected: isSelected,
                     onSelected: (selected) {
-                      sermonNotifier.setCategory(category);
+                      sermonNotifier.setCategory(selected ? cat : 'Todas');
                     },
                     selectedColor: AppColors.accentGold.withValues(alpha: 0.2),
                     checkmarkColor: AppColors.accentGold,
@@ -108,9 +160,9 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                           ? (isDark ? AppColors.goldLight : AppColors.goldDark)
                           : null,
                     ),
-                  ),
-                );
-              },
+                  );
+                }),
+              ],
             ),
           ),
 

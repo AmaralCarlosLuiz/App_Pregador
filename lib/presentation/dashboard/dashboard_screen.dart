@@ -112,7 +112,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // 1. CARDS DE MÉTRICAS RÁPIDAS
+                // 1. CARDS DE MÉTRICAS RÁPIDAS COM LINKS FILTRADOS
                 if (isMobile) ...[
                   Row(
                     children: [
@@ -121,7 +121,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.totalSermons}',
                         icon: Icons.auto_stories,
                         color: AppColors.primaryBlue,
-                        onTap: onNavigateToLibrary,
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).resetFilters();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                       const SizedBox(width: 12),
                       DashboardMetricItem(
@@ -129,6 +132,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.totalPreachCount}',
                         icon: Icons.mic,
                         color: const Color(0xFF10B981),
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByPreached();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                     ],
                   ),
@@ -140,6 +147,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.readySermons}',
                         icon: Icons.check_circle_outline,
                         color: AppColors.accentGold,
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByStatus('ready', label: 'Prontos para Ministrar');
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                       const SizedBox(width: 12),
                       DashboardMetricItem(
@@ -147,6 +158,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.favoriteSermons.length}',
                         icon: Icons.star_outline,
                         color: const Color(0xFFEC4899),
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByFavorites();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                     ],
                   ),
@@ -158,7 +173,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.totalSermons}',
                         icon: Icons.auto_stories,
                         color: AppColors.primaryBlue,
-                        onTap: onNavigateToLibrary,
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).resetFilters();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                       const SizedBox(width: 16),
                       DashboardMetricItem(
@@ -166,6 +184,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.totalPreachCount}',
                         icon: Icons.mic,
                         color: const Color(0xFF10B981),
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByPreached();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                       const SizedBox(width: 16),
                       DashboardMetricItem(
@@ -173,6 +195,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.readySermons}',
                         icon: Icons.check_circle_outline,
                         color: AppColors.accentGold,
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByStatus('ready', label: 'Prontos para Ministrar');
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                       const SizedBox(width: 16),
                       DashboardMetricItem(
@@ -180,6 +206,10 @@ class DashboardScreen extends ConsumerWidget {
                         value: '${sermonState.favoriteSermons.length}',
                         icon: Icons.star_outline,
                         color: const Color(0xFFEC4899),
+                        onTap: () {
+                          ref.read(sermonListProvider.notifier).filterByFavorites();
+                          onNavigateToLibrary?.call();
+                        },
                       ),
                     ],
                   ),

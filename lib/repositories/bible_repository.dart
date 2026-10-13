@@ -184,6 +184,48 @@ class BibleRepository {
     }).toList();
   }
 
+  /// Obtém versículos comparativos entre até 3 versões selecionadas
+  Future<List<BibleVerseComparison>> getComparativeChapterVerses({
+    required String bookId,
+    required int chapter,
+    required List<String> versions,
+  }) async {
+    final Map<String, List<BibleVerse>> versionVerses = {};
+    for (final v in versions) {
+      versionVerses[v] = await getChapterVerses(bookId: bookId, chapter: chapter, version: v);
+    }
+
+    if (versionVerses.isEmpty) return [];
+
+    final bookName = getBookName(bookId);
+    int maxVerses = 0;
+    for (final list in versionVerses.values) {
+      if (list.length > maxVerses) maxVerses = list.length;
+    }
+
+    final List<BibleVerseComparison> comparisons = [];
+    for (int i = 0; i < maxVerses; i++) {
+      final verseNum = i + 1;
+      final Map<String, String> texts = {};
+      for (final v in versions) {
+        final list = versionVerses[v] ?? [];
+        if (i < list.length) {
+          texts[v] = list[i].text;
+        } else {
+          texts[v] = '';
+        }
+      }
+      comparisons.add(BibleVerseComparison(
+        bookId: bookId,
+        bookName: bookName,
+        chapter: chapter,
+        verse: verseNum,
+        textsByVersion: texts,
+      ));
+    }
+    return comparisons;
+  }
+
   /// Realiza busca por palavra-chave em toda a Bíblia
   Future<List<BibleVerse>> searchVerses({
     required String query,
