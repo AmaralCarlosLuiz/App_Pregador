@@ -119,8 +119,9 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Total de Sermões',
                         value: '${sermonState.totalSermons}',
+                        subtitle: 'Acervo pessoal completo',
                         icon: Icons.auto_stories,
-                        color: AppColors.primaryBlue,
+                        color: AppColors.primaryElectricBlue,
                         onTap: () {
                           ref.read(sermonListProvider.notifier).resetFilters();
                           onNavigateToLibrary?.call();
@@ -128,8 +129,9 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 12),
                       DashboardMetricItem(
-                        label: 'Ministrados',
-                        value: '${sermonState.totalPreachCount}',
+                        label: 'Sermões Ministrados',
+                        value: '${sermonState.preachedSermonsCount}',
+                        subtitle: '${sermonState.totalPreachCount} ministrações registradas',
                         icon: Icons.mic,
                         color: const Color(0xFF10B981),
                         onTap: () {
@@ -145,8 +147,9 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Prontos p/ Púlpito',
                         value: '${sermonState.readySermons}',
+                        subtitle: 'Estruturados com 5 pontos',
                         icon: Icons.check_circle_outline,
-                        color: AppColors.accentGold,
+                        color: AppColors.sacredGoldLuminous,
                         onTap: () {
                           ref.read(sermonListProvider.notifier).filterByStatus('ready', label: 'Prontos para Ministrar');
                           onNavigateToLibrary?.call();
@@ -156,6 +159,7 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Favoritos',
                         value: '${sermonState.favoriteSermons.length}',
+                        subtitle: 'Destaques ministeriais',
                         icon: Icons.star_outline,
                         color: const Color(0xFFEC4899),
                         onTap: () {
@@ -171,8 +175,9 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Total de Sermões',
                         value: '${sermonState.totalSermons}',
+                        subtitle: 'Acervo pessoal completo',
                         icon: Icons.auto_stories,
-                        color: AppColors.primaryBlue,
+                        color: AppColors.primaryElectricBlue,
                         onTap: () {
                           ref.read(sermonListProvider.notifier).resetFilters();
                           onNavigateToLibrary?.call();
@@ -180,8 +185,9 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 16),
                       DashboardMetricItem(
-                        label: 'Pregações Realizadas',
-                        value: '${sermonState.totalPreachCount}',
+                        label: 'Sermões Ministrados',
+                        value: '${sermonState.preachedSermonsCount}',
+                        subtitle: '${sermonState.totalPreachCount} ministrações registradas',
                         icon: Icons.mic,
                         color: const Color(0xFF10B981),
                         onTap: () {
@@ -193,8 +199,9 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Prontos p/ Púlpito',
                         value: '${sermonState.readySermons}',
+                        subtitle: 'Estruturados com 5 pontos',
                         icon: Icons.check_circle_outline,
-                        color: AppColors.accentGold,
+                        color: AppColors.sacredGoldLuminous,
                         onTap: () {
                           ref.read(sermonListProvider.notifier).filterByStatus('ready', label: 'Prontos para Ministrar');
                           onNavigateToLibrary?.call();
@@ -204,6 +211,7 @@ class DashboardScreen extends ConsumerWidget {
                       DashboardMetricItem(
                         label: 'Sermões Favoritos',
                         value: '${sermonState.favoriteSermons.length}',
+                        subtitle: 'Destaques ministeriais',
                         icon: Icons.star_outline,
                         color: const Color(0xFFEC4899),
                         onTap: () {
@@ -315,22 +323,66 @@ class DashboardScreen extends ConsumerWidget {
     required bool isPrimary,
     VoidCallback? onTap,
   }) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? color : color.withValues(alpha: 0.12),
-        foregroundColor: isPrimary ? Colors.white : color,
-        elevation: isPrimary ? 2 : 0,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isPrimary ? BorderSide.none : BorderSide(color: color.withValues(alpha: 0.3)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: isPrimary
+                ? LinearGradient(
+                    colors: [color, color.withValues(alpha: 0.85)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isPrimary
+                ? null
+                : (isDark ? color.withValues(alpha: 0.15) : color.withValues(alpha: 0.08)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isPrimary ? color : color.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: isPrimary ? Colors.white : color),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isPrimary ? Colors.white : color,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-      icon: Icon(icon, size: 20),
-      label: Text(
-        label,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
       ),
     );
   }
@@ -341,10 +393,19 @@ class DashboardScreen extends ConsumerWidget {
     Sermon sermon,
     bool isDark,
   ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: AppColors.cardShadow3D(isDark: isDark),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

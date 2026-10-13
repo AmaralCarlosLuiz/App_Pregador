@@ -81,6 +81,7 @@ class SermonListState {
   int get readySermons => allSermons.where((s) => s.status == 'ready').length;
   int get draftSermons => allSermons.where((s) => s.status == 'draft').length;
   int get totalPreachCount => allSermons.fold(0, (acc, s) => acc + s.preachCount);
+  int get preachedSermonsCount => allSermons.where((s) => s.preachCount > 0).length;
   List<Sermon> get favoriteSermons => allSermons.where((s) => s.isFavorite).toList();
   List<Sermon> get recentSermons => allSermons.take(5).toList();
 
