@@ -165,6 +165,31 @@ class SermonRepository {
 
   /// Lista de Modelos Homiléticos Curados (Templates)
   Future<List<SermonTemplate>> getTemplates() async {
+    final client = SupabaseConfig.client;
+    if (client != null) {
+      try {
+        final response = await client
+            .from('sermon_templates')
+            .select()
+            .order('title', ascending: true)
+            .timeout(const Duration(milliseconds: 3500));
+
+        final list = (response as List)
+            .map((data) => SermonTemplate.fromJson(data as Map<String, dynamic>))
+            .toList();
+
+        if (list.isNotEmpty) {
+          return list;
+        }
+      } catch (_) {
+        // Fallback offline caso haja instabilidade de rede
+      }
+    }
+
+    return _getDefaultSeedTemplates();
+  }
+
+  List<SermonTemplate> _getDefaultSeedTemplates() {
     return [
       const SermonTemplate(
         id: 'tpl-1',

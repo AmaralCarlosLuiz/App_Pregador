@@ -5,7 +5,7 @@ class SupabaseConfig {
 
   // Projeto Supabase Oficial - Pregador Pro
   static const String supabaseUrl = 'https://yahvhltbfpebaievpumg.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWZlcmVuY2UiOiJ4eXpjb21wYW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDB9';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhaHZobHRiZnBlYmFpZXZwdW1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NTczOTUsImV4cCI6MjEwNzQzMzM5NX0.JoosKRUGOPWq4DzGt9oNObzdoAOnZXi0Va1YHsfUUuU';
 
   static bool _isInitialized = false;
   static bool get isInitialized => _isInitialized;
