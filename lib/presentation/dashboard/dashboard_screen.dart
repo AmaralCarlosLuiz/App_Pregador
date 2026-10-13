@@ -340,19 +340,26 @@ class DashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                const Icon(Icons.menu_book, size: 14, color: AppColors.primaryBlue),
-                const SizedBox(width: 6),
-                Text(
-                  sermon.biblicalReference,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryBlue,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.menu_book, size: 14, color: AppColors.primaryBlue),
+                    const SizedBox(width: 6),
+                    Text(
+                      sermon.biblicalReference,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 14),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
@@ -368,7 +375,6 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
                 Text(
                   '${sermon.blocks.length} pontos',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -389,8 +395,10 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 10,
+              runSpacing: 8,
               children: [
                 OutlinedButton.icon(
                   onPressed: () {
@@ -403,7 +411,6 @@ class DashboardScreen extends ConsumerWidget {
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Editar'),
                 ),
-                const SizedBox(width: 10),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.accentGold,

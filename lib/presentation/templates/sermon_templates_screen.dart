@@ -469,8 +469,11 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
             const SizedBox(height: 14),
 
             // Rodapé do Card: Botões de Ação
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton.icon(
                   onPressed: () {

@@ -299,36 +299,45 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
             color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
             border: const Border(bottom: BorderSide(color: AppColors.borderLight)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 620;
+
+              final titleSection = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     sermon.title,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     '${sermon.biblicalReference} • ${sermon.category}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
-              Row(
+              );
+
+              final actionButtons = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: isCompact ? WrapAlignment.start : WrapAlignment.end,
                 children: [
                   OutlinedButton.icon(
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Editar'),
                     onPressed: () => _openSermonInEditor(context, sermon),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.print, size: 16),
                     label: const Text('Imprimir'),
                     onPressed: () => PdfExportService.exportAndPrintSermon(sermon),
                   ),
-                  const SizedBox(width: 8),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: AppColors.accentGold),
                     icon: const Icon(Icons.mic, size: 16),
@@ -342,8 +351,28 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                     },
                   ),
                 ],
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleSection,
+                    const SizedBox(height: 10),
+                    actionButtons,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: titleSection),
+                  const SizedBox(width: 16),
+                  actionButtons,
+                ],
+              );
+            },
           ),
         ),
 
