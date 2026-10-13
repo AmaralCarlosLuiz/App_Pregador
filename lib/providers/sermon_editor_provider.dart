@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/bible_model.dart';
 import '../models/sermon_block.dart';
 import '../models/sermon_model.dart';
 import '../models/sermon_template_model.dart';
@@ -138,6 +139,19 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
     final newBlock = HomileticBlock(
       id: UniqueKeyString.generate(),
       title: 'Ponto ${state.sermon.blocks.length + 1}',
+      orderIndex: state.sermon.blocks.length,
+    );
+    final updatedBlocks = List<HomileticBlock>.from(state.sermon.blocks)..add(newBlock);
+    state = state.copyWith(sermon: state.sermon.copyWith(blocks: updatedBlocks));
+    _triggerDebounceSave();
+  }
+
+  void insertVerseBlock(BibleVerse verse) {
+    final newBlock = HomileticBlock(
+      id: UniqueKeyString.generate(),
+      title: 'Ponto ${state.sermon.blocks.length + 1}: ${verse.reference}',
+      biblicalReference: verse.reference,
+      explanation: 'Texto Sagrado: "${verse.text}" (${verse.version})',
       orderIndex: state.sermon.blocks.length,
     );
     final updatedBlocks = List<HomileticBlock>.from(state.sermon.blocks)..add(newBlock);

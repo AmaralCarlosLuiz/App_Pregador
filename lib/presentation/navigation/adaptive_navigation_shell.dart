@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/responsive/adaptive_scaffold.dart';
+import '../bible/bible_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../library/sermon_library_screen.dart';
 import '../profile/profile_screen.dart';
@@ -27,6 +28,11 @@ class _AdaptiveNavigationShellState extends State<AdaptiveNavigationShell> {
       label: 'Sermões',
     ),
     NavigationDestinationItem(
+      icon: Icons.menu_book_outlined,
+      selectedIcon: Icons.menu_book,
+      label: 'Bíblia',
+    ),
+    NavigationDestinationItem(
       icon: Icons.folder_copy_outlined,
       selectedIcon: Icons.folder_copy,
       label: 'Modelos',
@@ -50,10 +56,11 @@ class _AdaptiveNavigationShellState extends State<AdaptiveNavigationShell> {
         index: _currentIndex,
         children: [
           DashboardScreen(
-            onNavigateToTemplates: () => setState(() => _currentIndex = 2),
+            onNavigateToTemplates: () => setState(() => _currentIndex = 3),
             onNavigateToLibrary: () => setState(() => _currentIndex = 1),
           ),
           const SermonLibraryScreen(),
+          const BibleScreen(),
           const SermonTemplatesScreen(),
           const ProfileScreen(),
         ],

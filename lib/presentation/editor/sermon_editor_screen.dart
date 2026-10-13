@@ -9,6 +9,7 @@ import '../../core/services/pdf_export_service.dart';
 import '../../models/sermon_model.dart';
 import '../../providers/sermon_editor_provider.dart';
 import '../ai_assistant/ai_assistant_sheet.dart';
+import '../bible/bible_screen.dart';
 import '../pulpit/pulpit_mode_screen.dart';
 import 'widgets/biblical_picker_bar.dart';
 import 'widgets/homiletic_block_card.dart';
@@ -63,6 +64,13 @@ class SermonEditorScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          // Consultar Bíblia Sagrada
+          IconButton(
+            tooltip: 'Consultar Bíblia Sagrada',
+            icon: const Icon(Icons.menu_book, color: AppColors.accentGold),
+            onPressed: () => _openBibleReader(context, editorNotifier),
+          ),
+
           // Assistente de IA
           IconButton(
             tooltip: 'Assistente de IA para Homilética',
@@ -398,6 +406,24 @@ class SermonEditorScreen extends ConsumerWidget {
           }
           notifier.saveImmediately();
         },
+      ),
+    );
+  }
+
+  void _openBibleReader(BuildContext context, SermonEditorNotifier editorNotifier) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BibleScreen(
+          onVerseSelectedForSermon: (verse) {
+            editorNotifier.insertVerseBlock(verse);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Versículo ${verse.reference} inserido como novo ponto!'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
