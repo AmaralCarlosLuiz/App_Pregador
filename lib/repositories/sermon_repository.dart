@@ -14,10 +14,17 @@ class SermonRepository {
     if (_initialized) return;
 
     final cached = await OfflineCacheService.getCachedSermons();
-    if (cached.isNotEmpty) {
+    if (cached.length >= kCuratedSermonTemplates.length) {
       _inMemorySermons = cached;
     } else {
-      _inMemorySermons = _getDefaultSeedSermons();
+      // Mescla os sermões existentes em cache com todos os 50 esboços homiléticos
+      final Map<String, Sermon> sermonMap = {
+        for (final s in _getDefaultSeedSermons()) s.title.toLowerCase(): s,
+      };
+      for (final s in cached) {
+        sermonMap[s.title.toLowerCase()] = s;
+      }
+      _inMemorySermons = sermonMap.values.toList();
       await OfflineCacheService.cacheSermons(_inMemorySermons);
     }
     _initialized = true;
@@ -164,8 +171,14 @@ class SermonRepository {
     }
   }
 
-  /// Lista de Modelos Homiléticos Curados (Templates)
+  /// Lista de Modelos Homiléticos Curados (Templates - 50 Esboços Homiléticos)
   Future<List<SermonTemplate>> getTemplates() async {
+    // 1. Inicia com todos os 50 modelos catalogados locais (Garantia Offline-first)
+    final Map<String, SermonTemplate> map = {
+      for (final tpl in kCuratedSermonTemplates) tpl.title.toLowerCase(): tpl,
+    };
+
+    // 2. Mescla modelos remotos vindos do Supabase caso existam
     final client = SupabaseConfig.client;
     if (client != null) {
       try {
@@ -175,177 +188,51 @@ class SermonRepository {
             .order('title', ascending: true)
             .timeout(const Duration(milliseconds: 3500));
 
-        final list = (response as List)
+        final remoteList = (response as List)
             .map((data) => SermonTemplate.fromJson(data as Map<String, dynamic>))
             .toList();
 
-        if (list.isNotEmpty) {
-          return list;
+        for (final tpl in remoteList) {
+          map[tpl.title.toLowerCase()] = tpl;
         }
       } catch (_) {
-        // Fallback offline caso haja instabilidade de rede
+        // Fallback offline seguro
       }
     }
 
-    return _getDefaultSeedTemplates();
+    final result = map.values.toList();
+    return result;
   }
 
-  List<SermonTemplate> _getDefaultSeedTemplates() {
-    return kCuratedSermonTemplates;
-  }
-
-  /// Sermões iniciais de demonstração pré-carregados
+  /// Sermões iniciais gerados a partir de todos os 50 modelos homiléticos
   List<Sermon> _getDefaultSeedSermons() {
     final now = DateTime.now();
-    return [
-      Sermon(
-        id: 'sermon-seed-1',
+    return kCuratedSermonTemplates.asMap().entries.map((entry) {
+      final index = entry.key;
+      final tpl = entry.value;
+      final rawBlocks = (tpl.content['blocks'] as List<dynamic>?) ?? [];
+      final blocks = rawBlocks
+          .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
+          .toList();
+
+      return Sermon(
+        id: 'sermon-${tpl.id}',
         userId: 'pastor-local-01',
-        title: 'A Paz que Excede Todo Entendimento',
-        biblicalReference: 'Filipenses 4:6-7',
-        category: 'Fé e Esperança',
-        sermonType: 'Expositivo',
-        introduction:
-            'Vivemos em um século acelerado, onde a ansiedade é considerada o mal do milênio. '
-            'Entretanto, o apóstolo Paulo, encarcerado em uma prisão romana úmida, escreve uma das mais '
-            'belas exortações de vitória sobre o medo.',
-        blocks: [
-          const HomileticBlock(
-            id: 'sb-1',
-            title: '1. O Imperativo da Confiança: Não Andeis Ansiosos',
-            biblicalReference: 'Filipenses 4:6a',
-            explanation:
-                'O termo grego merimnao retrata a alma puxada em direções opostas. '
-                'Deus nos convida a concentrar nosso olhar na Sua grandeza e não na dimensão dos problemas.',
-            illustration:
-                'Como uma corda que arrebenta sob tensão excessiva, o ser humano adoece quando '
-                'insiste em carregar amanhãs que ainda não chegaram.',
-            application:
-                'Entregue ao Senhor hoje tudo aquilo que você não tem o poder de mudar com suas próprias mãos.',
-            orderIndex: 0,
-          ),
-          const HomileticBlock(
-            id: 'sb-2',
-            title: '2. A Disciplina da Oração com Gratidão',
-            biblicalReference: 'Filipenses 4:6b',
-            explanation:
-                'A oração acompanhada de ações de graças nos conecta com os memoriais da fidelidade divina. '
-                'Lembrar do que Deus já fez gera combustível para crer no milagre vindouro.',
-            illustration:
-                'O pássaro que entoa seu cântico na escuridão da madrugada, sabendo com certeza matemática '
-                'que os primeiros raios da alvorada despontarão no horizonte.',
-            application:
-                'Troque a murmuração pelo louvor voluntário nesta noite.',
-            orderIndex: 1,
-          ),
-          const HomileticBlock(
-            id: 'sb-3',
-            title: '3. A Fortaleza da Guarda Celestial',
-            biblicalReference: 'Filipenses 4:7',
-            explanation:
-                'A paz de Deus excede nosso intelecto humano e atua como uma sentinela armada (phroureo) '
-                'defendendo nosso coração contra as flechas inflamadas do maligno.',
-            illustration:
-                'Enquanto o tufão devasta a superfície do oceano, a 200 metros de profundidade as águas '
-                'permanecem em repouso absoluto.',
-            application:
-                'Permita que a paz de Cristo arbitre todas as suas decisões familiares e profissionais.',
-            orderIndex: 2,
-          ),
-        ],
-        conclusion:
-            'A paz verdadeira não é a ausência de tempestades no mundo exterior, '
-            'mas a presença inegociável do Deus da Paz habitando o nosso interior.',
-        appeal:
-            'Convido à frente todos que sentem o coração oprimido pela ansiedade para receberem a oração da fé.',
-        isFavorite: true,
+        title: tpl.title,
+        biblicalReference: tpl.keyVerse,
+        category: tpl.tags.isNotEmpty ? tpl.tags.first : 'Geral',
+        sermonType: tpl.sermonType,
+        introduction: tpl.content['introduction'] as String? ?? '',
+        blocks: blocks,
+        conclusion: tpl.content['conclusion'] as String? ?? '',
+        appeal: tpl.content['appeal'] as String? ?? '',
         status: 'ready',
-        preachCount: 3,
-        lastPreachedAt: now.subtract(const Duration(days: 7)),
-        estimatedDurationMinutes: 45,
-        createdAt: now.subtract(const Duration(days: 14)),
-        updatedAt: now.subtract(const Duration(days: 7)),
-      ),
-      Sermon(
-        id: 'sermon-seed-2',
-        userId: 'pastor-local-01',
-        title: 'Edificando o Altar da Família',
-        biblicalReference: 'Josué 24:14-15',
-        category: 'Família',
-        sermonType: 'Temático',
-        introduction:
-            'No entardecer da sua liderança sobre Israel, Josué convoca as famílias e lança um desafio '
-            'que atravessa os séculos até a nossa geração: a quem nós escolheremos servir?',
-        blocks: [
-          const HomileticBlock(
-            id: 'sb-4',
-            title: '1. A Decisão Inadiável da Liderança Espiritual',
-            biblicalReference: 'Josué 24:15a',
-            explanation:
-                'Josué assume a responsabilidade como sacerdote do seu lar. '
-                'A liderança bíblica da família não se impõe pelo grito ou coerção, mas pelo exemplo santo e amor sacrificial.',
-            illustration:
-                'As pegadas na neve fresca: os filhos seguem os passos exatos que os pais deixam gravados no caminho.',
-            application:
-                'Pais e mães, retomem o sacerdócio de oração e proteção espiritual sobre seus filhos.',
-            orderIndex: 0,
-          ),
-          const HomileticBlock(
-            id: 'sb-5',
-            title: '2. Eu e a Minha Casa Serviremos ao Senhor',
-            biblicalReference: 'Josué 24:15b',
-            explanation:
-                'Servir aqui traduz-se em submissão alegre e serviço ativo no Reino de Deus. '
-                'A família cristã é um posto avançado da Igreja dentro da sociedade.',
-            illustration:
-                'A Arca de Noé: Deus não salvou apenas indivíduos isolados, mas preservou a família inteira da destruição.',
-            application:
-                'Restabeleça hoje o culto doméstico e momentos de oração diária à mesa da sua casa.',
-            orderIndex: 1,
-          ),
-        ],
-        conclusion:
-            'As maiores vitórias de um ministério não acontecem sobre o púlpito, mas ao redor da mesa da própria casa.',
-        appeal:
-            'Oração de consagração e restauração matrimonial.',
-        isFavorite: true,
-        status: 'ready',
-        preachCount: 1,
-        lastPreachedAt: now.subtract(const Duration(days: 21)),
+        isFavorite: index < 5,
+        preachCount: index == 0 ? 3 : (index == 1 ? 1 : 0),
         estimatedDurationMinutes: 40,
-        createdAt: now.subtract(const Duration(days: 30)),
-        updatedAt: now.subtract(const Duration(days: 21)),
-      ),
-      Sermon(
-        id: 'sermon-seed-3',
-        userId: 'pastor-local-01',
-        title: 'O Poder da Oração Eficaz',
-        biblicalReference: 'Tiago 5:16-18',
-        category: 'Oração e Jejum',
-        sermonType: 'Textual',
-        introduction:
-            'Elias era homem sujeito às mesmas fraquezas que nós, mas orou com fervor e o céu se fechou e se abriu. '
-            'Deus não procura super-heróis, mas corações quebrantados e dispostos.',
-        blocks: [
-          const HomileticBlock(
-            id: 'sb-6',
-            title: '1. Homens Comuns, Deus Extraordinário',
-            biblicalReference: 'Tiago 5:17',
-            explanation: 'O poder da oração não reside na nossa eloquência, mas no caráter fiel daquele que nos ouve.',
-            illustration: 'Um pequeno interruptor que acende a iluminação de todo um estádio quando conectado à usina de força.',
-            application: 'Nunca subestime o poder dos seus joelhos dobrados no secreto do seu quarto.',
-            orderIndex: 0,
-          ),
-        ],
-        conclusion: 'Quando o homem trabalha, o homem trabalha; mas quando o homem ora, Deus trabalha.',
-        appeal: 'Desperte o seu clamor espiritual!',
-        isFavorite: false,
-        status: 'draft',
-        preachCount: 0,
-        estimatedDurationMinutes: 35,
-        createdAt: now.subtract(const Duration(days: 2)),
-        updatedAt: now.subtract(const Duration(days: 2)),
-      ),
-    ];
+        createdAt: now.subtract(Duration(days: 30 - index % 25)),
+        updatedAt: now.subtract(Duration(days: index % 10)),
+      );
+    }).toList();
   }
 }
