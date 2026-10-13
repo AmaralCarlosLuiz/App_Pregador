@@ -1,0 +1,46 @@
+name: pregador_pro
+description: "Pregador Pro - Plataforma de Apoio e Criação de Sermões para Pastores e Ministros"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Backend & BaaS
+  supabase_flutter: ^2.5.6
+
+  # Local Cache / Offline-first
+  shared_preferences: ^2.2.3
+
+  # Hardware & Pulpit Mode
+  wakelock_plus: ^1.2.8
+
+  # Content & Markdown
+  flutter_markdown: ^0.7.3
+
+  # Sharing & Printing
+  share_plus: ^9.0.0
+  printing: ^5.13.1
+  pdf: ^3.10.8
+
+  # Utilities
+  uuid: ^4.4.0
+  intl: ^0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

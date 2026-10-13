@@ -1,0 +1,11 @@
+{
+  "name": "Pregador Pro",
+  "short_name": "PregadorPro",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#1E3A8A",
+  "description": "Plataforma de Apoio e Criação de Sermões para Pastores e Ministros",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}
