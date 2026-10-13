@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- PREGADOR PRO - SCHEMA DE BANCO DE DADOS (SUPABASE / POSTGRESQL)
 -- Arquitetura Multiplataforma para Pastores e Ministros
+-- Versão 100% Idempotente (Execução Segura)
 -- ==============================================================================
 
 -- 1. EXTENSÕES
@@ -19,14 +20,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- Limpa policies existentes para permitir re-execução sem erro
+DROP POLICY IF EXISTS "Perfis visíveis para o próprio usuário" ON public.profiles;
 CREATE POLICY "Perfis visíveis para o próprio usuário"
     ON public.profiles FOR SELECT
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Usuário pode atualizar seu próprio perfil" ON public.profiles;
 CREATE POLICY "Usuário pode atualizar seu próprio perfil"
     ON public.profiles FOR UPDATE
     USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Usuário pode inserir seu próprio perfil" ON public.profiles;
 CREATE POLICY "Usuário pode inserir seu próprio perfil"
     ON public.profiles FOR INSERT
     WITH CHECK (auth.uid() = id);
@@ -40,7 +45,8 @@ BEGIN
         new.id,
         COALESCE(new.raw_user_meta_data->>'full_name', 'Pastor Titular'),
         new.raw_user_meta_data->>'avatar_url'
-    );
+    )
+    ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -75,18 +81,22 @@ CREATE INDEX IF NOT EXISTS idx_sermons_updated_at ON public.sermons(updated_at D
 
 ALTER TABLE public.sermons ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Usuários podem ver apenas seus próprios sermões" ON public.sermons;
 CREATE POLICY "Usuários podem ver apenas seus próprios sermões"
     ON public.sermons FOR SELECT
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Usuários podem criar seus próprios sermões" ON public.sermons;
 CREATE POLICY "Usuários podem criar seus próprios sermões"
     ON public.sermons FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Usuários podem atualizar seus próprios sermões" ON public.sermons;
 CREATE POLICY "Usuários podem atualizar seus próprios sermões"
     ON public.sermons FOR UPDATE
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Usuários podem excluir seus próprios sermões" ON public.sermons;
 CREATE POLICY "Usuários podem excluir seus próprios sermões"
     ON public.sermons FOR DELETE
     USING (auth.uid() = user_id);
@@ -94,7 +104,7 @@ CREATE POLICY "Usuários podem excluir seus próprios sermões"
 -- 4. TABELA: SERMON_TEMPLATES (Modelos Homiléticos Públicos e Curados)
 CREATE TABLE IF NOT EXISTS public.sermon_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
+    title TEXT NOT NULL UNIQUE,
     theme TEXT NOT NULL,
     key_verse TEXT NOT NULL,
     sermon_type TEXT NOT NULL DEFAULT 'Expositivo',
@@ -105,11 +115,12 @@ CREATE TABLE IF NOT EXISTS public.sermon_templates (
 
 ALTER TABLE public.sermon_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Modelos de sermão são públicos para leitura" ON public.sermon_templates;
 CREATE POLICY "Modelos de sermão são públicos para leitura"
     ON public.sermon_templates FOR SELECT
     USING (true);
 
--- 5. SEED DATA: MODELOS HOMILÉTICOS INICIAIS
+-- 5. SEED DATA: MODELOS HOMILÉTICOS INICIAIS (Com ON CONFLICT DO NOTHING)
 INSERT INTO public.sermon_templates (title, theme, key_verse, sermon_type, tags, content)
 VALUES
 (
@@ -202,4 +213,5 @@ VALUES
         "conclusion": "Casas bonitas na areia desmoronam no primeiro temporal. Casas na rocha permanecem para sempre.",
         "appeal": "Oração de consagração das famílias e casais ao Senhorio de Cristo."
     }'::jsonb
-);
+)
+ON CONFLICT (title) DO NOTHING;
