@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../core/data/curated_sermon_templates.dart';
 import '../core/network/supabase_config.dart';
 import '../core/storage/offline_cache_service.dart';
@@ -8,35 +9,38 @@ import '../models/sermon_template_model.dart';
 class SermonRepository {
   List<Sermon> _inMemorySermons = [];
   bool _initialized = false;
+  Future<void>? _initFuture;
 
-  /// Inicializa repositório carregando cache offline
-  Future<void> init() async {
-    if (_initialized) return;
+  SermonRepository() {
+    // Carrega o seed em memória instantaneamente (< 2ms) para renderização imediata no frame 1
+    _inMemorySermons = _getDefaultSeedSermons();
+  }
 
-    final cached = await OfflineCacheService.getCachedSermons();
-    final needsRefresh = cached.isEmpty ||
-        cached.length < kCuratedSermonTemplates.length ||
-        (cached.isNotEmpty && cached.first.blocks.length < 5);
+  /// Inicializa repositório mesclando alterações salvas localmente sem travar a UI
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    _initFuture ??= _performInit();
+    return _initFuture!;
+  }
 
-    if (!needsRefresh) {
-      _inMemorySermons = cached;
-    } else {
-      // Mescla e atualiza os sermões para garantir a estrutura completa de 5 divisões
-      final Map<String, Sermon> sermonMap = {
-        for (final s in _getDefaultSeedSermons()) s.title.toLowerCase(): s,
-      };
-      for (final s in cached) {
-        if (!s.id.startsWith('sermon-tpl-')) {
-          sermonMap[s.title.toLowerCase()] = s;
+  Future<void> _performInit() async {
+    try {
+      final cached = await OfflineCacheService.getCachedSermons();
+      if (cached.isNotEmpty) {
+        final Map<String, Sermon> sermonMap = {
+          for (final s in _inMemorySermons) s.id: s,
+        };
+        for (final s in cached) {
+          sermonMap[s.id] = s;
         }
+        _inMemorySermons = sermonMap.values.toList();
       }
-      _inMemorySermons = sermonMap.values.toList();
-      await OfflineCacheService.cacheSermons(_inMemorySermons);
-    }
+    } catch (_) {}
+
     _initialized = true;
 
-    // Tenta sincronizar com Supabase se houver conexão
-    _trySyncWithSupabase();
+    // Sincronização em background não-bloqueante com Supabase
+    unawaited(_trySyncWithSupabase());
   }
 
   Future<void> _trySyncWithSupabase() async {
@@ -48,7 +52,7 @@ class SermonRepository {
           .from('sermons')
           .select()
           .order('updated_at', ascending: false)
-          .timeout(const Duration(milliseconds: 3500));
+          .timeout(const Duration(milliseconds: 2500));
 
       final remoteSermons = (response as List)
           .map((data) => Sermon.fromJson(data as Map<String, dynamic>))
@@ -56,16 +60,16 @@ class SermonRepository {
 
       if (remoteSermons.isNotEmpty) {
         _inMemorySermons = remoteSermons;
-        await OfflineCacheService.cacheSermons(_inMemorySermons);
+        unawaited(OfflineCacheService.cacheSermons(_inMemorySermons));
       }
     } catch (_) {
       // Falha silenciosa de rede mantendo cache offline
     }
   }
 
-  /// Retorna todos os sermões em memória sem filtros (para estatísticas e contagem de categorias)
+  /// Retorna todos os sermões em memória sem filtros
   Future<List<Sermon>> getAllSermons() async {
-    await init();
+    if (!_initialized) await init();
     return List.unmodifiable(_inMemorySermons);
   }
 
@@ -77,12 +81,14 @@ class SermonRepository {
     bool onlyFavorites = false,
     bool onlyPreached = false,
   }) async {
-    await init();
+    if (!_initialized) await init();
 
     var filtered = List<Sermon>.from(_inMemorySermons);
 
     if (category != null && category.isNotEmpty && category != 'Todas') {
-      filtered = filtered.where((s) => s.category.toLowerCase() == category.toLowerCase()).toList();
+      filtered = filtered
+          .where((s) => s.category.toLowerCase() == category.toLowerCase())
+          .toList();
     }
 
     if (status != null && status.isNotEmpty) {
@@ -115,7 +121,7 @@ class SermonRepository {
 
   /// Busca sermão por ID
   Future<Sermon?> getSermonById(String id) async {
-    await init();
+    if (!_initialized) await init();
     final index = _inMemorySermons.indexWhere((s) => s.id == id);
     if (index >= 0) return _inMemorySermons[index];
     return null;
@@ -123,7 +129,7 @@ class SermonRepository {
 
   /// Salva ou atualiza sermão (Offline-first com Debounce sync)
   Future<void> saveSermon(Sermon sermon) async {
-    await init();
+    if (!_initialized) await init();
     final index = _inMemorySermons.indexWhere((s) => s.id == sermon.id);
     if (index >= 0) {
       _inMemorySermons[index] = sermon;
@@ -134,17 +140,16 @@ class SermonRepository {
     // 1. Persistência imediata offline
     await OfflineCacheService.saveSingleSermonLocally(sermon);
 
-    // 2. Persistência remota assíncrona no Supabase
+    // 2. Persistência remota assíncrona em background no Supabase
     final client = SupabaseConfig.client;
     if (client != null && client.auth.currentUser != null) {
-      try {
-        await client
+      unawaited(
+        client
             .from('sermons')
             .upsert(sermon.toJson())
-            .timeout(const Duration(milliseconds: 4000));
-      } catch (_) {
-        // Enfileiramento offline pode ser tratado aqui
-      }
+            .timeout(const Duration(milliseconds: 2500))
+            .catchError((_) => null),
+      );
     }
   }
 
@@ -176,52 +181,24 @@ class SermonRepository {
 
   /// Exclui um sermão
   Future<void> deleteSermon(String id) async {
-    await init();
+    if (!_initialized) await init();
     _inMemorySermons.removeWhere((s) => s.id == id);
     await OfflineCacheService.removeSermonLocally(id);
 
     final client = SupabaseConfig.client;
     if (client != null && client.auth.currentUser != null) {
-      try {
-        await client.from('sermons').delete().eq('id', id);
-      } catch (_) {}
+      unawaited(
+        client.from('sermons').delete().eq('id', id).catchError((_) => null),
+      );
     }
   }
 
-  /// Lista de Modelos Homiléticos Curados (Templates - 150 Esboços Homiléticos)
+  /// Lista de Modelos Homiléticos Curados (Retorno Instantâneo 0ms)
   Future<List<SermonTemplate>> getTemplates() async {
-    // 1. Inicia com todos os 150 modelos catalogados locais (Garantia Offline-first)
-    final Map<String, SermonTemplate> map = {
-      for (final tpl in kCuratedSermonTemplates) tpl.title.toLowerCase(): tpl,
-    };
-
-    // 2. Mescla modelos remotos vindos do Supabase caso existam
-    final client = SupabaseConfig.client;
-    if (client != null) {
-      try {
-        final response = await client
-            .from('sermon_templates')
-            .select()
-            .order('title', ascending: true)
-            .timeout(const Duration(milliseconds: 3500));
-
-        final remoteList = (response as List)
-            .map((data) => SermonTemplate.fromJson(data as Map<String, dynamic>))
-            .toList();
-
-        for (final tpl in remoteList) {
-          map[tpl.title.toLowerCase()] = tpl;
-        }
-      } catch (_) {
-        // Fallback offline seguro
-      }
-    }
-
-    final result = map.values.toList();
-    return result;
+    return kCuratedSermonTemplates;
   }
 
-  /// Sermões iniciais gerados a partir de todos os 50 modelos homiléticos
+  /// Sermões iniciais gerados a partir do acervo homilético
   List<Sermon> _getDefaultSeedSermons() {
     final now = DateTime.now();
     return kCuratedSermonTemplates.asMap().entries.map((entry) {

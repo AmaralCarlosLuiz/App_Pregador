@@ -5,7 +5,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/responsive/breakpoints.dart';
 import '../../core/services/pdf_export_service.dart';
 import '../../core/services/sermon_share_service.dart';
+import '../../models/sermon_block.dart';
 import '../../models/sermon_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/sermon_provider.dart';
 import '../editor/sermon_editor_screen.dart';
 import '../pulpit/pulpit_mode_screen.dart';
@@ -498,9 +500,10 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
   }
 
   void _createNewSermon(BuildContext context) {
+    final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
     final newSermon = Sermon(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: 'pastor-local-01',
+      id: UniqueKeyString.generate(),
+      userId: userId,
       title: 'Novo Sermão',
       biblicalReference: 'Salmos 23:1',
       createdAt: DateTime.now(),

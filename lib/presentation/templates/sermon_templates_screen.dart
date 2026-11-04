@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/sermon_block.dart';
 import '../../models/sermon_model.dart';
 import '../../models/sermon_template_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/templates_provider.dart';
 import '../editor/sermon_editor_screen.dart';
 
@@ -536,9 +537,10 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
         .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
         .toList();
 
+    final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
     final newSermon = Sermon(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: 'pastor-local-01',
+      id: UniqueKeyString.generate(),
+      userId: userId,
       title: template.title,
       biblicalReference: template.keyVerse,
       sermonType: template.sermonType,

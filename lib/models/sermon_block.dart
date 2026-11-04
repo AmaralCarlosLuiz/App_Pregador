@@ -63,7 +63,10 @@ class HomileticBlock {
 }
 
 class UniqueKeyString {
+  static int _counter = 0;
+
   static String generate() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    _counter = (_counter + 1) % 1000000;
+    return '${DateTime.now().microsecondsSinceEpoch}_$_counter';
   }
 }

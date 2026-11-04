@@ -30,6 +30,7 @@ class SermonEditorScreen extends ConsumerWidget {
     final isMobile = Breakpoints.isMobile(context);
 
     final sermon = editorState.sermon;
+    final rev = editorState.revision;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,6 +44,7 @@ class SermonEditorScreen extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (editorState.isSaving) ...[
                   const SizedBox(
@@ -51,13 +53,31 @@ class SermonEditorScreen extends ConsumerWidget {
                     child: CircularProgressIndicator(strokeWidth: 1.5),
                   ),
                   const SizedBox(width: 6),
-                  const Text('Salvando...', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Flexible(
+                    child: Text(
+                      'Salvando...',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ] else if (editorState.hasUnsavedChanges) ...[
-                  const Text('Modificações pendentes', style: TextStyle(fontSize: 11, color: AppColors.accentGold)),
+                  const Flexible(
+                    child: Text(
+                      'Modificações pendentes',
+                      style: TextStyle(fontSize: 11, color: AppColors.accentGold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ] else ...[
                   const Icon(Icons.cloud_done_outlined, size: 12, color: AppColors.statusReady),
                   const SizedBox(width: 4),
-                  const Text('Salvo (Offline & Nuvem)', style: TextStyle(fontSize: 11, color: AppColors.statusReady)),
+                  const Flexible(
+                    child: Text(
+                      'Salvo (Offline & Nuvem)',
+                      style: TextStyle(fontSize: 11, color: AppColors.statusReady),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -78,30 +98,79 @@ class SermonEditorScreen extends ConsumerWidget {
             onPressed: () => _openAiAssistant(context, ref, editorNotifier, sermon),
           ),
 
-          // Prévia Markdown
-          IconButton(
-            tooltip: 'Pré-visualização Markdown',
-            icon: const Icon(Icons.visibility_outlined),
-            onPressed: () => _showMarkdownPreview(context, sermon),
-          ),
+          if (!isMobile) ...[
+            // Prévia Markdown
+            IconButton(
+              tooltip: 'Pré-visualização Markdown',
+              icon: const Icon(Icons.visibility_outlined),
+              onPressed: () => _showMarkdownPreview(context, sermon),
+            ),
 
-          // Exportar PDF para Impressão A4
-          IconButton(
-            tooltip: 'Exportar PDF A4 / Imprimir',
-            icon: const Icon(Icons.print_outlined),
-            onPressed: () => PdfExportService.exportAndPrintSermon(sermon),
-          ),
+            // Exportar PDF para Impressão A4
+            IconButton(
+              tooltip: 'Exportar PDF A4 / Imprimir',
+              icon: const Icon(Icons.print_outlined),
+              onPressed: () => PdfExportService.exportAndPrintSermon(sermon),
+            ),
 
-          // Compartilhar (WhatsApp, Copiar, PDF, etc.)
-          IconButton(
-            tooltip: 'Compartilhar (WhatsApp / Redes)',
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () {
-              SermonShareService.showShareOptionsModal(context, sermon);
-            },
-          ),
+            // Compartilhar (WhatsApp, Copiar, PDF, etc.)
+            IconButton(
+              tooltip: 'Compartilhar (WhatsApp / Redes)',
+              icon: const Icon(Icons.share_outlined),
+              onPressed: () {
+                SermonShareService.showShareOptionsModal(context, sermon);
+              },
+            ),
+          ] else ...[
+            // Em smartphones, agrupa opções secundárias para evitar overflow na AppBar
+            PopupMenuButton<String>(
+              tooltip: 'Mais Ações',
+              onSelected: (value) {
+                switch (value) {
+                  case 'preview':
+                    _showMarkdownPreview(context, sermon);
+                    break;
+                  case 'print':
+                    PdfExportService.exportAndPrintSermon(sermon);
+                    break;
+                  case 'share':
+                    SermonShareService.showShareOptionsModal(context, sermon);
+                    break;
+                }
+              },
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                  value: 'share',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.share_outlined, color: Color(0xFF25D366)),
+                    title: Text('Compartilhar / WhatsApp'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'print',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.print_outlined),
+                    title: Text('Exportar PDF / Imprimir'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'preview',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.visibility_outlined),
+                    title: Text('Prévia Markdown'),
+                  ),
+                ),
+              ],
+            ),
+          ],
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
 
           // Botão Ir para o Púlpito
           Padding(
@@ -110,7 +179,7 @@ class SermonEditorScreen extends ConsumerWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.accentGold,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14),
               ),
               icon: const Icon(Icons.mic, size: 16),
               label: Text(isMobile ? 'Púlpito' : 'Modo Púlpito'),
@@ -137,6 +206,7 @@ class SermonEditorScreen extends ConsumerWidget {
             children: [
               // 1. TÍTULO DO SERMÃO
               TextFormField(
+                key: ValueKey('title_$rev'),
                 initialValue: sermon.title,
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 decoration: const InputDecoration(
@@ -155,8 +225,11 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               BiblicalPickerBar(
+                key: ValueKey('bible_ref_$rev'),
                 currentReference: sermon.biblicalReference,
                 onReferenceChanged: editorNotifier.updateBiblicalReference,
+                onBookPickedFromModal: (pickedRef) =>
+                    editorNotifier.updateBiblicalReference(pickedRef, fromExternalPicker: true),
               ),
 
               const SizedBox(height: 16),
@@ -166,7 +239,10 @@ class SermonEditorScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: AppConstants.sermonCategories.contains(sermon.category) && sermon.category != 'Todas'
+                      key: ValueKey('cat_$rev'),
+                      isExpanded: true,
+                      initialValue: AppConstants.sermonCategories.contains(sermon.category) &&
+                              sermon.category != 'Todas'
                           ? sermon.category
                           : 'Geral',
                       decoration: const InputDecoration(
@@ -175,7 +251,10 @@ class SermonEditorScreen extends ConsumerWidget {
                       ),
                       items: AppConstants.sermonCategories
                           .where((c) => c != 'Todas')
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .map((c) => DropdownMenuItem(
+                                value: c,
+                                child: Text(c, overflow: TextOverflow.ellipsis),
+                              ))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) editorNotifier.updateCategory(val);
@@ -185,6 +264,8 @@ class SermonEditorScreen extends ConsumerWidget {
                   const SizedBox(width: 14),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      key: ValueKey('type_$rev'),
+                      isExpanded: true,
                       initialValue: AppConstants.sermonTypes.contains(sermon.sermonType)
                           ? sermon.sermonType
                           : 'Expositivo',
@@ -193,7 +274,10 @@ class SermonEditorScreen extends ConsumerWidget {
                         isDense: true,
                       ),
                       items: AppConstants.sermonTypes
-                          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                          .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t, overflow: TextOverflow.ellipsis),
+                              ))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) editorNotifier.updateSermonType(val);
@@ -213,6 +297,7 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
+                key: ValueKey('intro_$rev'),
                 initialValue: sermon.introduction,
                 maxLines: 4,
                 style: const TextStyle(fontSize: 14, height: 1.5),
@@ -225,8 +310,11 @@ class SermonEditorScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // 5. PONTOS PRINCIPAIS HOMILÉTICOS
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _buildSectionHeader(
                     icon: Icons.format_list_numbered,
@@ -269,6 +357,7 @@ class SermonEditorScreen extends ConsumerWidget {
               else
                 ...sermon.blocks.asMap().entries.map((entry) {
                   return HomileticBlockCard(
+                    key: ValueKey('block_${entry.value.id}_$rev'),
                     index: entry.key,
                     block: entry.value,
                     onChanged: (updated) => editorNotifier.updateBlock(entry.key, updated),
@@ -286,6 +375,7 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
+                key: ValueKey('conc_$rev'),
                 initialValue: sermon.conclusion,
                 maxLines: 3,
                 style: const TextStyle(fontSize: 14, height: 1.5),
@@ -305,6 +395,7 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               TextFormField(
+                key: ValueKey('appeal_$rev'),
                 initialValue: sermon.appeal,
                 maxLines: 3,
                 style: const TextStyle(fontSize: 14, height: 1.5),
@@ -328,6 +419,7 @@ class SermonEditorScreen extends ConsumerWidget {
     required Color color,
   }) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.all(6),
@@ -338,12 +430,14 @@ class SermonEditorScreen extends ConsumerWidget {
           child: Icon(icon, color: color, size: 18),
         ),
         const SizedBox(width: 10),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color,
+        Flexible(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -388,23 +482,15 @@ class SermonEditorScreen extends ConsumerWidget {
         initialTheme: currentSermon.title,
         initialReference: currentSermon.biblicalReference,
         onApplyGeneratedOutline: (outline) {
-          notifier.updateTitle(outline.title);
-          notifier.updateBiblicalReference(outline.biblicalReference);
-          notifier.updateSermonType(outline.sermonType);
-          notifier.updateIntroduction(outline.introduction);
-          notifier.updateConclusion(outline.conclusion);
-          notifier.updateAppeal(outline.appeal);
-
-          // Substituir blocos
-          for (var i = 0; i < outline.blocks.length; i++) {
-            if (i < currentSermon.blocks.length) {
-              notifier.updateBlock(i, outline.blocks[i]);
-            } else {
-              notifier.addBlock();
-              notifier.updateBlock(i, outline.blocks[i]);
-            }
-          }
-          notifier.saveImmediately();
+          notifier.applyFullOutline(
+            title: outline.title,
+            biblicalReference: outline.biblicalReference,
+            sermonType: outline.sermonType,
+            introduction: outline.introduction,
+            blocks: outline.blocks,
+            conclusion: outline.conclusion,
+            appeal: outline.appeal,
+          );
         },
       ),
     );

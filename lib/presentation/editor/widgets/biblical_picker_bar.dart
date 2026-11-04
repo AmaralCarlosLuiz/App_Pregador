@@ -5,11 +5,13 @@ import '../../../core/constants/app_constants.dart';
 class BiblicalPickerBar extends StatelessWidget {
   final String currentReference;
   final ValueChanged<String> onReferenceChanged;
+  final ValueChanged<String>? onBookPickedFromModal;
 
   const BiblicalPickerBar({
     super.key,
     required this.currentReference,
     required this.onReferenceChanged,
+    this.onBookPickedFromModal,
   });
 
   @override
@@ -111,7 +113,12 @@ class BiblicalPickerBar extends StatelessWidget {
         return InkWell(
           onTap: () {
             Navigator.pop(context);
-            onReferenceChanged('$book 1:1');
+            final newRef = '$book 1:1';
+            if (onBookPickedFromModal != null) {
+              onBookPickedFromModal!(newRef);
+            } else {
+              onReferenceChanged(newRef);
+            }
           },
           borderRadius: BorderRadius.circular(8),
           child: Container(

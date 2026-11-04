@@ -23,6 +23,9 @@ class AdaptiveScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget? drawer;
   final Widget? endDrawer;
+  final String userDisplayName;
+  final bool isUserAdmin;
+  final VoidCallback? onSignOut;
 
   const AdaptiveScaffold({
     super.key,
@@ -34,6 +37,9 @@ class AdaptiveScaffold extends StatelessWidget {
     this.appBar,
     this.drawer,
     this.endDrawer,
+    this.userDisplayName = 'Pr. Carlos Luiz Amaral',
+    this.isUserAdmin = true,
+    this.onSignOut,
   });
 
   @override
@@ -304,69 +310,120 @@ class AdaptiveScaffold extends StatelessWidget {
             ),
           ),
 
-          // Footer de Perfil Pastoral com Efeito 3D
+          // Footer de Perfil Pastoral (Clicável para abrir Perfil & Logoff) + Assinatura de Direitos Autorais
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF334155), width: 1.2),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                InkWell(
+                  onTap: () => onNavigationIndexChanged(4),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ),
-                    child: const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Color(0xFF0F172A),
-                      child: Icon(Icons.person, color: Color(0xFFF59E0B), size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Pr. Carlos Amaral',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(Icons.fiber_manual_record, size: 8, color: Color(0xFF10B981)),
-                            SizedBox(width: 4),
-                            Text(
-                              'Online / Sincronizado',
-                              style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF334155), width: 1.2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                            ),
+                          ),
+                          child: const CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Color(0xFF0F172A),
+                            child: Icon(Icons.person, color: Color(0xFFF59E0B), size: 18),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userDisplayName,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    isUserAdmin ? Icons.verified_user : Icons.fiber_manual_record,
+                                    size: 10,
+                                    color: isUserAdmin
+                                        ? const Color(0xFFFBBF24)
+                                        : const Color(0xFF10B981),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      isUserAdmin ? 'Admin Full • Online' : 'Online / Sincronizado',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isUserAdmin
+                                            ? const Color(0xFFFBBF24)
+                                            : const Color(0xFF10B981),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '© 2026 - Pregador Pro',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Desenvolvido por Carlos Luiz Amaral',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

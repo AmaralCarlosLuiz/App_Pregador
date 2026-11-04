@@ -82,8 +82,10 @@ class BibleRepository {
     for (final b in canonicalBooks) b.id: b,
   };
 
-  // Cache em memória: version -> list of parsed books
+  // Cache em memória indexado por versão -> (abbrev -> bookData) para busca O(1) instantânea
   final Map<String, List<Map<String, dynamic>>> _rawVersionsCache = {};
+  final Map<String, Map<String, Map<String, dynamic>>> _indexedBooksCache = {};
+  final Map<String, Future<List<Map<String, dynamic>>>> _loadingFutures = {};
 
   // Bookmarks locais
   static const String _bookmarksPrefKey = 'pregador_pro_bible_bookmarks';
@@ -99,13 +101,26 @@ class BibleRepository {
     return _bookMap[bookId.toLowerCase()];
   }
 
-  /// Carrega versão da Bíblia a partir de assets locais (ARC, NVI, ACF)
+  /// Carrega versão da Bíblia a partir de assets locais com deduplicação de leitura e índice O(1)
   Future<List<Map<String, dynamic>>> _loadVersion(String version) async {
     final v = version.toUpperCase();
     if (_rawVersionsCache.containsKey(v)) {
       return _rawVersionsCache[v]!;
     }
+    if (_loadingFutures.containsKey(v)) {
+      return _loadingFutures[v]!;
+    }
 
+    final future = _performLoadVersion(v);
+    _loadingFutures[v] = future;
+    try {
+      return await future;
+    } finally {
+      _loadingFutures.remove(v);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _performLoadVersion(String v) async {
     String assetPath;
     switch (v) {
       case 'NVI':
@@ -135,10 +150,12 @@ class BibleRepository {
       if (decoded is List) {
         final list = decoded.cast<Map<String, dynamic>>();
         _rawVersionsCache[v] = list;
+        _indexedBooksCache[v] = {
+          for (final b in list) (b['abbrev'] as String? ?? '').toLowerCase(): b,
+        };
         return list;
       }
     } catch (e) {
-      // Se falhar carregar versão específica, tenta fallback para ARC
       if (v != 'ARC') {
         return _loadVersion('ARC');
       }
@@ -147,20 +164,18 @@ class BibleRepository {
     return [];
   }
 
-  /// Obtém os versículos de um capítulo específico
+  /// Obtém os versículos de um capítulo específico em tempo O(1)
   Future<List<BibleVerse>> getChapterVerses({
     required String bookId,
     required int chapter,
     String version = 'ARC',
   }) async {
-    final rawBooks = await _loadVersion(version);
+    final v = version.toUpperCase();
+    await _loadVersion(v);
     final normalizedId = bookId.toLowerCase();
-    final bookData = rawBooks.firstWhere(
-      (b) => (b['abbrev'] as String? ?? '').toLowerCase() == normalizedId,
-      orElse: () => <String, dynamic>{},
-    );
+    final bookData = _indexedBooksCache[v]?[normalizedId];
 
-    if (bookData.isEmpty) return [];
+    if (bookData == null || bookData.isEmpty) return [];
 
     final chapters = bookData['chapters'] as List<dynamic>? ?? [];
     final chapterIndex = chapter - 1;

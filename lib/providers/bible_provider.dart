@@ -79,6 +79,7 @@ class BibleStateNotifier extends StateNotifier<BibleState> {
 
   Future<void> _loadBookmarks() async {
     final b = await _repository.getBookmarks();
+    if (!mounted) return;
     state = state.copyWith(bookmarks: b);
   }
 
@@ -154,6 +155,7 @@ class BibleStateNotifier extends StateNotifier<BibleState> {
       query: q,
       version: state.selectedVersion,
     );
+    if (!mounted) return;
     state = state.copyWith(searchResults: results, isSearching: false);
   }
 
@@ -168,6 +170,7 @@ class BibleStateNotifier extends StateNotifier<BibleState> {
   Future<void> toggleBookmark(BibleVerse verse) async {
     await _repository.toggleBookmark(verse);
     final updated = await _repository.getBookmarks();
+    if (!mounted) return;
     state = state.copyWith(bookmarks: updated);
   }
 }

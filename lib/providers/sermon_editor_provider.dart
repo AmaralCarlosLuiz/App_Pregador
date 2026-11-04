@@ -12,6 +12,7 @@ class SermonEditorState {
   final bool hasUnsavedChanges;
   final DateTime? lastSavedAt;
   final String? error;
+  final int revision; // Incrementado em atualizações externas (IA, Seletor Bíblico, Exclusão de Bloco)
 
   const SermonEditorState({
     required this.sermon,
@@ -19,6 +20,7 @@ class SermonEditorState {
     this.hasUnsavedChanges = false,
     this.lastSavedAt,
     this.error,
+    this.revision = 0,
   });
 
   SermonEditorState copyWith({
@@ -27,6 +29,7 @@ class SermonEditorState {
     bool? hasUnsavedChanges,
     DateTime? lastSavedAt,
     String? error,
+    int? revision,
   }) {
     return SermonEditorState(
       sermon: sermon ?? this.sermon,
@@ -34,6 +37,7 @@ class SermonEditorState {
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       lastSavedAt: lastSavedAt ?? this.lastSavedAt,
       error: error,
+      revision: revision ?? this.revision,
     );
   }
 }
@@ -55,15 +59,19 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
   }
 
   void _triggerDebounceSave() {
+    if (!mounted) return;
     state = state.copyWith(hasUnsavedChanges: true);
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 1200), () {
-      saveImmediately();
+      if (mounted) {
+        saveImmediately();
+      }
     });
   }
 
   Future<void> saveImmediately() async {
     _debounceTimer?.cancel();
+    if (!mounted) return;
     state = state.copyWith(isSaving: true);
 
     final updatedSermon = state.sermon.copyWith(
@@ -76,6 +84,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
       // Notifica a lista geral de sermões
       _ref.read(sermonListProvider.notifier).loadSermons();
 
+      if (!mounted) return;
       state = state.copyWith(
         sermon: updatedSermon,
         isSaving: false,
@@ -83,6 +92,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
         lastSavedAt: DateTime.now(),
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isSaving: false, error: e.toString());
     }
   }
@@ -92,8 +102,11 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
     _triggerDebounceSave();
   }
 
-  void updateBiblicalReference(String ref) {
-    state = state.copyWith(sermon: state.sermon.copyWith(biblicalReference: ref));
+  void updateBiblicalReference(String ref, {bool fromExternalPicker = false}) {
+    state = state.copyWith(
+      sermon: state.sermon.copyWith(biblicalReference: ref),
+      revision: fromExternalPicker ? state.revision + 1 : state.revision,
+    );
     _triggerDebounceSave();
   }
 
@@ -155,7 +168,10 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
       orderIndex: state.sermon.blocks.length,
     );
     final updatedBlocks = List<HomileticBlock>.from(state.sermon.blocks)..add(newBlock);
-    state = state.copyWith(sermon: state.sermon.copyWith(blocks: updatedBlocks));
+    state = state.copyWith(
+      sermon: state.sermon.copyWith(blocks: updatedBlocks),
+      revision: state.revision + 1,
+    );
     _triggerDebounceSave();
   }
 
@@ -171,9 +187,39 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
   void removeBlock(int index) {
     if (index >= 0 && index < state.sermon.blocks.length) {
       final updatedBlocks = List<HomileticBlock>.from(state.sermon.blocks)..removeAt(index);
-      state = state.copyWith(sermon: state.sermon.copyWith(blocks: updatedBlocks));
+      state = state.copyWith(
+        sermon: state.sermon.copyWith(blocks: updatedBlocks),
+        revision: state.revision + 1,
+      );
       _triggerDebounceSave();
     }
+  }
+
+  void applyFullOutline({
+    required String title,
+    required String biblicalReference,
+    required String sermonType,
+    required String introduction,
+    required List<HomileticBlock> blocks,
+    required String conclusion,
+    required String appeal,
+  }) {
+    final updated = state.sermon.copyWith(
+      title: title,
+      biblicalReference: biblicalReference,
+      sermonType: sermonType,
+      introduction: introduction,
+      blocks: List<HomileticBlock>.from(blocks),
+      conclusion: conclusion,
+      appeal: appeal,
+      updatedAt: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      sermon: updated,
+      revision: state.revision + 1,
+    );
+    saveImmediately();
   }
 
   void applyTemplate(SermonTemplate template) {
@@ -183,7 +229,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
         .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
         .toList();
 
-    final updated = state.sermon.copyWith(
+    applyFullOutline(
       title: template.title,
       biblicalReference: template.keyVerse,
       sermonType: template.sermonType,
@@ -191,11 +237,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
       blocks: blocks,
       conclusion: content['conclusion'] as String? ?? '',
       appeal: content['appeal'] as String? ?? '',
-      updatedAt: DateTime.now(),
     );
-
-    state = state.copyWith(sermon: updated);
-    _triggerDebounceSave();
   }
 }
 

@@ -128,6 +128,7 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
       final currentId = state.selectedSermonIdForMasterDetail;
       final stillExists = filtered.any((s) => s.id == currentId);
 
+      if (!mounted) return;
       state = state.copyWith(
         allSermons: all,
         sermons: filtered,
@@ -137,6 +138,7 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
             : (filtered.isNotEmpty ? filtered.first.id : null),
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }

@@ -341,9 +341,12 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Data & Badge PRO + Alternar Tema
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Top Row: Data & Badge PRO + Alternar Tema (Responsivo sem Overflow)
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -360,19 +363,23 @@ class DashboardScreen extends ConsumerWidget {
                         children: [
                           const Icon(Icons.calendar_today, size: 12, color: Color(0xFFFBBF24)),
                           const SizedBox(width: 6),
-                          Text(
-                            capitalizedDate,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFFBBF24),
-                              letterSpacing: 0.3,
+                          Flexible(
+                            child: Text(
+                              capitalizedDate,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFBBF24),
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

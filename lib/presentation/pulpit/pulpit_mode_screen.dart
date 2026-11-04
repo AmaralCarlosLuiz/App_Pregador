@@ -478,10 +478,11 @@ class _PulpitModeScreenState extends ConsumerState<PulpitModeScreen> {
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: AppColors.accentGold),
               onPressed: () {
+                final messenger = ScaffoldMessenger.maybeOf(context);
                 ref.read(sermonListProvider.notifier).recordPreached(widget.sermon.id);
                 Navigator.pop(ctx);
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger?.showSnackBar(
                   const SnackBar(
                     content: Text('Glória a Deus! Pregação registrada com sucesso.'),
                     backgroundColor: AppColors.statusReady,
