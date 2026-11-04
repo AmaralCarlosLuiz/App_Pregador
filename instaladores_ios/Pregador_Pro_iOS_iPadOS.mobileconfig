@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>FullScreen</key>
+			<true/>
+			<key>IgnoreManifestScope</key>
+			<false/>
+			<key>IsRemovable</key>
+			<true/>
+			<key>Label</key>
+			<string>Pregador Pro</string>
+			<key>PayloadDescription</key>
+			<string>Instala o aplicativo Pregador Pro em modo Tela Cheia Nativo para iPhone e iPad (compatível com iOS 12.5.8 até iOS 27.2+).</string>
+			<key>PayloadDisplayName</key>
+			<string>Pregador Pro - App Homilético</string>
+			<key>PayloadIdentifier</key>
+			<string>com.carlosluizamaral.pregadorpro.webclip</string>
+			<key>PayloadOrganization</key>
+			<string>© 2026 - Pregador Pro | Desenvolvido por Carlos Luiz Amaral</string>
+			<key>PayloadType</key>
+			<string>com.apple.webClip.managed</string>
+			<key>PayloadUUID</key>
+			<string>8F3A9C12-4B7E-4D9A-9E21-50D24A86878A</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>Precomposed</key>
+			<true/>
+			<key>URL</key>
+			<string>https://amaralcarlosluiz.github.io/App_Pregador/</string>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>Instalador Oficial do Aplicativo Pregador Pro para iPhone 14 Pro Max, iPhone 12 e iPad Air (iOS 12.5.8+). Desenvolvido por Carlos Luiz Amaral.</string>
+	<key>PayloadDisplayName</key>
+	<string>Pregador Pro (iOS &amp; iPadOS)</string>
+	<key>PayloadIdentifier</key>
+	<string>com.carlosluizamaral.pregadorpro.profile</string>
+	<key>PayloadOrganization</key>
+	<string>Carlos Luiz Amaral</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>2A9B4E71-6C8F-41BD-8A47-E980419E90AC</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

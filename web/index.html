@@ -6,12 +6,87 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Pregador Pro - Plataforma de Apoio e Criação de Sermões para Pastores e Ministros">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-  <!-- iOS meta tags & icons -->
+  <!-- iOS / iPadOS Native WebApp Meta Tags (iPhone 14 Pro Max, iPhone 12 e iPad Air iOS 12.5.8) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Pregador Pro">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Polyfill de Compatibilidade Retroativa para iPad Air (iOS 12.5.8 / Safari 12) -->
+  <script>
+    (function () {
+      if (typeof window.globalThis === "undefined") {
+        window.globalThis = window;
+      }
+      if (!String.prototype.replaceAll) {
+        String.prototype.replaceAll = function (str, newStr) {
+          if (Object.prototype.toString.call(str).toLowerCase() === "[object regexp]") {
+            return this.replace(str, newStr);
+          }
+          return this.split(str).join(newStr);
+        };
+      }
+      if (!Array.prototype.at) {
+        Array.prototype.at = function (n) {
+          n = Math.trunc(n) || 0;
+          if (n < 0) n += this.length;
+          if (n < 0 || n >= this.length) return undefined;
+          return this[n];
+        };
+      }
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) {
+          return Object.prototype.hasOwnProperty.call(obj, prop);
+        };
+      }
+      if (!Promise.allSettled) {
+        Promise.allSettled = function (promises) {
+          return Promise.all(
+            Array.prototype.map.call(promises, function (p) {
+              return Promise.resolve(p).then(
+                function (value) { return { status: "fulfilled", value: value }; },
+                function (reason) { return { status: "rejected", reason: reason }; }
+              );
+            })
+          );
+        };
+      }
+      // Gera ícone de alta resolução para a Tela de Início do iPhone / iPad
+      window.addEventListener("DOMContentLoaded", function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = 180;
+          canvas.height = 180;
+          var ctx = canvas.getContext("2d");
+          if (ctx) {
+            var grad = ctx.createLinearGradient(0, 0, 180, 180);
+            grad.addColorStop(0, "#0F172A");
+            grad.addColorStop(1, "#1E3A8A");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 180, 180);
+            ctx.fillStyle = "#F59E0B";
+            ctx.font = "bold 74px -apple-system, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("📖", 90, 78);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 22px -apple-system, sans-serif";
+            ctx.fillText("PREGADOR", 90, 136);
+            ctx.fillStyle = "#F59E0B";
+            ctx.font = "bold 16px -apple-system, sans-serif";
+            ctx.fillText("PRO", 90, 158);
+            var link = document.createElement("link");
+            link.rel = "apple-touch-icon";
+            link.href = canvas.toDataURL("image/png");
+            document.head.appendChild(link);
+          }
+        } catch (_) {}
+      });
+    })();
+  </script>
 
   <title>Pregador Pro</title>
   <link rel="manifest" href="manifest.json">

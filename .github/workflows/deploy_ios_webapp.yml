@@ -1,0 +1,48 @@
+name: Build & Deploy Pregador Pro (iOS / iPadOS / WebApp)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Production Web/iOS Package
+        run: flutter build web --release --base-href "/App_Pregador/"
+
+      - name: Copy iOS MobileConfig Installer into Build
+        run: |
+          if [ -f "instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig" ]; then
+            cp instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig build/web/Pregador_Pro.mobileconfig
+          fi
+
+      - name: Upload Release Artifact (.zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pregador-Pro-iOS-iPadOS-Release
+          path: build/web
+
+      - name: Deploy to GitHub Pages (gh-pages)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
