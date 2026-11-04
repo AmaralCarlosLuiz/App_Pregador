@@ -54,3 +54,4 @@ Se quiser testar ou usar agora mesmo nos seus aparelhos conectados no mesmo Wi-F
    `instaladores_ios/INICIAR_SERVIDOR_WIFI_IPHONE_IPAD.bat`
 2. Ele mostrará na tela o endereço IP do seu computador (ex.: `http://192.168.1.15:8080`).
 3. Abra esse endereço no **Safari** do seu **iPhone 14 Pro Max**, **iPhone 12** e **iPad Air (iOS 12.5.8)** e toque em **Compartilhar ➔ Adicionar à Tela de Início**.
+
