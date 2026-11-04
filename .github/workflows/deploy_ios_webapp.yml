@@ -1,4 +1,4 @@
-name: Build & Deploy Pregador Pro (iOS / iPadOS / WebApp)
+name: Build APK Android + iOS/iPadOS & Deploy Pregador Pro
 
 on:
   push:
@@ -17,6 +17,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java 17 (para compilação Android APK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -26,16 +32,28 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Production Web/iOS Package
+      - name: Generate Android Platform Structure & Build Release APK
+        run: |
+          flutter create --platforms=android --project-name pregador_pro --org com.carlosluizamaral .
+          flutter build apk --release
+
+      - name: Build Production Web / iOS / iPadOS Package
         run: flutter build web --release --base-href "/App_Pregador/"
 
-      - name: Copy iOS MobileConfig Installer into Build
+      - name: Bundle APK & iOS MobileConfig Installer into Download Portal
         run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/web/Pregador_Pro.apk
           if [ -f "instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig" ]; then
             cp instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig build/web/Pregador_Pro.mobileconfig
           fi
 
-      - name: Upload Release Artifact (.zip)
+      - name: Upload Android APK Artifact (Pregador_Pro.apk)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pregador-Pro-Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Web & iOS Release Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Pregador-Pro-iOS-iPadOS-Release
