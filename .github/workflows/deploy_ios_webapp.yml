@@ -35,6 +35,45 @@ jobs:
       - name: Generate Android Platform Structure & Build Release APK
         run: |
           flutter create --platforms=android --project-name pregador_pro --org com.carlosluizamaral .
+
+          # Configurar compileSdk e targetSdk para 34 no android/app/build.gradle
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/flutter.compileSdkVersion/34/g' android/app/build.gradle
+            sed -i 's/flutter.targetSdkVersion/34/g' android/app/build.gradle
+            sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 34/g' android/app/build.gradle
+            sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 34/g' android/app/build.gradle
+            sed -i -E 's/targetSdkVersion[[:space:]]+[0-9]+/targetSdkVersion 34/g' android/app/build.gradle
+            sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*[0-9]+/targetSdk = 34/g' android/app/build.gradle
+          fi
+
+          if [ -f "android/app/build.gradle.kts" ]; then
+            sed -i 's/flutter.compileSdkVersion/34/g' android/app/build.gradle.kts
+            sed -i 's/flutter.targetSdkVersion/34/g' android/app/build.gradle.kts
+            sed -i -E 's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 34/g' android/app/build.gradle.kts
+            sed -i -E 's/targetSdk[[:space:]]*=[[:space:]]*[0-9]+/targetSdk = 34/g' android/app/build.gradle.kts
+          fi
+
+          # Injetar compileSdk 34 no local.properties
+          touch android/local.properties
+          echo "flutter.compileSdkVersion=34" >> android/local.properties
+          echo "flutter.targetSdkVersion=34" >> android/local.properties
+
+          # Forcar compileSdkVersion 34 em todos os subprojetos (plugins Gradle como :printing)
+          if [ -f "android/build.gradle" ]; then
+            cat << 'EOF' >> android/build.gradle
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileSdkVersion 34
+            }
+        }
+    }
+}
+EOF
+          fi
+
           flutter build apk --release
 
       - name: Build Production Web / iOS / iPadOS Package
