@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base href="/App_Pregador/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Pregador Pro - Plataforma de Apoio e Criação de Sermões para Pastores e Ministros">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- iOS / iPadOS Native WebApp Meta Tags (iPhone 14 Pro Max, iPhone 12 e iPad Air iOS 12.5.8) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pregador Pro">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Polyfill de Compatibilidade Retroativa para iPad Air (iOS 12.5.8 / Safari 12) -->
+  <script>
+    (function () {
+      if (typeof window.globalThis === "undefined") {
+        window.globalThis = window;
+      }
+      if (!String.prototype.replaceAll) {
+        String.prototype.replaceAll = function (str, newStr) {
+          if (Object.prototype.toString.call(str).toLowerCase() === "[object regexp]") {
+            return this.replace(str, newStr);
+          }
+          return this.split(str).join(newStr);
+        };
+      }
+      if (!Array.prototype.at) {
+        Array.prototype.at = function (n) {
+          n = Math.trunc(n) || 0;
+          if (n < 0) n += this.length;
+          if (n < 0 || n >= this.length) return undefined;
+          return this[n];
+        };
+      }
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) {
+          return Object.prototype.hasOwnProperty.call(obj, prop);
+        };
+      }
+      if (!Promise.allSettled) {
+        Promise.allSettled = function (promises) {
+          return Promise.all(
+            Array.prototype.map.call(promises, function (p) {
+              return Promise.resolve(p).then(
+                function (value) { return { status: "fulfilled", value: value }; },
+                function (reason) { return { status: "rejected", reason: reason }; }
+              );
+            })
+          );
+        };
+      }
+      // Gera ícone de alta resolução para a Tela de Início do iPhone / iPad
+      window.addEventListener("DOMContentLoaded", function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = 180;
+          canvas.height = 180;
+          var ctx = canvas.getContext("2d");
+          if (ctx) {
+            var grad = ctx.createLinearGradient(0, 0, 180, 180);
+            grad.addColorStop(0, "#0F172A");
+            grad.addColorStop(1, "#1E3A8A");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 180, 180);
+            ctx.fillStyle = "#F59E0B";
+            ctx.font = "bold 74px -apple-system, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("📖", 90, 78);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 22px -apple-system, sans-serif";
+            ctx.fillText("PREGADOR", 90, 136);
+            ctx.fillStyle = "#F59E0B";
+            ctx.font = "bold 16px -apple-system, sans-serif";
+            ctx.fillText("PRO", 90, 158);
+            var link = document.createElement("link");
+            link.rel = "apple-touch-icon";
+            link.href = canvas.toDataURL("image/png");
+            document.head.appendChild(link);
+          }
+        } catch (_) {}
+      });
+    })();
+  </script>
+
+  <title>Pregador Pro</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #090D16;
+      color: #F8FAFC;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Preloader Instantâneo 0ms para evitar tela branca no F5 */
+    #app-preloader {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #0F172A 0%, #090D16 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      transition: opacity 0.25s ease-out;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #app-preloader.loaded {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .preloader-spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid rgba(245, 158, 11, 0.2);
+      border-top-color: #F59E0B;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin-bottom: 14px;
+    }
+    .preloader-brand {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.3px;
+    }
+    .preloader-brand span {
+      background: linear-gradient(90deg, #F59E0B, #D97706);
+      color: #FFF;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Container de Toast de Segurança Enterprise (Estilo Sonner) */
+    #security-toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .security-toast {
+      min-width: 300px;
+      max-width: 390px;
+      background: #0F172A;
+      color: #F8FAFC;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(14px) scale(0.97);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .security-toast.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    .security-toast.warning {
+      border-left: 4px solid #F59E0B;
+    }
+    .security-toast.error {
+      border-left: 4px solid #EF4444;
+    }
+    .security-toast-icon {
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .security-toast-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      margin: 0 0 3px 0;
+      color: #FFFFFF;
+    }
+    .security-toast-desc {
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 0;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-preloader">
+    <div class="preloader-spinner"></div>
+    <div class="preloader-brand">Pregador<span>PRO</span></div>
+  </div>
+  <div id="security-toast-container"></div>
+
+  <script>
+    // Remove o preloader instantaneamente assim que o 1º frame do Flutter é pintado
+    window.addEventListener("flutter-first-frame", function () {
+      const preloader = document.getElementById("app-preloader");
+      if (preloader) {
+        preloader.classList.add("loaded");
+        setTimeout(() => preloader.remove(), 260);
+      }
+    });
+  </script>
+
+  <script>
+    /**
+     * 🔒 Módulo de Trava de Segurança e Proteção do Código Fonte (Defense-in-Depth)
+     * Implementação padronizada das 5 camadas de proteção conforme documentação técnica.
+     */
+    (function initSourceProtection() {
+      const DEFAULT_CONFIG = {
+        blockRightClick: true,
+        blockDevToolsShortcuts: true,
+        blockSelect: false,
+        blockDragAndDrop: true,
+        showConsoleWarning: true,
+        enableAntiDebugger: false,
+        enableConsoleSanitize: true,
+      };
+
+      const isProduction = () => {
+        try {
+          const host = window.location.hostname;
+          return host !== "localhost" && host !== "127.0.0.1" && !host.startsWith("192.168.");
+        } catch (_) {
+          return false;
+        }
+      };
+
+      const isEditableElement = (target) => {
+        if (!target || !target.tagName) return false;
+        const tagName = target.tagName.toUpperCase();
+        return (
+          tagName === "INPUT" ||
+          tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          (target.closest && target.closest("[contenteditable='true']") !== null) ||
+          (target.closest && target.closest(".allow-context-menu") !== null)
+        );
+      };
+
+      let lastToastTime = 0;
+      const showSecurityToast = (type, title, description, duration = 3200) => {
+        const now = Date.now();
+        if (now - lastToastTime < 900) return;
+        lastToastTime = now;
+
+        const container = document.getElementById("security-toast-container");
+        if (!container) return;
+
+        const toast = document.createElement("div");
+        toast.className = "security-toast " + type;
+        const icon = type === "error" ? "🚫" : "🛡️";
+        toast.innerHTML =
+          '<div class="security-toast-icon">' + icon + '</div>' +
+          '<div>' +
+            '<div class="security-toast-title">' + title + '</div>' +
+            '<div class="security-toast-desc">' + description + '</div>' +
+          '</div>';
+
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add("show"));
+
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 260);
+        }, duration);
+      };
+
+      const inProd = isProduction();
+
+      // 1. Camada 1: Bloqueio de Menu de Contexto (Botão Direito)
+      if (DEFAULT_CONFIG.blockRightClick) {
+        window.addEventListener(
+          "contextmenu",
+          function (e) {
+            const target = e.target;
+            if (!isEditableElement(target)) {
+              e.preventDefault();
+              e.stopPropagation();
+              showSecurityToast(
+                "warning",
+                "Proteção de Código Ativa",
+                "A inspeção e cópia do código fonte do Sistema são restritas por políticas de segurança corporativa.",
+                3000
+              );
+              return false;
+            }
+          },
+          { capture: true }
+        );
+      }
+
+      // 2. Camada 2: Bloqueio de Atalhos de Desenvolvedor (F12, Ctrl+Shift+I/J/C, Ctrl+U/S/P, Shift+F10)
+      if (DEFAULT_CONFIG.blockDevToolsShortcuts) {
+        const handleKeyDown = function (e) {
+          const isCtrl = e.ctrlKey;
+          const isCmd = e.metaKey;
+          const isCtrlOrCmd = isCtrl || isCmd;
+          const isShift = e.shiftKey;
+          const isAlt = e.altKey;
+          const key = (e.key || "").toLowerCase();
+          const code = e.code || "";
+
+          const isF12 = e.keyCode === 123 || key === "f12" || code === "F12";
+          const isCtrlU = isCtrlOrCmd && key === "u";
+          const isCtrlS = isCtrlOrCmd && key === "s";
+          const isCtrlP = isCtrlOrCmd && key === "p";
+          const isShiftF10 = isShift && (key === "f10" || code === "F10" || e.keyCode === 121);
+
+          const isInspect =
+            (isCtrlOrCmd && isShift && (key === "i" || key === "j" || key === "c" || key === "k" || key === "e")) ||
+            (isCmd && isAlt && (key === "i" || key === "j" || key === "c" || key === "u" || key === "s"));
+
+          if (isF12 || isCtrlU || isCtrlS || isCtrlP || isShiftF10 || isInspect) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            showSecurityToast(
+              "error",
+              "Acesso Restrito",
+              "Os atalhos de desenvolvedor e inspeção de código fonte estão desabilitados neste ambiente.",
+              3500
+            );
+            return false;
+          }
+        };
+
+        window.addEventListener("keydown", handleKeyDown, { capture: true });
+        document.addEventListener("keydown", handleKeyDown, { capture: true });
+      }
+
+      // 3. Camada 3: Prevenção de Drag & Drop de Ativos
+      if (DEFAULT_CONFIG.blockDragAndDrop) {
+        document.addEventListener(
+          "dragstart",
+          function (e) {
+            const target = e.target;
+            if (target && target.tagName) {
+              const tag = target.tagName.toUpperCase();
+              if (tag === "IMG" || tag === "VIDEO" || tag === "SVG" || tag === "CANVAS") {
+                e.preventDefault();
+              }
+            }
+          },
+          { capture: true }
+        );
+      }
+
+      // 4. Camada 4: Armadilha Anti-Debugger em Produção
+      if (DEFAULT_CONFIG.enableAntiDebugger && inProd) {
+        try {
+          setInterval(function () {
+            const fn = new Function("debugger");
+            fn();
+          }, 1500);
+        } catch (_) {}
+      }
+
+      // 5. Camada 5: Sanitização de Console & Alerta Institucional LGPD
+      if (DEFAULT_CONFIG.showConsoleWarning) {
+        try {
+          console.clear();
+          console.log(
+            "%c 🛡️ SEGURANÇA ENTERPRISE ATIVADA - PREGADOR PRO ",
+            "background: #dc2626; color: #ffffff; font-size: 16px; font-weight: bold; padding: 6px 12px; border-radius: 6px;"
+          );
+          console.log(
+            "%c ⚠️ ATENÇÃO: Esta é uma área restrita destinada exclusivamente a usuários autorizados.\nA execução indevida de scripts ou extração não autorizada do código fonte viola as diretrizes de conformidade e LGPD.",
+            "color: #f59e0b; font-size: 12px; font-weight: 500; margin-top: 6px;"
+          );
+
+          if (DEFAULT_CONFIG.enableConsoleSanitize && inProd) {
+            const noop = function () {};
+            console.log = noop;
+            console.debug = noop;
+            console.info = noop;
+            console.dir = noop;
+            console.table = noop;
+          }
+        } catch (_) {}
+      }
+    })();
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
