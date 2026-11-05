@@ -102,6 +102,9 @@
       overflow: hidden;
       height: 100%;
       width: 100%;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-overflow-scrolling: touch;
     }
     /* Preloader Instantâneo 0ms para evitar tela branca no F5 */
     #app-preloader {
@@ -233,7 +236,7 @@
         blockSelect: false,
         blockDragAndDrop: true,
         showConsoleWarning: true,
-        enableAntiDebugger: true,
+        enableAntiDebugger: false,
         enableConsoleSanitize: true,
       };
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/ai_homiletics_service.dart';
+import '../../core/services/gemini_homiletics_agent.dart';
 import '../../core/services/sermon_share_service.dart';
 import '../../providers/ai_assistant_provider.dart';
 import '../../providers/sermon_provider.dart';
@@ -27,24 +28,79 @@ class AiAssistantSheet extends ConsumerStatefulWidget {
 class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
   late final TextEditingController _themeCtrl;
   late final TextEditingController _refCtrl;
+  late final ScrollController _outlineScrollCtrl;
+  late final FocusNode _themeFocusNode;
+  late final FocusNode _refFocusNode;
   String _selectedSermonType = 'Expositivo';
 
   late final TextEditingController _illustrationContextCtrl;
   late final TextEditingController _exegesisPassageCtrl;
 
+  bool _hasCustomGeminiKey = false;
+
   @override
   void initState() {
     super.initState();
-    _themeCtrl = TextEditingController(text: widget.initialTheme ?? 'Salvos pelo Mérito de Cristo');
-    _refCtrl = TextEditingController(text: widget.initialReference ?? 'Efésios 2:1-10');
+    _themeCtrl = TextEditingController(
+      text: widget.initialTheme ?? 'Entre Salmo 22 e a Crucificação de Jesus',
+    );
+    _refCtrl = TextEditingController(
+      text: widget.initialReference ?? 'Salmos 22 / Mateus 27:35-50',
+    );
+    _outlineScrollCtrl = ScrollController();
+    _themeFocusNode = FocusNode();
+    _refFocusNode = FocusNode();
+
+    _refFocusNode.addListener(() {
+      if (_refFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 260), () {
+          if (mounted && _outlineScrollCtrl.hasClients) {
+            _outlineScrollCtrl.animateTo(
+              _outlineScrollCtrl.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
+    _themeFocusNode.addListener(() {
+      if (_themeFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 260), () {
+          if (mounted && _outlineScrollCtrl.hasClients) {
+            _outlineScrollCtrl.animateTo(
+              (_outlineScrollCtrl.position.maxScrollExtent * 0.45).clamp(0.0, _outlineScrollCtrl.position.maxScrollExtent),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
     _illustrationContextCtrl = TextEditingController(text: widget.initialTheme ?? 'Confiança em meio à crise');
     _exegesisPassageCtrl = TextEditingController(text: widget.initialReference ?? 'Filipenses 4:6-7');
+
+    _checkGeminiApiKey();
+  }
+
+  Future<void> _checkGeminiApiKey() async {
+    final key = await GeminiHomileticsAgent.getSavedApiKey();
+    if (mounted) {
+      setState(() {
+        _hasCustomGeminiKey = key != null && key.isNotEmpty;
+      });
+    }
   }
 
   @override
   void dispose() {
     _themeCtrl.dispose();
     _refCtrl.dispose();
+    _outlineScrollCtrl.dispose();
+    _themeFocusNode.dispose();
+    _refFocusNode.dispose();
     _illustrationContextCtrl.dispose();
     _exegesisPassageCtrl.dispose();
     super.dispose();
@@ -56,6 +112,85 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
       _refCtrl.text = reference;
       _selectedSermonType = type;
     });
+  }
+
+  void _openGeminiApiKeyDialog() async {
+    final currentKey = await GeminiHomileticsAgent.getSavedApiKey() ?? '';
+    final controller = TextEditingController(text: currentKey);
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text('Agente Gemini Homilética IA', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'O Pregador Pro utiliza o Google Gemini como agente de inteligência teológica para construir sermões exegéticos profundos.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Chave de API Gemini (Opcional - Google AI Studio):',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                decoration: InputDecoration(
+                  hintText: 'Cole sua Gemini API Key (AIzaSy...)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.key),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '💡 Se não informar uma chave, o sistema opera automaticamente com o motor teológico contextual integrado de alta precisão.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () async {
+                await GeminiHomileticsAgent.saveApiKey(controller.text);
+                await _checkGeminiApiKey();
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Configurações do Agente Gemini salvas com sucesso!'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _saveSermonToLibrary(GeneratedOutlineResult outline) async {
@@ -99,120 +234,168 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
   Widget build(BuildContext context) {
     final aiState = ref.watch(aiAssistantProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.viewInsets.bottom;
+    final availableHeight = mediaQuery.size.height - mediaQuery.padding.top;
+    final sheetHeight = bottomInset > 0
+        ? (availableHeight - bottomInset)
+        : (availableHeight * 0.92);
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.90,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 30,
-            offset: const Offset(0, -6),
+    return AnimatedPadding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: sheetHeight,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 30,
+                offset: const Offset(0, -6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: DefaultTabController(
-        length: 3,
-        child: Column(
-          children: [
-            // Handle do Sheet
-            const SizedBox(height: 12),
-            Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 12),
+          child: DefaultTabController(
+            length: 3,
+            child: Column(
+              children: [
+                // Handle do Sheet
+                const SizedBox(height: 12),
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-            // Header com Ícone e Título
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF7C3AED), Color(0xFF6366F1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                // Header com Ícone, Título e Badge Gemini
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF7C3AED), Color(0xFF6366F1)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Flexible(
+                                        child: Text(
+                                          'Assistente Homilético IA',
+                                          style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        borderRadius: BorderRadius.circular(10),
+                                        onTap: _openGeminiApiKeyDialog,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text(
+                                                'Gemini',
+                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED)),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Icon(
+                                                _hasCustomGeminiKey ? Icons.check_circle : Icons.tune,
+                                                size: 11,
+                                                color: _hasCustomGeminiKey ? const Color(0xFF10B981) : const Color(0xFF7C3AED),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Motor de Exegese Fiel • 5 Tópicos com Pontes Bíblicas',
+                                    style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Assistente de Homilética IA',
-                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                'Esboços Ricos com 5 Tópicos, Pontes Bíblicas e Exegese',
-                                style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Tabs com Indicador Elegante
+                const TabBar(
+                  labelColor: Color(0xFF7C3AED),
+                  indicatorColor: Color(0xFF7C3AED),
+                  indicatorWeight: 3,
+                  tabs: [
+                    Tab(icon: Icon(Icons.auto_awesome, size: 18), text: 'Gerador Esboço'),
+                    Tab(icon: Icon(Icons.lightbulb_outline, size: 18), text: 'Ilustrações'),
+                    Tab(icon: Icon(Icons.translate, size: 18), text: 'Grego & Hebraico'),
+                  ],
+                ),
+
+                // Tab Views
+                Expanded(
+                  child: aiState.isLoading
+                      ? _buildLoadingState(isDark)
+                      : TabBarView(
+                          children: [
+                            _buildOutlineGeneratorTab(aiState, isDark),
+                            _buildIllustrationsTab(aiState, isDark),
+                            _buildLexicalExegesisTab(aiState, isDark),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Tabs com Indicador Elegante
-            const TabBar(
-              labelColor: Color(0xFF7C3AED),
-              indicatorColor: Color(0xFF7C3AED),
-              indicatorWeight: 3,
-              tabs: [
-                Tab(icon: Icon(Icons.auto_awesome, size: 18), text: 'Gerador Esboço'),
-                Tab(icon: Icon(Icons.lightbulb_outline, size: 18), text: 'Ilustrações'),
-                Tab(icon: Icon(Icons.translate, size: 18), text: 'Grego & Hebraico'),
+                ),
               ],
             ),
-
-            // Tab Views
-            Expanded(
-              child: aiState.isLoading
-                  ? _buildLoadingState(isDark)
-                  : TabBarView(
-                      children: [
-                        _buildOutlineGeneratorTab(aiState, isDark),
-                        _buildIllustrationsTab(aiState, isDark),
-                        _buildLexicalExegesisTab(aiState, isDark),
-                      ],
-                    ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -239,13 +422,13 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Construindo Esboço Homilético Profundo...',
+              'Gemini IA Construindo Esboço Homilético Profundo...',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Analisando texto bíblico • Cruzando pontes teológicas • Estruturando 5 divisões com exegese e aplicação',
+              'Analisando texto bíblico e tema • Cruzando conexões proféticas e messiânicas • Estruturando 5 divisões',
               style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
@@ -258,20 +441,32 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
   // TAB 1: GERADOR DE ESBOÇO
   Widget _buildOutlineGeneratorTab(AiAssistantState aiState, bool isDark) {
     final outline = aiState.generatedOutline;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Column(
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            controller: _outlineScrollCtrl,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset > 0 ? 140 : 32),
             children: [
-              // Sugestões Rápidas de Presets
+              // Sugestões Rápidas de Presets com Teologia Sólida
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Text('Sugestões:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ActionChip(
+                    visualDensity: VisualDensity.compact,
+                    label: const Text('Sl 22 & Cruz (Mateus 27)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    onPressed: () => _applyPreset(
+                      'Entre Salmo 22 e a Crucificação de Jesus',
+                      'Salmos 22 / Mateus 27:35-50',
+                      'Expositivo',
+                    ),
+                  ),
                   ActionChip(
                     visualDensity: VisualDensity.compact,
                     label: const Text('Efésios 2 (Graça Soberana)', style: TextStyle(fontSize: 11)),
@@ -287,30 +482,29 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                     label: const Text('Salmos 23 (O Bom Pastor)', style: TextStyle(fontSize: 11)),
                     onPressed: () => _applyPreset('O Senhor é o Meu Pastor', 'Salmos 23:1-6', 'Expositivo'),
                   ),
-                  ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: const Text('Marcos 4 (Tempestade)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _applyPreset('Paz em Meio à Tempestade', 'Marcos 4:35-41', 'Textual'),
-                  ),
                 ],
               ),
               const SizedBox(height: 14),
 
-              // Formulário de Entrada
+              // Formulário de Entrada com Auto-Scroll no Foco do Teclado
               TextField(
                 controller: _themeCtrl,
+                focusNode: _themeFocusNode,
+                scrollPadding: const EdgeInsets.only(bottom: 240),
                 decoration: const InputDecoration(
                   labelText: 'Tema ou Ideia Central da Mensagem',
-                  hintText: 'Ex: A Graça que Transforma',
+                  hintText: 'Ex: Entre Salmo 22 e a Crucificação de Jesus',
                   prefixIcon: Icon(Icons.topic_outlined),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _refCtrl,
+                focusNode: _refFocusNode,
+                scrollPadding: const EdgeInsets.only(bottom: 260),
                 decoration: const InputDecoration(
                   labelText: 'Texto Bíblico Principal',
-                  hintText: 'Ex: Efésios 2:1-10',
+                  hintText: 'Ex: Salmos 22 / Mateus 27',
                   prefixIcon: Icon(Icons.bookmark_border),
                 ),
               ),
@@ -328,14 +522,16 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                   if (val != null) setState(() => _selectedSermonType = val);
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
-              // Botão Gerar
+              // Botão Gerar com Gemini IA
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
                   onTap: () {
+                    // Esconde teclado para visualização imediata do progresso
+                    FocusScope.of(context).unfocus();
                     ref.read(aiAssistantProvider.notifier).generateOutline(
                           theme: _themeCtrl.text,
                           biblicalReference: _refCtrl.text,
@@ -359,15 +555,18 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                       ],
                     ),
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                           SizedBox(width: 10),
-                          Text(
-                            'Gerar Esboço Estruturado com IA (5 Tópicos)',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          Flexible(
+                            child: Text(
+                              'Gerar Esboço com Agente Gemini (5 Tópicos)',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -414,7 +613,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
-                              '✨ Esboço Estruturado Completo (5 Pontos)',
+                              '✨ Esboço Gerado por Gemini IA (5 Pontos)',
                               style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                           ),
@@ -434,16 +633,19 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                       const SizedBox(height: 12),
                       Text(
                         outline.title,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: -0.4),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19, letterSpacing: -0.4),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           const Icon(Icons.menu_book, size: 16, color: AppColors.primaryElectricBlue),
                           const SizedBox(width: 6),
-                          Text(
-                            outline.biblicalReference,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryElectricBlue, fontSize: 13),
+                          Expanded(
+                            child: Text(
+                              outline.biblicalReference,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryElectricBlue, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -799,6 +1001,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
       children: [
         TextField(
           controller: _illustrationContextCtrl,
+          scrollPadding: const EdgeInsets.only(bottom: 120),
           decoration: const InputDecoration(
             labelText: 'Contexto ou Ponto do Sermão',
             hintText: 'Ex: A fidelidade de Deus em meio ao desemprego',
@@ -863,6 +1066,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
       children: [
         TextField(
           controller: _exegesisPassageCtrl,
+          scrollPadding: const EdgeInsets.only(bottom: 120),
           decoration: const InputDecoration(
             labelText: 'Passagem Bíblica para Análise Original',
             hintText: 'Ex: Filipenses 4:6-7 ou Efésios 2:8',
@@ -901,36 +1105,28 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        insight.word,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
+                        '${insight.word} (${insight.transliteration})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF7C3AED)),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.15),
+                          color: AppColors.accentGold.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           insight.strongNumber,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.accentGold),
                         ),
                       ),
                     ],
                   ),
-                  Text(
-                    '${insight.transliteration} • ${insight.language}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  const SizedBox(height: 4),
+                  Text(insight.language, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                   const SizedBox(height: 8),
-                  Text(
-                    'Significado: ${insight.meaning}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    insight.theologicalInsight,
-                    style: TextStyle(fontSize: 12.5, height: 1.4, color: isDark ? Colors.grey[300] : Colors.grey[700]),
-                  ),
+                  Text('Significado: ${insight.meaning}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Text(insight.theologicalInsight, style: const TextStyle(fontSize: 12, height: 1.4)),
                 ],
               ),
             );

@@ -1,5 +1,6 @@
 import '../../models/sermon_block.dart';
 import '../../models/sermon_model.dart';
+import 'gemini_homiletics_agent.dart';
 
 class GeneratedOutlineResult {
   final String title;
@@ -68,134 +69,148 @@ class GreekHebrewInsight {
 
 class AiHomileticsService {
   /// Gera um esboço completo de homilética de alta riqueza exegética com 5 divisões e pontes bíblicas
+  /// utilizando o Agente Gemini AI com contingência contextual avançada.
   static Future<GeneratedOutlineResult> generateOutline({
     required String theme,
     required String biblicalReference,
     required String sermonType,
   }) async {
-    // Simulação com latência realista do motor teológico
-    await Future.delayed(const Duration(milliseconds: 1100));
+    return GeminiHomileticsAgent.generateSermon(
+      theme: theme,
+      biblicalReference: biblicalReference,
+      sermonType: sermonType,
+    );
+  }
 
+  static GeneratedOutlineResult generateDefaultEfesianOutline(
+    String theme,
+    String biblicalReference,
+    String sermonType,
+  ) {
     final cleanTheme = theme.trim().isEmpty ? 'Salvos pelo Mérito de Cristo' : theme.trim();
     final cleanRef = biblicalReference.trim().isEmpty ? 'Efésios 2:1-10' : biblicalReference.trim();
-    final lowerRef = cleanRef.toLowerCase();
-    final lowerTheme = cleanTheme.toLowerCase();
 
-    // 1. ESPECIALIZAÇÃO EXPOSITIVA: EFÉSIOS 2 (A Obra Soberana da Graça)
-    if (lowerRef.contains('efés') || lowerRef.contains('efes') || lowerTheme.contains('mérito') || lowerTheme.contains('graça')) {
-      return GeneratedOutlineResult(
-        title: cleanTheme.isNotEmpty && cleanTheme != 'Salvos pelo mérito de Cristo' ? cleanTheme : 'Salvos pelo Mérito de Cristo',
-        biblicalReference: cleanRef,
-        sermonType: sermonType,
-        historicalContext:
-            'Carta escrita pelo apóstolo Paulo por volta de 60-62 d.C. enquanto prisioneiro em Roma. '
-            'Éfeso era uma metrópole gentílica dominada pelo ocultismo e pelo templo de Ártemis. Paulo contrasta '
-            'a antiga morte espiritual sob os principados das trevas com a triunfante exaltação dos crentes assentados em Cristo.',
-        crossReferences: const [
-          'Romanos 5:1-11 (Justificação e Paz)',
-          'Gênesis 3:1-15 (A Queda e a Promessa da Redenção)',
-          'Colossenses 2:13-15 (O Triunfo da Cruz sobre as Dívidas)',
-          'Isaías 57:19 (Paz para os que Estavam Longe e Perto)',
-          'Tito 3:4-7 (A Salvação Não por Obras de Justiça Própria)',
-        ],
-        introduction:
-            'O evangelho não é um manual de autoajuda que ensina homens caídos a se reerguerem; é uma declaração '
-            'de ressurreição espiritual onde o Deus Todo-Poderoso desce ao abismo da nossa incapacidade. '
-            'Em $cleanRef, Paulo desmonta toda pretensão de mérito humano e constrói o monumento supremo da graça soberana. '
-            'Nossa esperança eterna não reside no que fizemos para Deus, mas no que Cristo consumou vicariamente em nosso favor.',
-        blocks: [
-          HomileticBlock(
-            id: UniqueKeyString.generate(),
-            title: '1. O Diagnóstico Universal: A Falência Total do Homem Sem Deus',
-            biblicalReference: 'Efésios 2:1-3 • Pontes: Romanos 5:12; Jeremias 17:9; Colossenses 2:13',
-            explanation:
-                'Paulo utiliza o termo grego "nekros" (cadáver, morto espiritualmente) para descrever o estado humano. '
-                'O homem não estava meramente doente ou desorientado moralmente; estava morto em delitos e pecados, '
-                'seguindo voluntariamente o curso deste mundo ("aion"), subjugado pelo príncipe da potestade do ar e pelas paixões da carne.',
-            illustration:
-                'O náufrago no fundo do oceano: um homem sem oxigênio não precisa de lições de natação ou de uma boia jogada à distância; '
-                'ele necessita que um mergulhador desça às trevas profundas, o tome em seus braços e insufle vida em seus pulmões inertes.',
-            application:
-                'Reconheça a seriedade da sua condição natural. Ninguém pode valorizar a grandeza do remédio da cruz enquanto '
-                'minimizar a gravidade mortal do pecado em seu próprio coração.',
-            orderIndex: 0,
-          ),
-          HomileticBlock(
-            id: UniqueKeyString.generate(),
-            title: '2. A Virada Soberana: "Mas Deus, Sendo Rico em Misericórdia"',
-            biblicalReference: 'Efésios 2:4-7 • Pontes: Lamentações 3:22-23; Salmos 103:10-12; Tito 3:4-5',
-            explanation:
-                'A conjunção adversativa grega "De" ("Mas Deus") introduz a maior intervenção da história cósmica. '
-                'Quando a justiça exigia a nossa condenação irrevogável, a misericórdia ("eleos") e o supremo amor sacrificial ("agape") '
-                'de Deus irromperam. Ele nos vivificou juntamente com Cristo e nos assentou espiritualmente nos lugares celestiais.',
-            illustration:
-                'O tribunal onde o réu confesso aguarda a sentença de morte, e o próprio magistrado se despoja de suas vestes judiciais, '
-                'desce do estrado supremo, assume a penalidade em seu próprio corpo e estende uma carta irrevogável de adoção familiar.',
-            application:
-                'Pare de olhar para as suas fraquezas como o limite do que Deus pode fazer. Quando o desespero disser "tudo acabou", '
-                'lembre-se do decreto celestial: "Mas Deus!" Ele é rico em misericórdia para com você hoje.',
-            orderIndex: 1,
-          ),
-          HomileticBlock(
-            id: UniqueKeyString.generate(),
-            title: '3. A Gratuidade Inegociável: Pela Graça Mediante a Fé, Dom de Deus',
-            biblicalReference: 'Efésios 2:8-9 • Pontes: Romanos 3:24-28; Gálatas 2:16; Isaías 64:6',
-            explanation:
-                'A salvação provém exclusivamente da graça ("charis" - favor imerecido e gratuito) através do canal da fé ("pistis"). '
-                'Paulo enfatiza enfaticamente: "isto não vem de vós, é dom de Deus; não vem das obras, para que ninguém se glorie" ("kauchomai"). '
-                'Qualquer tentativa de somar justiça própria ao sacrifício de Jesus constitui afronta à perfeição do Calvário.',
-            illustration:
-                'Um banquete real de valor incalculável preparado pelo soberano: se um convidado tentar tirar uma moeda oxidada do bolso '
-                'para pagar pelo banquete, ele não demonstra dignidade, mas insulta gravemente a generosidade do rei.',
-            application:
-                'Abandone de uma vez por todas o legalismo religioso e a culpa paralisante. Receba o abraço da graça com as mãos vazias, '
-                'confiando que o sangue vertido na cruz é 100% suficiente para purificar o seu passado e garantir o seu futuro.',
-            orderIndex: 2,
-          ),
-          HomileticBlock(
-            id: UniqueKeyString.generate(),
-            title: '4. O Propósito da Redenção: Feitura Sua, Criados para as Boas Obras',
-            biblicalReference: 'Efésios 2:10 • Pontes: 2 Coríntios 5:17; Tiago 2:17-18; Mateus 5:16',
-            explanation:
-                'O vocábulo grego "poiema" (de onde deriva "poema" ou "obra-prima artesanal") declara que a igreja é a escultura divina. '
-                'Não somos salvos *pelas* obras, mas fomos salvos *para* as boas obras que Deus preparou de antemão ("proetoimazo") '
-                'para que andássemos nelas. As obras não são a raiz da salvação, mas o fruto inevitável de uma vida regenerada.',
-            illustration:
-                'A macieira não produz maçãs doces para provar que é macieira; ela produz maçãs porque a vida e a seiva da árvore '
-                'fluem naturalmente em seus ramos podados e cuidados pelo agricultor.',
-            application:
-                'Seja a expressão visível do poema da graça de Deus no seu trabalho, em sua casa e na sociedade. '
-                'Viva de modo que os homens vejam suas boas obras e glorifiquem o Pai que está nos céus.',
-            orderIndex: 3,
-          ),
-          HomileticBlock(
-            id: UniqueKeyString.generate(),
-            title: '5. A Nova Comunidade de Paz: A Derrubada da Parede de Separação',
-            biblicalReference: 'Efésios 2:11-22 • Pontes: Isaías 57:19; Gálatas 3:28; 1 Pedro 2:9-10',
-            explanation:
-                'Cristo não apenas reconciliou o homem com Deus, mas derrubou a parede intermediária de inimizade ("mesotoichon"). '
-                'Gentios e judeus, distantes e próximos, agora formam "um novo homem" ("heis kainos anthropos"), '
-                'sendo edificados sobre o fundamento dos apóstolos e profetas, tendo Jesus como a pedra angular ("akrogoniaios").',
-            illustration:
-                'A demolição de muralhas históricas de divisão: famílias antes separadas por arames farpados se abraçando em pranto, '
-                'celebrando uma cidadania comum onde não há mais estrangeiros nem peregrinos, mas concidadãos do Reino.',
-            application:
-                'Derrube todo muro de rancor, amargura ou preconceito em seus relacionamentos. '
-                'Se Cristo nos uniu no mesmo corpo na cruz, vivamos como a verdadeira família dos santos em amor e comunhão.',
-            orderIndex: 4,
-          ),
-        ],
-        conclusion:
-            'A mensagem de Efésios 2 ecoa através dos séculos: do vale da morte espiritual fomos transportados para os lugares celestiais '
-            'não por mérito, barganha ou justiça própria, mas pelo amor imensurável daquele que entregou a Sua vida por nós. '
-            'Somos a feitura de Deus, um monumento vivo ao louvor da glória da Sua graça!',
-        appeal:
-            'Você que tem tentado agradar a Deus pelas suas próprias forças ou que se sente distante do amor celestial, '
-            'abandone hoje os seus fardos. Aproxime-se do trono da graça com fé; Jesus já pagou a sua dívida na cruz!',
-      );
-    }
+    return GeneratedOutlineResult(
+      title: cleanTheme,
+      biblicalReference: cleanRef,
+      sermonType: sermonType,
+      historicalContext:
+          'Carta escrita pelo apóstolo Paulo por volta de 60-62 d.C. enquanto prisioneiro em Roma. '
+          'Éfeso era uma metrópole gentílica dominada pelo ocultismo e pelo templo de Ártemis. Paulo contrasta '
+          'a antiga morte espiritual sob os principados das trevas com a triunfante exaltação dos crentes assentados em Cristo.',
+      crossReferences: const [
+        'Romanos 5:1-11 (Justificação e Paz)',
+        'Gênesis 3:1-15 (A Queda e a Promessa da Redenção)',
+        'Colossenses 2:13-15 (O Triunfo da Cruz sobre as Dívidas)',
+        'Isaías 57:19 (Paz para os que Estavam Longe e Perto)',
+        'Tito 3:4-7 (A Salvação Não por Obras de Justiça Própria)',
+      ],
+      introduction:
+          'O evangelho não é um manual de autoajuda que ensina homens caídos a se reerguerem; é uma declaração '
+          'de ressurreição espiritual onde o Deus Todo-Poderoso desce ao abismo da nossa incapacidade. '
+          'Em $cleanRef, Paulo desmonta toda pretensão de mérito humano e constrói o monumento supremo da graça soberana. '
+          'Nossa esperança eterna não reside no que fizemos para Deus, mas no que Cristo consumou vicariamente em nosso favor.',
+      blocks: [
+        HomileticBlock(
+          id: UniqueKeyString.generate(),
+          title: '1. O Diagnóstico Universal: A Falência Total do Homem Sem Deus',
+          biblicalReference: 'Efésios 2:1-3 • Pontes: Romanos 5:12; Jeremias 17:9; Colossenses 2:13',
+          explanation:
+              'Paulo utiliza o termo grego "nekros" (cadáver, morto espiritualmente) para descrever o estado humano. '
+              'O homem não estava meramente doente ou desorientado moralmente; estava morto em delitos e pecados, '
+              'seguindo voluntariamente o curso deste mundo ("aion"), subjugado pelo príncipe da potestade do ar e pelas paixões da carne.',
+          illustration:
+              'O náufrago no fundo do oceano: um homem sem oxigênio não precisa de lições de natação ou de uma boia jogada à distância; '
+          'ele necessita que um mergulhador desça às trevas profundas, o tome em seus braços e insufle vida em seus pulmões inertes.',
+          application:
+              'Reconheça a seriedade da sua condição natural. Ninguém pode valorizar a grandeza do remédio da cruz enquanto '
+              'minimizar a gravidade mortal do pecado em seu próprio coração.',
+          orderIndex: 0,
+        ),
+        HomileticBlock(
+          id: UniqueKeyString.generate(),
+          title: '2. A Virada Soberana: "Mas Deus, Sendo Rico em Misericórdia"',
+          biblicalReference: 'Efésios 2:4-7 • Pontes: Lamentações 3:22-23; Salmos 103:10-12; Tito 3:4-5',
+          explanation:
+              'A conjunção adversativa grega "De" ("Mas Deus") introduz a maior intervenção da história cósmica. '
+              'Quando a justiça exigia a nossa condenação irrevogável, a misericórdia ("eleos") e o supremo amor sacrificial ("agape") '
+              'de Deus irromperam. Ele nos vivificou juntamente com Cristo e nos assentou espiritualmente nos lugares celestiais.',
+          illustration:
+              'O tribunal onde o réu confesso aguarda a sentença de morte, e o próprio magistrado se despoja de suas vestes judiciais, '
+              'desce do estrado supremo, assume a penalidade em seu próprio corpo e estende uma carta irrevogável de adoção familiar.',
+          application:
+              'Pare de olhar para as suas fraquezas como o limite do que Deus pode fazer. Quando o desespero disser "tudo acabou", '
+              'lembre-se do decreto celestial: "Mas Deus!" Ele é rico em misericórdia para com você hoje.',
+          orderIndex: 1,
+        ),
+        HomileticBlock(
+          id: UniqueKeyString.generate(),
+          title: '3. A Gratuidade Inegociável: Pela Graça Mediante a Fé, Dom de Deus',
+          biblicalReference: 'Efésios 2:8-9 • Pontes: Romanos 3:24-28; Gálatas 2:16; Isaías 64:6',
+          explanation:
+              'A salvação provém exclusivamente da graça ("charis" - favor imerecido e gratuito) através do canal da fé ("pistis"). '
+              'Paulo enfatiza enfaticamente: "isto não vem de vós, é dom de Deus; não vem das obras, para que ninguém se glorie" ("kauchomai"). '
+              'Qualquer tentativa de somar justiça própria ao sacrifício de Jesus constitui afronta à perfeição do Calvário.',
+          illustration:
+              'Um banquete real de valor incalculável preparado pelo soberano: se um convidado tentar tirar uma moeda oxidada do bolso '
+              'para pagar pelo banquete, ele não demonstra dignidade, mas insulta gravemente a generosidade do rei.',
+          application:
+              'Abandone de uma vez por todas o legalismo religioso e a culpa paralisante. Receba o abraço da graça com as mãos vazias, '
+              'confiando que o sangue vertido na cruz é 100% suficiente para purificar o seu passado e garantir o seu futuro.',
+          orderIndex: 2,
+        ),
+        HomileticBlock(
+          id: UniqueKeyString.generate(),
+          title: '4. O Propósito da Redenção: Feitura Sua, Criados para as Boas Obras',
+          biblicalReference: 'Efésios 2:10 • Pontes: 2 Coríntios 5:17; Tiago 2:17-18; Mateus 5:16',
+          explanation:
+              'O vocábulo grego "poiema" (de onde deriva "poema" ou "obra-prima artesanal") declara que a igreja é a escultura divina. '
+              'Não somos salvos *pelas* obras, mas fomos salvos *para* as boas obras que Deus preparou de antemão ("proetoimazo") '
+              'para que andássemos nelas. As obras não são a raiz da salvação, mas o fruto inevitável de uma vida regenerada.',
+          illustration:
+              'A macieira não produz maçãs doces para provar que é macieira; ela produz maçãs porque a vida e a seiva da árvore '
+              'fluem naturalmente em seus ramos podados e cuidados pelo agricultor.',
+          application:
+              'Seja a expressão visível do poema da graça de Deus no seu trabalho, em sua casa e na sociedade. '
+              'Viva de modo que os homens vejam suas boas obras e glorifiquem o Pai que está nos céus.',
+          orderIndex: 3,
+        ),
+        HomileticBlock(
+          id: UniqueKeyString.generate(),
+          title: '5. A Nova Comunidade de Paz: A Derrubada da Parede de Separação',
+          biblicalReference: 'Efésios 2:11-22 • Pontes: Isaías 57:19; Gálatas 3:28; 1 Pedro 2:9-10',
+          explanation:
+              'Cristo não apenas reconciliou o homem com Deus, mas derrubou a parede intermediária de inimizade ("mesotoichon"). '
+              'Gentios e judeus, distantes e próximos, agora formam "um novo homem" ("heis kainos anthropos"), '
+              'sendo edificados sobre o fundamento dos apóstolos e profetas, tendo Jesus como a pedra angular ("akrogoniaios").',
+          illustration:
+              'A demolição de muralhas históricas de divisão: famílias antes separadas por arames farpados se abraçando em pranto, '
+              'celebrando uma cidadania comum onde não há mais estrangeiros nem peregrinos, mas concidadãos do Reino.',
+          application:
+              'Derrube todo muro de rancor, amargura ou preconceito em seus relacionamentos. '
+              'Se Cristo nos uniu no mesmo corpo na cruz, vivamos como a verdadeira família dos santos em amor e comunhão.',
+          orderIndex: 4,
+        ),
+      ],
+      conclusion:
+          'A mensagem de Efésios 2 ecoa através dos séculos: do vale da morte espiritual fomos transportados para os lugares celestiais '
+          'não por mérito, barganha ou justiça própria, mas pelo amor imensurável daquele que entregou a Sua vida por nós. '
+          'Somos a feitura de Deus, um monumento vivo ao louvor da glória da Sua graça!',
+      appeal:
+          'Você que tem tentado agradar a Deus pelas suas próprias forças ou que se sente distante do amor celestial, '
+          'abandone hoje os seus fardos. Aproxime-se do trono da graça com fé; Jesus já pagou a sua dívida na cruz!',
+    );
+  }
 
-    // 2. MOTOR HOMILÉTICO DINÂMICO PARA QUALQUER TEXTO OU TEMA INFORMADO PELO PREGADOR
+  // 2. MOTOR HOMILÉTICO DINÂMICO PARA QUALQUER TEXTO OU TEMA INFORMADO PELO PREGADOR
+  static GeneratedOutlineResult generateDefaultDynamicOutline(
+    String theme,
+    String biblicalReference,
+    String sermonType,
+  ) {
+    final cleanTheme = theme.trim().isEmpty ? 'A Fidelidade Soberana de Deus' : theme.trim();
+    final cleanRef = biblicalReference.trim().isEmpty ? 'Passagem Bíblica' : biblicalReference.trim();
+
     return GeneratedOutlineResult(
       title: cleanTheme,
       biblicalReference: cleanRef,
