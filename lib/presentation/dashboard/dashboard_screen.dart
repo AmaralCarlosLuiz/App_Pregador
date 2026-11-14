@@ -527,7 +527,7 @@ class DashboardScreen extends ConsumerWidget {
             end: Alignment.bottomRight,
           ),
           shadowColor: const Color(0xFF2563EB),
-          onTap: () => _openNewSermon(context),
+          onTap: () => _openNewSermon(context, ref),
         ),
         _buildTactile3DButton(
           icon: Icons.psychology_alt,
@@ -856,7 +856,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => _openNewSermon(context),
+            onPressed: () => _openNewSermon(context, ref),
             child: const Text('Criar Primeiro Sermão'),
           ),
         ],
@@ -864,7 +864,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _openNewSermon(BuildContext context) async {
+  void _openNewSermon(BuildContext context, WidgetRef ref) async {
     final newSermon = Sermon(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       userId: 'pastor-local-01',
