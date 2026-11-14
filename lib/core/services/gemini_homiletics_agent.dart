@@ -278,8 +278,8 @@ REGRAS OBRIGATÓRIAS:
         lowerRef.contains('mateus 27') ||
         (lowerRef.contains('mateus') && lowerTheme.contains('salmo'))) {
       return GeneratedOutlineResult(
-        title: 'A Cruz Profetizada e Consumada: O Salmo 22 no Calvário',
-        biblicalReference: 'Salmos 22:1-31 & Mateus 27:35-50',
+        title: theme.trim().isNotEmpty ? theme.trim() : 'A Cruz Profetizada e Consumada: O Salmo 22 no Calvário',
+        biblicalReference: biblicalReference.trim().isNotEmpty ? biblicalReference.trim() : 'Salmos 22:1-31 & Mateus 27:35-50',
         sermonType: sermonType,
         historicalContext:
             'Composto pelo rei Davi mil anos antes de Cristo, o Salmo 22 descreve com precisão cirúrgica '

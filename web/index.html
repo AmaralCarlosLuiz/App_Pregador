@@ -234,20 +234,14 @@
         blockRightClick: true,
         blockDevToolsShortcuts: true,
         blockSelect: false,
-        blockDragAndDrop: true,
+        blockDragAndDrop: false,
         showConsoleWarning: true,
         enableAntiDebugger: false,
-        enableConsoleSanitize: true,
+        enableConsoleSanitize: false,
       };
 
-      const isProduction = () => {
-        try {
-          const host = window.location.hostname;
-          return host !== "localhost" && host !== "127.0.0.1" && !host.startsWith("192.168.");
-        } catch (_) {
-          return false;
-        }
-      };
+      // Detecta dispositivos de toque (iPhone, iPad, Android) para nao travar gestos nativos de toque
+      const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
 
       const isEditableElement = (target) => {
         if (!target || !target.tagName) return false;
@@ -263,6 +257,7 @@
 
       let lastToastTime = 0;
       const showSecurityToast = (type, title, description, duration = 3200) => {
+        if (isTouchDevice) return; // Nao poluir nem interferir em smartphones/tablets
         const now = Date.now();
         if (now - lastToastTime < 900) return;
         lastToastTime = now;
@@ -289,10 +284,8 @@
         }, duration);
       };
 
-      const inProd = isProduction();
-
-      // 1. Camada 1: Bloqueio de Menu de Contexto (Botão Direito)
-      if (DEFAULT_CONFIG.blockRightClick) {
+      // 1. Camada 1: Bloqueio de Menu de Contexto apenas no Desktop (Mouse) - NUNCA em Touch (iPhone/iPad)
+      if (DEFAULT_CONFIG.blockRightClick && !isTouchDevice) {
         window.addEventListener(
           "contextmenu",
           function (e) {
@@ -303,18 +296,18 @@
               showSecurityToast(
                 "warning",
                 "Proteção de Código Ativa",
-                "A inspeção e cópia do código fonte do Sistema são restritas por políticas de segurança corporativa.",
-                3000
+                "A inspeção e cópia do código fonte do Sistema são restritas.",
+                2500
               );
               return false;
             }
           },
-          { capture: true }
+          { capture: false }
         );
       }
 
-      // 2. Camada 2: Bloqueio de Atalhos de Desenvolvedor (F12, Ctrl+Shift+I/J/C, Ctrl+U/S/P, Shift+F10)
-      if (DEFAULT_CONFIG.blockDevToolsShortcuts) {
+      // 2. Camada 2: Bloqueio de Atalhos de Desenvolvedor no Desktop
+      if (DEFAULT_CONFIG.blockDevToolsShortcuts && !isTouchDevice) {
         const handleKeyDown = function (e) {
           const isCtrl = e.ctrlKey;
           const isCmd = e.metaKey;
@@ -341,8 +334,8 @@
             showSecurityToast(
               "error",
               "Acesso Restrito",
-              "Os atalhos de desenvolvedor e inspeção de código fonte estão desabilitados neste ambiente.",
-              3500
+              "Os atalhos de desenvolvedor estão desabilitados neste ambiente.",
+              3000
             );
             return false;
           }
@@ -352,54 +345,13 @@
         document.addEventListener("keydown", handleKeyDown, { capture: true });
       }
 
-      // 3. Camada 3: Prevenção de Drag & Drop de Ativos
-      if (DEFAULT_CONFIG.blockDragAndDrop) {
-        document.addEventListener(
-          "dragstart",
-          function (e) {
-            const target = e.target;
-            if (target && target.tagName) {
-              const tag = target.tagName.toUpperCase();
-              if (tag === "IMG" || tag === "VIDEO" || tag === "SVG" || tag === "CANVAS") {
-                e.preventDefault();
-              }
-            }
-          },
-          { capture: true }
-        );
-      }
-
-      // 4. Camada 4: Armadilha Anti-Debugger em Produção
-      if (DEFAULT_CONFIG.enableAntiDebugger && inProd) {
-        try {
-          setInterval(function () {
-            const fn = new Function("debugger");
-            fn();
-          }, 1500);
-        } catch (_) {}
-      }
-
-      // 5. Camada 5: Sanitização de Console & Alerta Institucional LGPD
+      // 3. Log de Inicializacao Institucional
       if (DEFAULT_CONFIG.showConsoleWarning) {
         try {
-          console.clear();
           console.log(
-            "%c 🛡️ SEGURANÇA ENTERPRISE ATIVADA - PREGADOR PRO ",
-            "background: #dc2626; color: #ffffff; font-size: 16px; font-weight: bold; padding: 6px 12px; border-radius: 6px;"
+            "%c 🛡️ PREGADOR PRO v2.1 ATIVO ",
+            "background: #7c3aed; color: #ffffff; font-size: 13px; font-weight: bold; padding: 4px 8px; border-radius: 4px;"
           );
-          console.log(
-            "%c ⚠️ ATENÇÃO: Esta é uma área restrita destinada exclusivamente a usuários autorizados.\nA execução indevida de scripts ou extração não autorizada do código fonte viola as diretrizes de conformidade e LGPD.",
-            "color: #f59e0b; font-size: 12px; font-weight: 500; margin-top: 6px;"
-          );
-
-          if (DEFAULT_CONFIG.enableConsoleSanitize && inProd) {
-            const noop = function () {};
-            console.log = noop;
-            console.debug = noop;
-            console.info = noop;
-            console.dir = noop;
-            console.table = noop;
-          }
         } catch (_) {}
       }
     })();

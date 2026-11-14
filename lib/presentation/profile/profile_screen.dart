@@ -661,19 +661,30 @@ class ProfileScreen extends ConsumerWidget {
             ),
             FilledButton(
               onPressed: () async {
-                await ref.read(authProvider.notifier).updateProfile(
-                      fullName: nameCtrl.text,
-                      ministryTitle: titleCtrl.text,
-                      churchName: churchCtrl.text,
+                try {
+                  await ref.read(authProvider.notifier).updateProfile(
+                        fullName: nameCtrl.text,
+                        ministryTitle: titleCtrl.text,
+                        churchName: churchCtrl.text,
+                      );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Perfil ministerial atualizado com sucesso!'),
+                        backgroundColor: AppColors.statusReady,
+                      ),
                     );
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Perfil atualizado com sucesso!'),
-                      backgroundColor: AppColors.statusReady,
-                    ),
-                  );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erro ao salvar perfil: $e'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('Salvar Alterações'),

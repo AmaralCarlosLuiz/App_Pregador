@@ -220,14 +220,18 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
     }
   }
 
-  void _openInEditor(GeneratedOutlineResult outline) {
+  void _openInEditor(GeneratedOutlineResult outline) async {
     final sermon = outline.toSermon();
-    Navigator.pop(context);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SermonEditorScreen(initialSermon: sermon),
-      ),
-    );
+    await ref.read(sermonRepositoryProvider).saveSermon(sermon);
+    await ref.read(sermonListProvider.notifier).loadSermons();
+    if (mounted) {
+      Navigator.pop(context);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SermonEditorScreen(initialSermon: sermon),
+        ),
+      );
+    }
   }
 
   @override
@@ -237,14 +241,10 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
     final mediaQuery = MediaQuery.of(context);
     final bottomInset = mediaQuery.viewInsets.bottom;
     final availableHeight = mediaQuery.size.height - mediaQuery.padding.top;
-    final sheetHeight = bottomInset > 0
-        ? (availableHeight - bottomInset)
-        : (availableHeight * 0.92);
+    final sheetHeight = availableHeight * 0.94;
 
-    return AnimatedPadding(
+    return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
       child: SafeArea(
         top: false,
         child: Container(
@@ -451,38 +451,43 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset > 0 ? 140 : 32),
             children: [
-              // Sugestões Rápidas de Presets com Teologia Sólida
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text('Sugestões:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: const Text('Sl 22 & Cruz (Mateus 27)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    onPressed: () => _applyPreset(
-                      'Entre Salmo 22 e a Crucificação de Jesus',
-                      'Salmos 22 / Mateus 27:35-50',
-                      'Expositivo',
+              // Sugestões Rápidas de Presets em Fita Horizontal Compacta (Sem poluir nem roubar altura)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    const Text('Sugestões:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      label: const Text('Sl 22 & Cruz (Mateus 27)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () => _applyPreset(
+                        'Entre Salmo 22 e a Crucificação de Jesus',
+                        'Salmos 22 / Mateus 27:35-50',
+                        'Expositivo',
+                      ),
                     ),
-                  ),
-                  ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: const Text('Efésios 2 (Graça Soberana)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _applyPreset('Salvos pelo Mérito de Cristo', 'Efésios 2:1-10', 'Expositivo'),
-                  ),
-                  ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: const Text('Romanos 8 (Amor Inabalável)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _applyPreset('Mais que Vencedores em Cristo', 'Romanos 8:31-39', 'Expositivo'),
-                  ),
-                  ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: const Text('Salmos 23 (O Bom Pastor)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _applyPreset('O Senhor é o Meu Pastor', 'Salmos 23:1-6', 'Expositivo'),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      label: const Text('Efésios 2 (Graça Soberana)', style: TextStyle(fontSize: 11)),
+                      onPressed: () => _applyPreset('Salvos pelo Mérito de Cristo', 'Efésios 2:1-10', 'Expositivo'),
+                    ),
+                    const SizedBox(width: 6),
+                    ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      label: const Text('Romanos 8 (Amor Inabalável)', style: TextStyle(fontSize: 11)),
+                      onPressed: () => _applyPreset('Mais que Vencedores em Cristo', 'Romanos 8:31-39', 'Expositivo'),
+                    ),
+                    const SizedBox(width: 6),
+                    ActionChip(
+                      visualDensity: VisualDensity.compact,
+                      label: const Text('Salmos 23 (O Bom Pastor)', style: TextStyle(fontSize: 11)),
+                      onPressed: () => _applyPreset('O Senhor é o Meu Pastor', 'Salmos 23:1-6', 'Expositivo'),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
 
@@ -490,7 +495,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
               TextField(
                 controller: _themeCtrl,
                 focusNode: _themeFocusNode,
-                scrollPadding: const EdgeInsets.only(bottom: 240),
+                scrollPadding: const EdgeInsets.only(bottom: 340),
                 decoration: const InputDecoration(
                   labelText: 'Tema ou Ideia Central da Mensagem',
                   hintText: 'Ex: Entre Salmo 22 e a Crucificação de Jesus',
@@ -501,7 +506,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
               TextField(
                 controller: _refCtrl,
                 focusNode: _refFocusNode,
-                scrollPadding: const EdgeInsets.only(bottom: 260),
+                scrollPadding: const EdgeInsets.only(bottom: 360),
                 decoration: const InputDecoration(
                   labelText: 'Texto Bíblico Principal',
                   hintText: 'Ex: Salmos 22 / Mateus 27',

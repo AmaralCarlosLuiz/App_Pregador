@@ -864,7 +864,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _openNewSermon(BuildContext context) {
+  void _openNewSermon(BuildContext context) async {
     final newSermon = Sermon(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       userId: 'pastor-local-01',
@@ -873,11 +873,15 @@ class DashboardScreen extends ConsumerWidget {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SermonEditorScreen(initialSermon: newSermon),
-      ),
-    );
+    await ref.read(sermonRepositoryProvider).saveSermon(newSermon);
+    await ref.read(sermonListProvider.notifier).loadSermons();
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SermonEditorScreen(initialSermon: newSermon),
+        ),
+      );
+    }
   }
 
   void _openAiAssistant(BuildContext context) {

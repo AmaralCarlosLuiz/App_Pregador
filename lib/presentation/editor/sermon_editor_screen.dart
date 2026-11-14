@@ -32,8 +32,15 @@ class SermonEditorScreen extends ConsumerWidget {
     final sermon = editorState.sermon;
     final rev = editorState.revision;
 
-    return Scaffold(
-      appBar: AppBar(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (editorState.hasUnsavedChanges) {
+          await editorNotifier.saveImmediately();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -84,6 +91,51 @@ class SermonEditorScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          // Botão Salvar com Confirmação Tátil e Visual Imediata
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: editorState.hasUnsavedChanges
+                    ? const Color(0xFF7C3AED)
+                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                foregroundColor: editorState.hasUnsavedChanges
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.black87),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: editorState.isSaving
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(
+                      editorState.hasUnsavedChanges ? Icons.save : Icons.check_circle_outline,
+                      size: 16,
+                      color: editorState.hasUnsavedChanges ? Colors.white : AppColors.statusReady,
+                    ),
+              label: Text(
+                editorState.isSaving
+                    ? 'Salvando...'
+                    : (editorState.hasUnsavedChanges ? 'Salvar' : 'Salvo'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () async {
+                await editorNotifier.saveImmediately();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Sermão salvo com sucesso em Meus Sermões!'),
+                      backgroundColor: AppColors.statusReady,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
           // Consultar Bíblia Sagrada
           IconButton(
             tooltip: 'Consultar Bíblia Sagrada',
@@ -410,8 +462,9 @@ class SermonEditorScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSectionHeader({
     required IconData icon,

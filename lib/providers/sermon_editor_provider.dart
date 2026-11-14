@@ -50,10 +50,35 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
       : super(SermonEditorState(
           sermon: initialSermon,
           lastSavedAt: initialSermon.updatedAt,
-        ));
+        )) {
+    // Garante persistência imediata do sermão no repositório e cache local
+    _ensureInitialPersisted(initialSermon);
+  }
+
+  void _ensureInitialPersisted(Sermon initialSermon) async {
+    try {
+      final repo = _ref.read(sermonRepositoryProvider);
+      final existing = await repo.getSermonById(initialSermon.id);
+      if (existing == null) {
+        await repo.saveSermon(initialSermon);
+        _ref.read(sermonListProvider.notifier).loadSermons();
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
+    if (state.hasUnsavedChanges) {
+      final currentSermon = state.sermon.copyWith(updatedAt: DateTime.now());
+      try {
+        final repo = _ref.read(sermonRepositoryProvider);
+        unawaited(repo.saveSermon(currentSermon).then((_) {
+          try {
+            _ref.read(sermonListProvider.notifier).loadSermons();
+          } catch (_) {}
+        }));
+      } catch (_) {}
+    }
     _debounceTimer?.cancel();
     super.dispose();
   }

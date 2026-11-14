@@ -499,7 +499,7 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
     );
   }
 
-  void _createNewSermon(BuildContext context) {
+  void _createNewSermon(BuildContext context) async {
     final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
     final newSermon = Sermon(
       id: UniqueKeyString.generate(),
@@ -509,7 +509,11 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    _openSermonInEditor(context, newSermon);
+    await ref.read(sermonRepositoryProvider).saveSermon(newSermon);
+    await ref.read(sermonListProvider.notifier).loadSermons();
+    if (context.mounted) {
+      _openSermonInEditor(context, newSermon);
+    }
   }
 
   void _openSermonInEditor(BuildContext context, Sermon sermon) {

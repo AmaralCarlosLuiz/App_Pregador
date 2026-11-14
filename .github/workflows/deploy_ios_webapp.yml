@@ -98,8 +98,19 @@ EOF
           name: Pregador-Pro-iOS-iPadOS-Release
           path: build/web
 
-      - name: Deploy to GitHub Pages (gh-pages)
+      - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+
+      - name: Setup GitHub Pages Runtime
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./build/web
+
+      - name: Deploy to GitHub Pages (Native Actions)
+        uses: actions/deploy-pages@v4

@@ -198,10 +198,11 @@ class SermonRepository {
     return kCuratedSermonTemplates;
   }
 
-  /// Sermões iniciais gerados a partir do acervo homilético
+  /// Sermões iniciais gerados a partir do acervo homilético (Carregamento ultra-leve de 6 sermões de demonstração)
   List<Sermon> _getDefaultSeedSermons() {
     final now = DateTime.now();
-    return kCuratedSermonTemplates.asMap().entries.map((entry) {
+    final starterTemplates = kCuratedSermonTemplates.take(6).toList();
+    return starterTemplates.asMap().entries.map((entry) {
       final index = entry.key;
       final tpl = entry.value;
       final rawBlocks = (tpl.content['blocks'] as List<dynamic>?) ?? [];
@@ -221,7 +222,7 @@ class SermonRepository {
         conclusion: tpl.content['conclusion'] as String? ?? '',
         appeal: tpl.content['appeal'] as String? ?? '',
         status: 'ready',
-        isFavorite: index < 5,
+        isFavorite: index < 3,
         preachCount: index == 0 ? 3 : (index == 1 ? 1 : 0),
         estimatedDurationMinutes: 40,
         createdAt: now.subtract(Duration(days: 30 - index % 25)),

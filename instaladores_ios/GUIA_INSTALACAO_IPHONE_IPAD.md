@@ -18,31 +18,45 @@ Você possui três dispositivos Apple de gerações distintas:
 
 ---
 
-## 🚀 Método 1: Instalação Definitiva na Nuvem (Funciona em 4G/5G/Wi-Fi em qualquer lugar)
+## 🚀 Método 1: Instalação Definitiva no iPhone e iPad (Recomendado)
 
-O repositório já possui a esteira automática (`.github/workflows/deploy_ios_webapp.yml`) que compila e publica o **Pregador Pro** no servidor seguro do GitHub Pages:
+### ⚠️ Atenção Importante sobre o erro *"A versão da entidade não é compatível"*:
+Se você tentar abrir o arquivo `.mobileconfig` diretamente pelo aplicativo **Arquivos (Files)** ou pelo **WhatsApp**, o iOS não consegue instalar o perfil e exibe a mensagem *"Erro de Perfil: A versão da entidade não é compatível"*.
+Isso é uma restrição de segurança da própria Apple: perfis `.mobileconfig` só podem ser instalados quando baixados pelo **Safari** ou recebidos pelo app **Mail** nativo.
 
-### Passo único para ativar no seu GitHub (1 minuto):
-1. Acesse no seu navegador: `https://github.com/AmaralCarlosLuiz/App_Pregador/settings/pages`
-2. Em **Build and deployment > Source**, selecione **Deploy from a branch**.
-3. Em **Branch**, selecione **`gh-pages`** (pasta `/ (root)`) e clique em **Save**.
-4. O link oficial do seu aplicativo ficará ativo em:
+Por isso, o método mais rápido, seguro e **100% livre de erros** é a **Opção A (Navegador Safari ➔ Adicionar à Tela de Início)** abaixo:
+
+---
+
+### 🌟 Opção A — Direto pelo Safari ("Adicionar à Tela de Início") [RECOMENDADO]
+1. Abra o navegador **Safari** no seu **iPhone 14 Pro Max**, **iPhone 12** ou **iPad Air** e acesse o endereço do app:
    👉 **`https://amaralcarlosluiz.github.io/App_Pregador/`**
+   *(Se estiver no mesmo Wi-Fi do computador, você também pode usar o endereço local gerado pelo arquivo `.bat`, ex: `http://192.168.x.x:8080`)*.
+2. Na barra inferior do Safari, toque no ícone de **Compartilhar** (o quadrado com uma seta apontando para cima `⬆️`).
+3. Role as opções para cima e toque em **"Adicionar à Tela de Início"** (*Add to Home Screen*).
+4. No canto superior direito, toque em **Adicionar**.
+5. **Pronto!** O ícone oficial de alta definição do **Pregador Pro** será criado na tela inicial do seu aparelho e abrirá em tela cheia nativa (modo PWA), sem barras de navegador.
 
-### Como instalar nos 3 aparelhos:
+---
 
-#### Opção A — Pelo Arquivo Instalador `.mobileconfig` (`Pregador_Pro_iOS_iPadOS.mobileconfig`)
-1. Envie o arquivo `instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig` (por AirDrop, E-mail ou iCloud Drive) para o seu **iPhone 14 Pro Max**, **iPhone 12** e **iPad Air (iOS 12.5.8)** — ou acesse `https://amaralcarlosluiz.github.io/App_Pregador/Pregador_Pro.mobileconfig` pelo **Safari**.
-2. O iOS exibirá o aviso: **"Perfil Baixado"**.
-3. Abra o app **Ajustes** do iPhone/iPad ➔ toque em **Perfil Baixado** (ou *Geral > Perfis e Gerenciamento de Dispositivo* no iOS 12.5.8) ➔ toque em **Instalar** no canto superior direito.
-4. Pronto! O aplicativo **Pregador Pro** aparecerá imediatamente na sua Tela de Início e abrirá em tela cheia!
+### 📲 Opção B — Pelo Perfil `.mobileconfig` (Via Safari)
+Se preferir instalar via perfil gerenciado WebClip:
+1. Abra o **Safari** no seu iPhone ou iPad.
+2. Digite ou acesse a URL direta do instalador:
+   👉 **`https://amaralcarlosluiz.github.io/App_Pregador/Pregador_Pro.mobileconfig`**
+3. O Safari perguntará: *"Este site está tentando baixar um perfil de configuração. Deseja permitir?"* ➔ Toque em **Permitir**.
+4. Aparecerá a mensagem: *"Perfil Baixado"*. Toque em **Fechar**.
+5. Abra os **Ajustes** do iPhone/iPad ➔ Logo abaixo do seu nome, toque em **Perfil Baixado** (ou em *Ajustes > Geral > VPN e Gerenciamento de Dispositivo*).
+6. Toque em **Instalar** (canto superior direito) e confirme.
+7. O ícone do **Pregador Pro** aparecerá na Tela de Início.
 
-#### Opção B — Direto pelo Safari ("Adicionar à Tela de Início")
-1. Abra o **Safari** no **iPhone 14 Pro Max**, **iPhone 12** ou **iPad Air (iOS 12.5.8)** e acesse:
-   `https://amaralcarlosluiz.github.io/App_Pregador/`
-2. Toque no ícone **Compartilhar** (quadrado com seta apontando para cima `⬆️`).
-3. Role para baixo e toque em **"Adicionar à Tela de Início"** (*Add to Home Screen*).
-4. Toque em **Adicionar**. O ícone dourado/azul do **Pregador Pro** será instalado na tela inicial!
+---
+
+### 🛠️ Como resolver o "404 There isn't a GitHub Pages site here" (Se aparecer no seu link):
+Se o link do GitHub Pages exibir a tela 404, significa que a publicação ainda precisa de 1 clique de ativação nas configurações do seu repositório:
+1. No computador, abra: `https://github.com/AmaralCarlosLuiz/App_Pregador/settings/pages`
+2. Em **Build and deployment > Source**, escolha **GitHub Actions** (ou **Deploy from a branch** selecionando a branch **`gh-pages`**).
+3. Salve. Em cerca de 1 a 2 minutos, o GitHub Pages publicará o site com status 200 OK!
 
 ---
 

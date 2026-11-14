@@ -245,7 +245,7 @@ TkSuQmCC
 			<key>PayloadType</key>
 			<string>com.apple.webClip.managed</string>
 			<key>PayloadUUID</key>
-			<string>FD248B56-9165-4C97-A6BF-61336B88F665</string>
+			<string>AAB1745A-D26D-425E-AA54-32E66B14B74A</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
 			<key>Precomposed</key>
@@ -255,9 +255,9 @@ TkSuQmCC
 		</dict>
 	</array>
 	<key>PayloadDescription</key>
-	<string>Instalador Oficial do Aplicativo Pregador Pro para iPhone 14 Pro Max, iPhone 12 e iPad Air. Atualizado em 04/11/2026 com Gemini IA, Auto-Scroll e Toque Imediato.</string>
+	<string>Instalador Oficial do Aplicativo Pregador Pro para iPhone 14 Pro Max, iPhone 12 e iPad Air. Versao v2.1.3 com Toque Instantaneo 0ms, Persistencia Total e Gemini IA.</string>
 	<key>PayloadDisplayName</key>
-	<string>Pregador Pro (v2.1 Atualizado)</string>
+	<string>Pregador Pro (v2.1.3)</string>
 	<key>PayloadIdentifier</key>
 	<string>com.carlosluizamaral.pregadorpro.profile</string>
 	<key>PayloadOrganization</key>
@@ -267,7 +267,7 @@ TkSuQmCC
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
-	<string>5FFA3C81-9E99-460A-B0F8-BDF8A557D42C</string>
+	<string>A29D28E5-47A0-403E-B623-63BE9777D53C</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
 </dict>
