@@ -36,23 +36,31 @@ class SermonRepository {
     try {
       final cached = await OfflineCacheService.getCachedSermons();
       _deletedIds = await OfflineCacheService.getDeletedIds();
-      final map = <String, Sermon>{for (final s in cached) s.id: s};
 
-      // Sermões de exemplo: gravados UMA vez, a partir daí são sermões do usuário.
-      final seeded = await OfflineCacheService.wasSeeded();
-      if (!seeded) {
-        // Cede o thread para a UI pintar antes do trabalho pesado do primeiro uso.
-        await Future<void>.delayed(Duration.zero);
-        for (final s in _buildStarterSermons()) {
-          if (!map.containsKey(s.id) && !_deletedIds.contains(s.id)) {
-            map[s.id] = s;
-          }
+      // 1. Garante que todos os 150 sermões base do acervo homilético estejam presentes
+      //    (exceto os que o usuário excluiu explicitamente).
+      final map = <String, Sermon>{};
+      for (final s in _buildStarterSermons()) {
+        if (!_deletedIds.contains(s.id)) {
+          map[s.id] = s;
         }
-        _inMemorySermons = map.values.toList();
+      }
+
+      // 2. Sobrepõe com todos os sermões salvos localmente (criados ou editados pelo usuário).
+      //    Os sermões criados pelo usuário e as edições feitas nos sermões base têm prioridade total.
+      for (final s in cached) {
+        if (!_deletedIds.contains(s.id)) {
+          map[s.id] = s;
+        }
+      }
+
+      _inMemorySermons = map.values.toList();
+
+      // Se o cache tinha menos sermões (ex.: migração da versão que tinha apenas 6),
+      // persiste o acervo completo + sermões do usuário imediatamente.
+      if (cached.length < _inMemorySermons.length) {
         final ok = await _persist();
         if (ok) await OfflineCacheService.markSeeded();
-      } else {
-        _inMemorySermons = map.values.toList();
       }
     } catch (e) {
       debugPrint('[SermonRepository] Falha ao inicializar: $e');
@@ -247,11 +255,10 @@ class SermonRepository {
     return kCuratedSermonTemplates;
   }
 
-  /// 6 sermões de exemplo — criados apenas no primeiro uso do aplicativo.
+  /// Todos os 150 sermões do acervo homilético — base completa do aplicativo.
   List<Sermon> _buildStarterSermons() {
     final now = DateTime.now();
-    final starterTemplates = kCuratedSermonTemplates.take(6).toList();
-    return starterTemplates.asMap().entries.map((entry) {
+    return kCuratedSermonTemplates.asMap().entries.map((entry) {
       final index = entry.key;
       final tpl = entry.value;
       final rawBlocks = (tpl.content['blocks'] as List<dynamic>?) ?? [];
@@ -271,7 +278,7 @@ class SermonRepository {
         conclusion: tpl.content['conclusion'] as String? ?? '',
         appeal: tpl.content['appeal'] as String? ?? '',
         status: 'ready',
-        isFavorite: index < 3,
+        isFavorite: index < 5,
         preachCount: index == 0 ? 3 : (index == 1 ? 1 : 0),
         estimatedDurationMinutes: 40,
         createdAt: now.subtract(Duration(days: 30 - index % 25)),

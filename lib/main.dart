@@ -8,18 +8,22 @@ import 'core/theme/app_theme.dart';
 import 'presentation/auth/login_screen.dart';
 import 'presentation/navigation/adaptive_navigation_shell.dart';
 import 'providers/auth_provider.dart';
+import 'providers/sermon_provider.dart';
 import 'providers/theme_provider.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/sermon_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Restaura sessão local e preferências (tema claro/escuro, púlpito) ANTES do 1º frame,
-  //    em paralelo (<10ms), para o app abrir já no tema salvo, sem "piscar".
+  // 1. Restaura sessão local, acervo de sermões e preferências (tema claro/escuro, púlpito)
+  //    ANTES do 1º frame, em paralelo, para o app abrir já pronto sem "piscar".
   final authRepo = AuthRepository();
+  final sermonRepo = SermonRepository();
   final results = await Future.wait<Object?>([
     authRepo.init(),
     ThemeNotifier.loadSaved(),
+    sermonRepo.init(),
   ]);
   final savedTheme = results[1] as ThemeState;
 
@@ -30,6 +34,7 @@ void main() async {
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(authRepo),
+        sermonRepositoryProvider.overrideWithValue(sermonRepo),
         themeProvider.overrideWith((ref) => ThemeNotifier(savedTheme)),
       ],
       child: const PregadorProApp(),
