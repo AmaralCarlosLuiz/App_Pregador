@@ -14,9 +14,14 @@ import 'repositories/auth_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Inicializa sessão local instantaneamente (< 10ms) sem bloquear na rede
+  // 1. Restaura sessão local e preferências (tema claro/escuro, púlpito) ANTES do 1º frame,
+  //    em paralelo (<10ms), para o app abrir já no tema salvo, sem "piscar".
   final authRepo = AuthRepository();
-  await authRepo.init();
+  final results = await Future.wait<Object?>([
+    authRepo.init(),
+    ThemeNotifier.loadSaved(),
+  ]);
+  final savedTheme = results[1] as ThemeState;
 
   // 2. Dispara conexão com Supabase em background (Zero bloqueio de tela inicial)
   unawaited(SupabaseConfig.initialize());
@@ -25,6 +30,7 @@ void main() async {
     ProviderScope(
       overrides: [
         authRepositoryProvider.overrideWithValue(authRepo),
+        themeProvider.overrideWith((ref) => ThemeNotifier(savedTheme)),
       ],
       child: const PregadorProApp(),
     ),
@@ -36,8 +42,10 @@ class PregadorProApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeState = ref.watch(themeProvider);
-    final authState = ref.watch(authProvider);
+    // select(): o app raiz só reconstrói quando o TEMA ou o LOGIN mudam (não a cada
+    // alteração de perfil, fonte do púlpito etc.) — menos trabalho = toque mais fluido.
+    final themeMode = ref.watch(themeProvider.select((s) => s.themeMode));
+    final isAuthenticated = ref.watch(authProvider.select((s) => s.isAuthenticated));
 
     return MaterialApp(
       title: 'Pregador Pro',
@@ -46,7 +54,7 @@ class PregadorProApp extends ConsumerWidget {
       // Design System Material 3 e Temas
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeState.themeMode,
+      themeMode: themeMode,
 
       // Suporte de Localização em Português do Brasil
       localizationsDelegates: const [
@@ -67,7 +75,7 @@ class PregadorProApp extends ConsumerWidget {
       },
 
       // Roteamento Instantâneo Protegido por Autenticação
-      home: authState.isAuthenticated
+      home: isAuthenticated
           ? const AdaptiveNavigationShell()
           : const LoginScreen(),
     );

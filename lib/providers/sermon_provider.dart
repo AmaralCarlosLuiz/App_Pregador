@@ -115,7 +115,11 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
   }
 
   Future<void> loadSermons() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    // Só mostra "carregando" na 1ª carga; recargas posteriores são silenciosas
+    // (evita rebuild duplo e "piscadas" da tela a cada salvamento).
+    if (state.allSermons.isEmpty) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
     try {
       final all = await _repository.getAllSermons();
       final filtered = await _repository.getSermons(

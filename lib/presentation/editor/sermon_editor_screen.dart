@@ -124,15 +124,20 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               onPressed: () async {
                 await editorNotifier.saveImmediately();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Sermão salvo com sucesso em Meus Sermões!'),
-                      backgroundColor: AppColors.statusReady,
-                      duration: Duration(seconds: 2),
+                if (!context.mounted) return;
+                final saveError = ref.read(sermonEditorProvider(initialSermon)).error;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      saveError == null
+                          ? 'Sermão salvo com sucesso em Meus Sermões!'
+                          : 'Não foi possível salvar: $saveError',
                     ),
-                  );
-                }
+                    backgroundColor:
+                        saveError == null ? AppColors.statusReady : Colors.redAccent,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               },
             ),
           ),

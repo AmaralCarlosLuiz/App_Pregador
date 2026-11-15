@@ -26,6 +26,7 @@ abstract class BibleTtsEngine {
     String? specificVoiceId,
     double rate = 1.0,
     double pitch = 1.0,
+    String? nextText,
     VoidCallback? onComplete,
     void Function(String error)? onError,
   });
@@ -55,6 +56,7 @@ class StubBibleTtsEngine implements BibleTtsEngine {
     String? specificVoiceId,
     double rate = 1.0,
     double pitch = 1.0,
+    String? nextText,
     VoidCallback? onComplete,
     void Function(String error)? onError,
   }) async {

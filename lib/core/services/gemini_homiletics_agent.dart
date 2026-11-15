@@ -72,7 +72,8 @@ class GeminiHomileticsAgent {
     required String biblicalReference,
     required String sermonType,
   }) async {
-    const model = 'gemini-1.5-flash';
+    // gemini-1.5-flash foi descontinuado pelo Google (retorna 404) — usar o modelo atual.
+    const model = 'gemini-2.5-flash';
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
     );

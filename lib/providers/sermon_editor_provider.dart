@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/bible_model.dart';
 import '../models/sermon_block.dart';
@@ -42,15 +43,21 @@ class SermonEditorState {
   }
 }
 
-class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
+class SermonEditorNotifier extends StateNotifier<SermonEditorState>
+    with WidgetsBindingObserver {
   final Ref _ref;
   Timer? _debounceTimer;
+
+  /// Tempo de espera após a última digitação. Curto o bastante para que sair do app
+  /// quase sempre já tenha salvo; o salvamento imediato por ciclo de vida cobre o resto.
+  static const Duration _debounceDelay = Duration(milliseconds: 500);
 
   SermonEditorNotifier(this._ref, Sermon initialSermon)
       : super(SermonEditorState(
           sermon: initialSermon,
           lastSavedAt: initialSermon.updatedAt,
         )) {
+    WidgetsBinding.instance.addObserver(this);
     // Garante persistência imediata do sermão no repositório e cache local
     _ensureInitialPersisted(initialSermon);
   }
@@ -66,8 +73,18 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
     } catch (_) {}
   }
 
+  /// iOS/Safari pode suspender ou encerrar o app a qualquer momento ao trocar de app
+  /// ou fechar: ao sair de primeiro plano, qualquer edição pendente é gravada na hora.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    if (lifecycleState != AppLifecycleState.resumed && state.hasUnsavedChanges) {
+      saveImmediately();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (state.hasUnsavedChanges) {
       final currentSermon = state.sermon.copyWith(updatedAt: DateTime.now());
       try {
@@ -87,7 +104,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
     if (!mounted) return;
     state = state.copyWith(hasUnsavedChanges: true);
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 1200), () {
+    _debounceTimer = Timer(_debounceDelay, () {
       if (mounted) {
         saveImmediately();
       }
@@ -99,23 +116,25 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState> {
     if (!mounted) return;
     state = state.copyWith(isSaving: true);
 
-    final updatedSermon = state.sermon.copyWith(
-      updatedAt: DateTime.now(),
-    );
+    // Foto do que está sendo gravado. Se o usuário continuar digitando durante a
+    // gravação, as novas edições NÃO podem ser sobrescritas pela foto antiga.
+    final snapshot = state.sermon;
+    final toPersist = snapshot.copyWith(updatedAt: DateTime.now());
 
     try {
       final repo = _ref.read(sermonRepositoryProvider);
-      await repo.saveSermon(updatedSermon);
+      await repo.saveSermon(toPersist);
       // Notifica a lista geral de sermões
       _ref.read(sermonListProvider.notifier).loadSermons();
 
       if (!mounted) return;
+      final editedMeanwhile = !identical(state.sermon, snapshot);
       state = state.copyWith(
-        sermon: updatedSermon,
         isSaving: false,
-        hasUnsavedChanges: false,
+        hasUnsavedChanges: editedMeanwhile,
         lastSavedAt: DateTime.now(),
       );
+      if (editedMeanwhile) _triggerDebounceSave();
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(isSaving: false, error: e.toString());

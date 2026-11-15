@@ -29,7 +29,11 @@ class _SourceProtectionWrapperState extends State<SourceProtectionWrapper> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
+    // Em iPhone/iPad/Android (toque) NÃO interceptamos o menu de contexto do navegador:
+    // isso competia com os gestos de toque do Safari e atrasava a resposta dos botões.
+    final isTouchPlatform = defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
+    if (kIsWeb && !isTouchPlatform) {
       BrowserContextMenu.disableContextMenu();
     }
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);

@@ -266,9 +266,19 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
       isSingleVerseQueue: state.queue.length == 1,
     );
 
-    // Cadência e timbre ajustados para fluidez humana do Rio de Janeiro (RJ)
+    // Timbre natural: com voz do gênero correto o motor mantém pitch 1.0 (sem robotizar)
     final bool isMale = state.gender == BibleVoiceGender.male;
     final double naturalPitch = isMale ? 0.94 : 1.03;
+
+    // Próximo versículo da fila (pré-carregado pela voz neural → leitura contínua)
+    final nextIndex = state.currentQueueIndex + 1;
+    final String? nextText = nextIndex < state.queue.length
+        ? _prepareNaturalRjSpeechText(
+            state.queue[nextIndex],
+            includeBookHeader: false,
+            isSingleVerseQueue: false,
+          )
+        : null;
 
     _engine.speak(
       text: spokenText,
@@ -276,6 +286,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
       specificVoiceId: state.selectedVoiceId,
       rate: state.speechRate,
       pitch: naturalPitch,
+      nextText: nextText,
       onComplete: () {
         if (!mounted || session != _playbackSession) return;
         _advanceQueue();
