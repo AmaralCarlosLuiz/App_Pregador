@@ -822,6 +822,19 @@ class DashboardScreen extends ConsumerWidget {
                   icon: const Icon(Icons.share, size: 15),
                   label: const Text('WhatsApp'),
                 ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                  ),
+                  onPressed: () => confirmAndDeleteSermon(
+                    context: context,
+                    ref: ref,
+                    sermon: sermon,
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 15),
+                  label: const Text('Excluir'),
+                ),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.accentGold,

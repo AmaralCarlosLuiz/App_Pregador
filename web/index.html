@@ -378,11 +378,12 @@
   </script>
 
   <script>
-    // Controle de versão inteligente do cache no iOS Safari / WebClip:
-    // Limpa caches antigos SOMENTE quando a versão do app muda, preservando
-    // CanvasKit.wasm e assets em cache nas aberturas seguintes para boot instantâneo.
+    // Motor Offline-First no iOS Safari / WebClip:
+    // Registra o Service Worker local (web/sw.js) para armazenar o app completo
+    // (CanvasKit, main.dart.js, fontes e Biblia) no aparelho — abrindo em < 1s mesmo sem 4G/5G.
     (function () {
-      var APP_CACHE_VERSION = "2026.11.17.2";
+      var APP_CACHE_VERSION = "2026.11.18.1";
+      var ACTIVE_SW_CACHE = "pregador-pro-offline-v20261118";
       try {
         var prevVersion = null;
         try {
@@ -390,17 +391,12 @@
         } catch (_) {}
 
         if (prevVersion !== APP_CACHE_VERSION) {
-          if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function (regs) {
-              for (var i = 0; i < regs.length; i++) {
-                regs[i].unregister();
-              }
-            });
-          }
           if ("caches" in window) {
             caches.keys().then(function (names) {
               for (var i = 0; i < names.length; i++) {
-                caches.delete(names[i]);
+                if (names[i] !== ACTIVE_SW_CACHE) {
+                  caches.delete(names[i]);
+                }
               }
             });
           }
@@ -410,9 +406,20 @@
             }
           } catch (_) {}
         }
+
+        if ("serviceWorker" in navigator) {
+          window.addEventListener("load", function () {
+            navigator.serviceWorker
+              .register("sw.js?v=20261118_1")
+              .then(function (reg) {
+                try { reg.update(); } catch (_) {}
+              })
+              .catch(function () {});
+          });
+        }
       } catch (_) {}
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=20261117_2" async></script>
+  <script src="flutter_bootstrap.js?v=20261118_1" async></script>
 </body>
 </html>

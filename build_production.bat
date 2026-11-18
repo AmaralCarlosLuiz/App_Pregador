@@ -20,8 +20,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [3/4] Compilando Web / PWA de Produção (Base HREF: /App_Pregador/)...
-call flutter build web --release --base-href "/App_Pregador/"
+echo [3/4] Compilando Web / PWA 100%% Offline-First (Base HREF: /App_Pregador/)...
+call flutter build web --release --base-href "/App_Pregador/" --no-web-resources-cdn
 if %ERRORLEVEL% NEQ 0 (
     echo [ERRO] Falha na compilação do Flutter Web.
     pause

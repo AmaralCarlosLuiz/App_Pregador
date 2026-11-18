@@ -352,22 +352,62 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                         color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                       ),
                     ),
-                    if (sermon.preachCount > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (sermon.preachCount > 0) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Pregado ${sermon.preachCount}x',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        InkWell(
                           borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Pregado ${sermon.preachCount}x',
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            color: Color(0xFF10B981),
-                            fontWeight: FontWeight.bold,
+                          onTap: () => confirmAndDeleteSermon(
+                            context: context,
+                            ref: ref,
+                            sermon: sermon,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Colors.redAccent.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.delete_outline, size: 12, color: Colors.redAccent),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Excluir',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ],

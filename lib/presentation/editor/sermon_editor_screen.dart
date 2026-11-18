@@ -147,15 +147,25 @@ class SermonEditorScreen extends ConsumerWidget {
           // Consultar Bíblia Sagrada
           IconButton(
             tooltip: 'Consultar Bíblia Sagrada',
-            icon: const Icon(Icons.menu_book, color: AppColors.accentGold),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.menu_book, color: AppColors.accentGold, size: 21),
             onPressed: () => _openBibleReader(context, editorNotifier),
           ),
 
           // Assistente de IA
           IconButton(
             tooltip: 'Assistente de IA para Homilética',
-            icon: const Icon(Icons.psychology_alt, color: Color(0xFF8B5CF6)),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.psychology_alt, color: Color(0xFF8B5CF6), size: 21),
             onPressed: () => _openAiAssistant(context, ref, editorNotifier, sermon),
+          ),
+
+          // Excluir Sermão (visível diretamente tanto no iPhone quanto no Desktop)
+          IconButton(
+            tooltip: 'Excluir Sermão',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 21),
+            onPressed: () => _handleDeleteSermon(context, ref, editorNotifier, sermon),
           ),
 
           if (!isMobile) ...[
@@ -181,23 +191,6 @@ class SermonEditorScreen extends ConsumerWidget {
                 SermonShareService.showShareOptionsModal(context, sermon);
               },
             ),
-
-            // Excluir Sermão
-            IconButton(
-              tooltip: 'Excluir Sermão',
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              onPressed: () async {
-                final deleted = await confirmAndDeleteSermon(
-                  context: context,
-                  ref: ref,
-                  sermon: sermon,
-                  onBeforeDelete: editorNotifier.markDeleted,
-                );
-                if (deleted && context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
           ] else ...[
             // Em smartphones, agrupa opções secundárias para evitar overflow na AppBar
             PopupMenuButton<String>(
@@ -214,15 +207,7 @@ class SermonEditorScreen extends ConsumerWidget {
                     SermonShareService.showShareOptionsModal(context, sermon);
                     break;
                   case 'delete':
-                    final deleted = await confirmAndDeleteSermon(
-                      context: context,
-                      ref: ref,
-                      sermon: sermon,
-                      onBeforeDelete: editorNotifier.markDeleted,
-                    );
-                    if (deleted && context.mounted) {
-                      Navigator.of(context).pop();
-                    }
+                    await _handleDeleteSermon(context, ref, editorNotifier, sermon);
                     break;
                 }
               },
@@ -509,6 +494,24 @@ class SermonEditorScreen extends ConsumerWidget {
                 onChanged: editorNotifier.updateAppeal,
               ),
 
+              const SizedBox(height: 28),
+
+              // 8. AÇÃO DESTRUTIVA EXPLÍCITA (FÁCIL ACESSO NO CELULAR)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.45)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.delete_forever_outlined, size: 20),
+                label: const Text(
+                  'Excluir este Sermão',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                onPressed: () => _handleDeleteSermon(context, ref, editorNotifier, sermon),
+              ),
+
               const SizedBox(height: 48),
             ],
           ),
@@ -517,6 +520,23 @@ class SermonEditorScreen extends ConsumerWidget {
     ),
   );
 }
+
+  Future<void> _handleDeleteSermon(
+    BuildContext context,
+    WidgetRef ref,
+    SermonEditorNotifier editorNotifier,
+    Sermon sermon,
+  ) async {
+    final deleted = await confirmAndDeleteSermon(
+      context: context,
+      ref: ref,
+      sermon: sermon,
+      onBeforeDelete: editorNotifier.markDeleted,
+    );
+    if (deleted && context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 
   Widget _buildSectionHeader({
     required IconData icon,
