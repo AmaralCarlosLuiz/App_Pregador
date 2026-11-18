@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/supabase_config.dart';
+import '../core/storage/offline_cache_service.dart';
 import '../models/user_profile_model.dart';
 
 class AuthRepository {
@@ -40,8 +41,7 @@ class AuthRepository {
 
   /// Inicializa e restaura sessão persistida (se houver) e garante o cadastro do Admin Master
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
 
     // Garante que o Administrador Master exista no registro com acesso full
     final adminKey = masterAdminEmail.toLowerCase();
@@ -56,16 +56,16 @@ class AuthRepository {
         'role': 'admin',
         'created_at': DateTime.now().toIso8601String(),
       };
-      await _saveUsersRegistry(prefs, registry);
+      await _saveUsersRegistry(registry);
     } else if (!(registry[adminKey]!['password'] as String? ?? '').startsWith('enc_v1_')) {
       // Migra senha existente em texto puro para formato protegido
       final currentRaw = registry[adminKey]!['password'] as String? ?? _defaultAdminPassword;
       registry[adminKey]!['password'] = _encodeSecret(currentRaw);
-      await _saveUsersRegistry(prefs, registry);
+      await _saveUsersRegistry(registry);
     }
 
-    // Restaura sessão salva se o usuário marcou "Manter conectado"
-    final savedSessionRaw = prefs.getString(_sessionKey);
+    // Restaura sessão salva (lê do espelho síncrono localStorage ou SharedPreferences)
+    final savedSessionRaw = await OfflineCacheService.readResilientString(_sessionKey);
     if (savedSessionRaw != null && savedSessionRaw.isNotEmpty) {
       try {
         final decoded = jsonDecode(savedSessionRaw) as Map<String, dynamic>;
@@ -84,12 +84,15 @@ class AuthRepository {
     // para que qualquer edição de perfil ou criação de sermão funcione com persistência garantida desde o primeiro uso.
     if (_currentProfile == null && registry.containsKey(adminKey)) {
       _currentProfile = UserProfile.fromJson(registry[adminKey]!);
-      await prefs.setString(_sessionKey, jsonEncode(_currentProfile!.toJson()));
+      await OfflineCacheService.writeResilientString(
+        _sessionKey,
+        jsonEncode(_currentProfile!.toJson()),
+      );
     }
   }
 
-  Future<Map<String, Map<String, dynamic>>> _getUsersRegistry(SharedPreferences prefs) async {
-    final raw = prefs.getString(_usersRegistryKey);
+  Future<Map<String, Map<String, dynamic>>> _getUsersRegistry() async {
+    final raw = await OfflineCacheService.readResilientString(_usersRegistryKey);
     if (raw == null || raw.isEmpty) return {};
     try {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
@@ -102,10 +105,15 @@ class AuthRepository {
   }
 
   Future<void> _saveUsersRegistry(
-    SharedPreferences prefs,
     Map<String, Map<String, dynamic>> registry,
   ) async {
-    await prefs.setString(_usersRegistryKey, jsonEncode(registry));
+    final ok = await OfflineCacheService.writeResilientString(
+      _usersRegistryKey,
+      jsonEncode(registry),
+    );
+    if (!ok) {
+      throw StateError('Não foi possível salvar os dados do usuário no aparelho.');
+    }
   }
 
   /// Autentica usuário por e-mail e senha (valida credenciais locais + Supabase BaaS)
@@ -121,8 +129,7 @@ class AuthRepository {
       throw Exception('Por favor, preencha o e-mail e a senha.');
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
 
     // 1. Verifica registro local (incluindo o Administrador Master carlosluizamaral@gmail.com)
     if (registry.containsKey(normalizedEmail)) {
@@ -136,7 +143,7 @@ class AuthRepository {
       // Garante migração da senha validada para formato codificado
       if (!storedPassword.startsWith('enc_v1_')) {
         userRecord['password'] = _encodeSecret(trimmedPassword);
-        await _saveUsersRegistry(prefs, registry);
+        await _saveUsersRegistry(registry);
       }
 
       // Tenta autenticar silenciosamente no Supabase caso esteja online
@@ -151,9 +158,12 @@ class AuthRepository {
 
       _currentProfile = UserProfile.fromJson(userRecord);
       if (rememberMe) {
-        await prefs.setString(_sessionKey, jsonEncode(_currentProfile!.toJson()));
+        await OfflineCacheService.writeResilientString(
+          _sessionKey,
+          jsonEncode(_currentProfile!.toJson()),
+        );
       } else {
-        await prefs.remove(_sessionKey);
+        await OfflineCacheService.removeResilientKey(_sessionKey);
       }
       return _currentProfile!;
     }
@@ -182,11 +192,14 @@ class AuthRepository {
             ...profile.toJson(),
             'password': _encodeSecret(trimmedPassword),
           };
-          await _saveUsersRegistry(prefs, registry);
+          await _saveUsersRegistry(registry);
 
           _currentProfile = profile;
           if (rememberMe) {
-            await prefs.setString(_sessionKey, jsonEncode(profile.toJson()));
+            await OfflineCacheService.writeResilientString(
+              _sessionKey,
+              jsonEncode(profile.toJson()),
+            );
           }
           return profile;
         }
@@ -212,8 +225,7 @@ class AuthRepository {
       throw Exception('A nova senha deve ter pelo menos 6 caracteres.');
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
     final emailKey = profile.email.toLowerCase();
 
     if (registry.containsKey(emailKey)) {
@@ -223,7 +235,7 @@ class AuthRepository {
       }
 
       registry[emailKey]!['password'] = _encodeSecret(newPassword.trim());
-      await _saveUsersRegistry(prefs, registry);
+      await _saveUsersRegistry(registry);
     }
 
     // Atualiza também no Supabase se houver sessão remota ativa
@@ -243,8 +255,7 @@ class AuthRepository {
     required String ministryTitle,
     required String churchName,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
     final adminKey = masterAdminEmail.toLowerCase();
 
     final profile = _currentProfile ??
@@ -272,10 +283,46 @@ class AuthRepository {
       ...updated.toJson(),
       'password': existingPass,
     };
-    await _saveUsersRegistry(prefs, registry);
+    await _saveUsersRegistry(registry);
 
     _currentProfile = updated;
-    await prefs.setString(_sessionKey, jsonEncode(updated.toJson()));
+    final sessionSaved = await OfflineCacheService.writeResilientString(
+      _sessionKey,
+      jsonEncode(updated.toJson()),
+    );
+    if (!sessionSaved) {
+      throw StateError('Não foi possível confirmar a gravação da sessão no aparelho.');
+    }
+
+    // Sincronização em background com Supabase caso autenticado no BaaS
+    final client = SupabaseConfig.client;
+    if (client != null && client.auth.currentUser != null) {
+      final uid = client.auth.currentUser!.id;
+      unawaited(
+        client
+            .from('profiles')
+            .upsert({
+              'id': uid,
+              'full_name': updated.fullName,
+              'ministry_title': updated.ministryTitle,
+              'church_name': updated.churchName,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .timeout(const Duration(milliseconds: 2500))
+            .catchError((_) => null),
+      );
+      unawaited(
+        client.auth
+            .updateUser(UserAttributes(data: {
+              'full_name': updated.fullName,
+              'ministry_title': updated.ministryTitle,
+              'church_name': updated.churchName,
+            }))
+            .timeout(const Duration(milliseconds: 2500))
+            .catchError((_) => UserResponse.fromJson({})),
+      );
+    }
+
     return updated;
   }
 
@@ -297,8 +344,7 @@ class AuthRepository {
       throw Exception('A senha inicial deve possuir no mínimo 6 caracteres.');
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
 
     final newProfile = UserProfile(
       id: 'user-${DateTime.now().millisecondsSinceEpoch}',
@@ -314,7 +360,7 @@ class AuthRepository {
       ...newProfile.toJson(),
       'password': _encodeSecret(trimmedPassword),
     };
-    await _saveUsersRegistry(prefs, registry);
+    await _saveUsersRegistry(registry);
 
     // Sincroniza opcionalmente com Supabase
     final client = SupabaseConfig.client;
@@ -333,8 +379,7 @@ class AuthRepository {
 
   /// Lista todos os usuários cadastrados (visível para o Administrador)
   Future<List<UserProfile>> getRegisteredUsers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final registry = await _getUsersRegistry(prefs);
+    final registry = await _getUsersRegistry();
     return registry.values.map((m) => UserProfile.fromJson(m)).toList();
   }
 
@@ -346,7 +391,6 @@ class AuthRepository {
     required String churchName,
     String notes = '',
   }) async {
-    final prefs = await SharedPreferences.getInstance();
     final requests = await getAccessRequests();
 
     final newReq = AccessRequestItem(
@@ -361,7 +405,7 @@ class AuthRepository {
     );
 
     requests.insert(0, newReq);
-    await prefs.setString(
+    await OfflineCacheService.writeResilientString(
       _accessRequestsKey,
       jsonEncode(requests.map((r) => r.toJson()).toList()),
     );
@@ -369,8 +413,7 @@ class AuthRepository {
   }
 
   Future<List<AccessRequestItem>> getAccessRequests() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_accessRequestsKey);
+    final raw = await OfflineCacheService.readResilientString(_accessRequestsKey);
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw) as List<dynamic>;
@@ -383,7 +426,6 @@ class AuthRepository {
   }
 
   Future<void> markAccessRequestApproved(String requestId) async {
-    final prefs = await SharedPreferences.getInstance();
     final requests = await getAccessRequests();
     final updated = requests.map((r) {
       if (r.id == requestId) {
@@ -400,15 +442,14 @@ class AuthRepository {
       }
       return r;
     }).toList();
-    await prefs.setString(
+    await OfflineCacheService.writeResilientString(
       _accessRequestsKey,
       jsonEncode(updated.map((r) => r.toJson()).toList()),
     );
   }
 
   Future<void> signOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_sessionKey);
+    await OfflineCacheService.removeResilientKey(_sessionKey);
 
     final client = SupabaseConfig.client;
     if (client != null) {

@@ -39,11 +39,12 @@ class HealthCheckService {
 
     // 1. Diagnóstico do Cache Offline-First
     try {
-      final cachedSermons = await OfflineCacheService.getCachedSermons();
+      final deltaSermons = await OfflineCacheService.getUserSermonsDelta();
       checks.add(
         HealthCheckItem(
           title: 'Cache Offline-First Local',
-          subtitle: '${cachedSermons.length} sermões blindados e prontos para leitura offline',
+          subtitle:
+              '${deltaSermons.length} alterações/sermões pessoais sincronizados + 150 sermões base offline',
           status: HealthStatus.healthy,
         ),
       );

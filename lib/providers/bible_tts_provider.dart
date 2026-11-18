@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/bible_model.dart';
 import '../core/services/bible_tts_engine_stub.dart'
     if (dart.library.html) '../core/services/bible_tts_engine_web.dart';
+import '../core/storage/offline_cache_service.dart';
+import '../models/bible_model.dart';
 
 enum BibleVoiceGender {
   male,
@@ -17,6 +18,8 @@ class BibleTtsState {
   final double speechRate;
   final String? selectedVoiceId;
   final List<TtsVoiceOption> availableVoices;
+  final String activeVoiceLabel;
+  final bool isCloudNeural;
   final List<BibleVerse> queue;
   final int currentQueueIndex;
   final bool isSelectionMode;
@@ -31,6 +34,8 @@ class BibleTtsState {
     this.speechRate = 0.96, // Cadência natural do Rio de Janeiro
     this.selectedVoiceId,
     this.availableVoices = const [],
+    this.activeVoiceLabel = 'Voz Masculina (Brasil • RJ)',
+    this.isCloudNeural = false,
     this.queue = const [],
     this.currentQueueIndex = 0,
     this.isSelectionMode = false,
@@ -60,6 +65,8 @@ class BibleTtsState {
     String? selectedVoiceId,
     bool clearSelectedVoiceId = false,
     List<TtsVoiceOption>? availableVoices,
+    String? activeVoiceLabel,
+    bool? isCloudNeural,
     List<BibleVerse>? queue,
     int? currentQueueIndex,
     bool? isSelectionMode,
@@ -76,6 +83,8 @@ class BibleTtsState {
       selectedVoiceId:
           clearSelectedVoiceId ? null : (selectedVoiceId ?? this.selectedVoiceId),
       availableVoices: availableVoices ?? this.availableVoices,
+      activeVoiceLabel: activeVoiceLabel ?? this.activeVoiceLabel,
+      isCloudNeural: isCloudNeural ?? this.isCloudNeural,
       queue: queue ?? this.queue,
       currentQueueIndex: currentQueueIndex ?? this.currentQueueIndex,
       isSelectionMode: isSelectionMode ?? this.isSelectionMode,
@@ -91,16 +100,30 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
 
   static const _prefVoiceGenderKey = 'bible_tts_voice_gender_rj';
   static const _prefSpeechRateKey = 'bible_tts_speech_rate_rj';
+  static const _prefSpecificVoiceKey = 'bible_tts_specific_voice_rj';
 
   BibleTtsNotifier() : super(const BibleTtsState()) {
     _engine = createBibleTtsEngine();
     _initEngine();
   }
 
+  void _syncActiveVoiceLabel() {
+    if (!mounted) return;
+    final preferMale = state.gender == BibleVoiceGender.male;
+    state = state.copyWith(
+      isCloudNeural: _engine.isCloudNeuralActive,
+      activeVoiceLabel: _engine.describeActiveVoice(
+        preferMale: preferMale,
+        specificVoiceId: state.selectedVoiceId,
+      ),
+    );
+  }
+
   Future<void> _initEngine() async {
     try {
+      final savedGender = await OfflineCacheService.readResilientString(_prefVoiceGenderKey);
+      final savedVoiceId = await OfflineCacheService.readResilientString(_prefSpecificVoiceKey);
       final prefs = await SharedPreferences.getInstance();
-      final savedGender = prefs.getString(_prefVoiceGenderKey);
       final savedRate = prefs.getDouble(_prefSpeechRateKey);
 
       if (mounted) {
@@ -110,6 +133,9 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
               ? BibleVoiceGender.female
               : BibleVoiceGender.male,
           speechRate: savedRate ?? 0.96,
+          selectedVoiceId: (savedVoiceId != null && savedVoiceId.isNotEmpty)
+              ? savedVoiceId
+              : null,
         );
       }
 
@@ -118,32 +144,82 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
           if (!mounted) return;
           final voices = _engine.getAvailableVoices();
           state = state.copyWith(availableVoices: voices);
+          _syncActiveVoiceLabel();
         },
       );
+      _syncActiveVoiceLabel();
     } catch (_) {}
   }
 
   /// Alterna entre Voz Masculina e Feminina (Brasil / RJ) em tempo real
   Future<void> setGender(BibleVoiceGender gender) async {
     if (state.gender == gender) return;
+    _engine.resetCloudBackoff();
     state = state.copyWith(
       gender: gender,
       clearSelectedVoiceId: true,
       clearError: true,
     );
+    _syncActiveVoiceLabel();
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _prefVoiceGenderKey,
-        gender == BibleVoiceGender.female ? 'female' : 'male',
-      );
-    } catch (_) {}
+    await OfflineCacheService.writeResilientString(
+      _prefVoiceGenderKey,
+      gender == BibleVoiceGender.female ? 'female' : 'male',
+    );
+    await OfflineCacheService.removeResilientKey(_prefSpecificVoiceKey);
 
-    // Se estiver lendo no momento, retoma imediatamente o versículo atual com a nova voz
     if (state.isPlaying) {
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
     }
+  }
+
+  /// Define manualmente uma voz específica `pt-BR` do aparelho (ou `null` para modo automático RJ)
+  Future<void> setSpecificVoice(String? voiceId) async {
+    final cleanId = (voiceId != null && voiceId.trim().isNotEmpty) ? voiceId.trim() : null;
+    if (cleanId == null) {
+      state = state.copyWith(clearSelectedVoiceId: true, clearError: true);
+      await OfflineCacheService.removeResilientKey(_prefSpecificVoiceKey);
+    } else {
+      // Ajusta o gênero da UI se a voz escolhida tiver gênero explícito conhecido
+      final match = state.availableVoices.where((v) => v.id == cleanId).firstOrNull;
+      BibleVoiceGender nextGender = state.gender;
+      if (match != null) {
+        if (match.isMale && !match.isFemale) {
+          nextGender = BibleVoiceGender.male;
+        } else if (match.isFemale && !match.isMale) {
+          nextGender = BibleVoiceGender.female;
+        }
+      }
+      state = state.copyWith(
+        selectedVoiceId: cleanId,
+        gender: nextGender,
+        clearError: true,
+      );
+      await OfflineCacheService.writeResilientString(_prefSpecificVoiceKey, cleanId);
+      await OfflineCacheService.writeResilientString(
+        _prefVoiceGenderKey,
+        nextGender == BibleVoiceGender.female ? 'female' : 'male',
+      );
+    }
+    _syncActiveVoiceLabel();
+
+    if (state.isPlaying) {
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
+    }
+  }
+
+  /// Reproduz um trecho rápido de teste para o usuário conferir o timbre (Masculino/Feminino RJ)
+  void speakSample() {
+    speakVerses(const [
+      BibleVerse(
+        bookId: 'salmos',
+        bookName: 'Salmos',
+        chapter: 23,
+        verse: 1,
+        text: 'O Senhor é o meu pastor; nada me faltará.',
+        version: 'ARC',
+      ),
+    ]);
   }
 
   /// Altera a velocidade / cadência da leitura
@@ -157,7 +233,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
     } catch (_) {}
 
     if (state.isPlaying) {
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
     }
   }
 
@@ -249,10 +325,13 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
       clearError: true,
     );
 
-    _speakCurrentQueueItem(announceHeader: true);
+    _speakCurrentQueueItem(announceHeader: true, interruptPrevious: true);
   }
 
-  void _speakCurrentQueueItem({required bool announceHeader}) {
+  void _speakCurrentQueueItem({
+    required bool announceHeader,
+    bool interruptPrevious = true,
+  }) {
     final current = state.currentVerse;
     if (current == null) {
       stop();
@@ -266,11 +345,9 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
       isSingleVerseQueue: state.queue.length == 1,
     );
 
-    // Timbre natural: com voz do gênero correto o motor mantém pitch 1.0 (sem robotizar)
     final bool isMale = state.gender == BibleVoiceGender.male;
-    final double naturalPitch = isMale ? 0.94 : 1.03;
+    final double naturalPitch = isMale ? 0.94 : 1.08;
 
-    // Próximo versículo da fila (pré-carregado pela voz neural → leitura contínua)
     final nextIndex = state.currentQueueIndex + 1;
     final String? nextText = nextIndex < state.queue.length
         ? _prepareNaturalRjSpeechText(
@@ -280,6 +357,8 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
           )
         : null;
 
+    _syncActiveVoiceLabel();
+
     _engine.speak(
       text: spokenText,
       preferMale: isMale,
@@ -287,6 +366,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
       rate: state.speechRate,
       pitch: naturalPitch,
       nextText: nextText,
+      interruptPrevious: interruptPrevious,
       onComplete: () {
         if (!mounted || session != _playbackSession) return;
         _advanceQueue();
@@ -310,9 +390,8 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
         isPlaying: true,
         isPaused: false,
       );
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: false);
     } else {
-      // Finalizou toda a fila de leitura
       state = state.copyWith(
         isPlaying: false,
         isPaused: false,
@@ -325,8 +404,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
     if (!state.isPlaying) return;
     if (state.isPaused) {
       state = state.copyWith(isPaused: false);
-      // Retoma do versículo atual com segurança total em qualquer navegador
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
     } else {
       _playbackSession++;
       _engine.stop();
@@ -343,7 +421,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
         isPlaying: true,
         isPaused: false,
       );
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
     }
   }
 
@@ -356,7 +434,7 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
         isPlaying: true,
         isPaused: false,
       );
-      _speakCurrentQueueItem(announceHeader: false);
+      _speakCurrentQueueItem(announceHeader: false, interruptPrevious: true);
     }
   }
 
@@ -381,7 +459,8 @@ class BibleTtsNotifier extends StateNotifier<BibleTtsState> {
     String cleanText = verse.text
         .replaceAll(RegExp(r'\[([^\]]+)\]'), r'$1')
         .replaceAll('—', ', ')
-        .replaceAll(';', '; ')
+        .replaceAll(';', ', ')
+        .replaceAll(':', ', ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
 
@@ -441,4 +520,3 @@ final bibleTtsProvider =
     StateNotifierProvider<BibleTtsNotifier, BibleTtsState>((ref) {
   return BibleTtsNotifier();
 });
-

@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/sermon_provider.dart';
 import '../editor/sermon_editor_screen.dart';
 import '../pulpit/pulpit_mode_screen.dart';
+import '../widgets/confirm_delete_dialog.dart';
 
 class SermonLibraryScreen extends ConsumerStatefulWidget {
   const SermonLibraryScreen({super.key});
@@ -284,6 +285,22 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                             ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
                           },
                         ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Excluir Sermão',
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 19,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () => confirmAndDeleteSermon(
+                            context: context,
+                            ref: ref,
+                            sermon: sermon,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -420,6 +437,19 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
                     label: const Text('Imprimir'),
                     onPressed: () => PdfExportService.exportAndPrintSermon(sermon),
                   ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5)),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('Excluir'),
+                    onPressed: () => confirmAndDeleteSermon(
+                      context: context,
+                      ref: ref,
+                      sermon: sermon,
+                    ),
+                  ),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: AppColors.accentGold),
                     icon: const Icon(Icons.mic, size: 16),
@@ -501,27 +531,32 @@ class _SermonLibraryScreenState extends ConsumerState<SermonLibraryScreen> {
 
   void _createNewSermon(BuildContext context) async {
     final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
+    final now = DateTime.now();
     final newSermon = Sermon(
-      id: UniqueKeyString.generate(),
+      id: 'sermon-${UniqueKeyString.generate()}',
       userId: userId,
       title: 'Novo Sermão',
       biblicalReference: 'Salmos 23:1',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
     await ref.read(sermonRepositoryProvider).saveSermon(newSermon);
-    await ref.read(sermonListProvider.notifier).loadSermons();
+    _searchController.clear();
+    ref.read(sermonListProvider.notifier).resetFilters();
     if (context.mounted) {
       _openSermonInEditor(context, newSermon);
     }
   }
 
-  void _openSermonInEditor(BuildContext context, Sermon sermon) {
-    Navigator.of(context).push(
+  Future<void> _openSermonInEditor(BuildContext context, Sermon sermon) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SermonEditorScreen(initialSermon: sermon),
       ),
     );
+    if (mounted) {
+      await ref.read(sermonListProvider.notifier).loadSermons();
+    }
   }
 
   // BARRA DE FILTROS COMPACTA (DESIGN PROFISSIONAL - SEM OVERFLOW)

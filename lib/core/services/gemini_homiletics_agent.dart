@@ -1,35 +1,125 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/sermon_block.dart';
+import '../storage/offline_cache_service.dart';
 import 'ai_homiletics_service.dart';
 
 class GeminiHomileticsAgent {
   static const String _prefGeminiKey = 'gemini_api_key_custom';
   static const String _prefGeminiModel = 'gemini_model_custom';
 
-  // Chave opcional configurada pelo pastor
+  /// Modelo padrão oficial: Gemini 2.5 Pro (máxima profundidade exegética e teológica)
+  static const String defaultModel = 'gemini-2.5-pro';
+  static const String fallbackFlashModel = 'gemini-2.5-flash';
+
+  static const Map<String, String> availableModels = {
+    'gemini-2.5-pro': 'Gemini 2.5 Pro (Padrão • Máxima Exegese)',
+    'gemini-3-pro-preview': 'Gemini 3 Pro Preview (Raciocínio Avançado)',
+    'gemini-2.5-flash': 'Gemini 2.5 Flash (Resposta Ultrarrápida)',
+  };
+
+  static String modelDisplayName(String modelId) {
+    switch (modelId) {
+      case 'gemini-2.5-pro':
+        return 'Gemini 2.5 Pro (Google AI)';
+      case 'gemini-3-pro-preview':
+        return 'Gemini 3 Pro Preview (Google AI)';
+      case 'gemini-2.5-flash':
+        return 'Gemini 2.5 Flash (Google AI)';
+      default:
+        return '$modelId (Google AI)';
+    }
+  }
+
+  // Chave configurada pelo pastor (persistência dupla síncrona Web + SharedPreferences)
   static Future<String?> getSavedApiKey() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = prefs.getString(_prefGeminiKey)?.trim();
+      final key = (await OfflineCacheService.readResilientString(_prefGeminiKey))?.trim();
       if (key != null && key.isNotEmpty) return key;
     } catch (_) {}
     return null;
   }
 
   static Future<void> saveApiKey(String apiKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (apiKey.trim().isEmpty) {
-      await prefs.remove(_prefGeminiKey);
+    final trimmed = apiKey.trim();
+    if (trimmed.isEmpty) {
+      await OfflineCacheService.removeResilientKey(_prefGeminiKey);
     } else {
-      await prefs.setString(_prefGeminiKey, apiKey.trim());
+      await OfflineCacheService.writeResilientString(_prefGeminiKey, trimmed);
     }
   }
 
-  /// Gera sermão utilizando o agente inteligente Gemini (API oficial Google AI)
-  /// com fallback inteligente exegético garantido caso a chave ainda não tenha sido configurada.
+  static Future<String> getSavedModel() async {
+    try {
+      final saved = (await OfflineCacheService.readResilientString(_prefGeminiModel))?.trim();
+      if (saved != null && saved.startsWith('gemini-') && !saved.contains('1.5')) {
+        return saved;
+      }
+    } catch (_) {}
+    return defaultModel;
+  }
+
+  static Future<void> saveModel(String modelId) async {
+    final trimmed = modelId.trim();
+    if (trimmed.isEmpty) {
+      await OfflineCacheService.writeResilientString(_prefGeminiModel, defaultModel);
+    } else {
+      await OfflineCacheService.writeResilientString(_prefGeminiModel, trimmed);
+    }
+  }
+
+  /// Testa a conexão com a API oficial Google AI para validar a chave e confirmar acesso ao modelo.
+  static Future<({bool ok, String message})> testApiKeyConnection(
+    String apiKey, {
+    String? model,
+  }) async {
+    final cleanKey = apiKey.trim();
+    if (cleanKey.isEmpty) {
+      return (ok: false, message: 'Informe uma chave Gemini API Key válida (AIza...).');
+    }
+    final targetModel = (model != null && model.isNotEmpty) ? model : defaultModel;
+    try {
+      final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$cleanKey',
+      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': 'Responda apenas com a palavra OK.'}
+                  ]
+                }
+              ],
+              'generationConfig': {'maxOutputTokens': 8, 'temperature': 0.0},
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        return (
+          ok: true,
+          message: 'Conexão confirmada com ${modelDisplayName(targetModel)}!',
+        );
+      }
+      String detail = 'Status ${response.statusCode}';
+      try {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        final msg = (err['error'] as Map<String, dynamic>?)?['message'] as String?;
+        if (msg != null && msg.isNotEmpty) detail = msg;
+      } catch (_) {}
+      return (ok: false, message: 'Não foi possível validar no modelo $targetModel: $detail');
+    } catch (e) {
+      return (ok: false, message: 'Erro de rede ao testar conexão: $e');
+    }
+  }
+
+  /// Gera sermão utilizando o agente inteligente Gemini Pro (API oficial Google AI)
+  /// com fallback automático para Gemini Flash e motor teológico offline em caso de ausência de chave/rede.
   static Future<GeneratedOutlineResult> generateSermon({
     required String theme,
     required String biblicalReference,
@@ -40,11 +130,13 @@ class GeminiHomileticsAgent {
     final cleanType = sermonType.trim().isEmpty ? 'Expositivo' : sermonType.trim();
 
     final apiKey = await getSavedApiKey();
+    final selectedModel = await getSavedModel();
 
     if (apiKey != null && apiKey.isNotEmpty) {
       try {
         final result = await _callGeminiApi(
           apiKey: apiKey,
+          model: selectedModel,
           theme: cleanTheme,
           biblicalReference: cleanRef,
           sermonType: cleanType,
@@ -53,30 +145,54 @@ class GeminiHomileticsAgent {
           return result;
         }
       } catch (e) {
-        debugPrint('[GeminiHomileticsAgent] Erro na API Gemini: $e. Ativando motor de contingência inteligente.');
+        debugPrint('[GeminiHomileticsAgent] Erro no modelo $selectedModel: $e');
+      }
+
+      // Fallback transparente para Flash se o modelo Pro estiver sob rate-limit ou indisponível no momento
+      if (selectedModel != fallbackFlashModel) {
+        try {
+          final flashResult = await _callGeminiApi(
+            apiKey: apiKey,
+            model: fallbackFlashModel,
+            theme: cleanTheme,
+            biblicalReference: cleanRef,
+            sermonType: cleanType,
+          );
+          if (flashResult != null) {
+            return flashResult;
+          }
+        } catch (e) {
+          debugPrint('[GeminiHomileticsAgent] Erro no fallback $fallbackFlashModel: $e');
+        }
       }
     }
 
     // Motor de contingência homilética contextual de alta precisão
-    return _generateContextualOfflineOutline(
+    final offlineResult = _generateContextualOfflineOutline(
       theme: cleanTheme,
       biblicalReference: cleanRef,
       sermonType: cleanType,
     );
+    final hasKey = apiKey != null && apiKey.isNotEmpty;
+    return offlineResult.copyWith(
+      usedModel: hasKey
+          ? 'Motor Contextual Integrado (Contingência Offline)'
+          : 'Motor Contextual Integrado (Configure sua Chave Gemini Pro)',
+    );
   }
 
-  /// Chamada direta e ultrarrápida à API REST do Google Gemini (v1beta)
+  /// Chamada direta à API REST do Google Gemini (v1beta) usando o modelo configurado (padrão Gemini 2.5 Pro)
   static Future<GeneratedOutlineResult?> _callGeminiApi({
     required String apiKey,
+    required String model,
     required String theme,
     required String biblicalReference,
     required String sermonType,
   }) async {
-    // gemini-1.5-flash foi descontinuado pelo Google (retorna 404) — usar o modelo atual.
-    const model = 'gemini-2.5-flash';
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
     );
+    final isPro = model.contains('pro');
 
     final prompt = '''
 Você é um Teólogo e Doutor em Homilética Bíblica Cristã Conservadora (Hermenêutica Reformada e Expositiva).
@@ -173,7 +289,7 @@ REGRAS OBRIGATÓRIAS:
           headers: {'Content-Type': 'application/json'},
           body: body,
         )
-        .timeout(const Duration(seconds: 18));
+        .timeout(Duration(seconds: isPro ? 40 : 20));
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
@@ -196,14 +312,159 @@ REGRAS OBRIGATÓRIAS:
           rawText = rawText.trim();
 
           final parsed = jsonDecode(rawText) as Map<String, dynamic>;
-          return _parseJsonOutline(parsed, theme, biblicalReference, sermonType);
+          return _parseJsonOutline(
+            parsed,
+            theme,
+            biblicalReference,
+            sermonType,
+            modelDisplayName(model),
+          );
         }
       }
     } else {
-      debugPrint('[GeminiHomileticsAgent] Status HTTP ${response.statusCode}: ${response.body}');
+      debugPrint('[GeminiHomileticsAgent] ($model) Status HTTP ${response.statusCode}: ${response.body}');
     }
 
     return null;
+  }
+
+  /// Gera 3 ilustrações pastorais inéditas via Gemini Pro (retorna null se sem chave ou offline)
+  static Future<List<String>?> generateIllustrations({
+    required String sermonTheme,
+    required String pointContext,
+  }) async {
+    final apiKey = await getSavedApiKey();
+    if (apiKey == null || apiKey.isEmpty) return null;
+    final model = await getSavedModel();
+
+    final prompt = '''
+Você é um pregador experiente e teólogo cristão. Crie 3 ilustrações práticas, vívidas e memoráveis em Português do Brasil para o tema "$sermonTheme" e contexto "$pointContext".
+Retorne ESTRITAMENTE um JSON válido no formato:
+{"illustrations": ["Título Curto: texto da ilustração 1", "Título Curto: texto da ilustração 2", "Título Curto: texto da ilustração 3"]}
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt}
+                  ]
+                }
+              ],
+              'generationConfig': {
+                'temperature': 0.5,
+                'responseMimeType': 'application/json',
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (response.statusCode == 200) {
+        final jsonRes = jsonDecode(response.body) as Map<String, dynamic>;
+        final rawText = ((jsonRes['candidates'] as List).first['content']['parts'] as List)
+                .first['text'] as String? ??
+            '';
+        final parsed = jsonDecode(_stripCodeFence(rawText)) as Map<String, dynamic>;
+        final list = (parsed['illustrations'] as List<dynamic>? ?? [])
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        if (list.isNotEmpty) return list;
+      }
+    } catch (e) {
+      debugPrint('[GeminiHomileticsAgent] Erro ao gerar ilustrações: $e');
+    }
+    return null;
+  }
+
+  /// Analisa palavras-chave em Grego/Hebraico via Gemini Pro (retorna null se sem chave ou offline)
+  static Future<List<GreekHebrewInsight>?> getLexicalInsights({
+    required String biblicalPassage,
+  }) async {
+    final apiKey = await getSavedApiKey();
+    if (apiKey == null || apiKey.isEmpty) return null;
+    final model = await getSavedModel();
+
+    final prompt = '''
+Você é um exegeta especialista em Grego Koiné e Hebraico Bíblico (Strong).
+Para a passagem bíblica "$biblicalPassage", analise 3 termos-chave no idioma original.
+Retorne ESTRITAMENTE um JSON válido no formato:
+{
+  "insights": [
+    {
+      "word": "termo original",
+      "transliteration": "transliteração",
+      "language": "Grego (Novo Testamento) ou Hebraico (Antigo Testamento)",
+      "strongNumber": "Gxxxx ou Hxxxx",
+      "meaning": "significado lexical preciso",
+      "theologicalInsight": "explicação exegética e pastoral aplicada ao texto"
+    }
+  ]
+}
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt}
+                  ]
+                }
+              ],
+              'generationConfig': {
+                'temperature': 0.25,
+                'responseMimeType': 'application/json',
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (response.statusCode == 200) {
+        final jsonRes = jsonDecode(response.body) as Map<String, dynamic>;
+        final rawText = ((jsonRes['candidates'] as List).first['content']['parts'] as List)
+                .first['text'] as String? ??
+            '';
+        final parsed = jsonDecode(_stripCodeFence(rawText)) as Map<String, dynamic>;
+        final rawInsights = parsed['insights'] as List<dynamic>? ?? [];
+        final result = rawInsights.map((item) {
+          final m = item as Map<String, dynamic>;
+          return GreekHebrewInsight(
+            word: m['word'] as String? ?? '',
+            transliteration: m['transliteration'] as String? ?? '',
+            language: m['language'] as String? ?? 'Original Bíblico',
+            strongNumber: m['strongNumber'] as String? ?? '',
+            meaning: m['meaning'] as String? ?? '',
+            theologicalInsight: m['theologicalInsight'] as String? ?? '',
+          );
+        }).where((i) => i.word.isNotEmpty).toList();
+        if (result.isNotEmpty) return result;
+      }
+    } catch (e) {
+      debugPrint('[GeminiHomileticsAgent] Erro ao consultar léxico: $e');
+    }
+    return null;
+  }
+
+  static String _stripCodeFence(String raw) {
+    var s = raw.trim();
+    if (s.startsWith('```json')) s = s.substring(7);
+    if (s.startsWith('```')) s = s.substring(3);
+    if (s.endsWith('```')) s = s.substring(0, s.length - 3);
+    return s.trim();
   }
 
   static GeneratedOutlineResult _parseJsonOutline(
@@ -211,6 +472,7 @@ REGRAS OBRIGATÓRIAS:
     String defaultTheme,
     String defaultRef,
     String defaultType,
+    String usedModel,
   ) {
     final title = (data['title'] as String?)?.trim().isNotEmpty == true
         ? data['title'] as String
@@ -257,6 +519,7 @@ REGRAS OBRIGATÓRIAS:
       appeal: appeal,
       crossReferences: crossRefs,
       historicalContext: historical,
+      usedModel: usedModel,
     );
   }
 

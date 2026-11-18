@@ -7,17 +7,18 @@ import '../models/sermon_block.dart';
 import '../models/sermon_model.dart';
 import '../models/sermon_template_model.dart';
 
-/// Repositório de sermões — offline-first.
+/// Repositório de sermões — offline-first com Delta Storage.
 ///
 /// Garantias de arquitetura:
-///  1. A memória é a fonte de verdade durante a sessão; o disco (localStorage) é espelhado
-///     a cada alteração por uma FILA SERIALIZADA de gravações (sem condição de corrida
-///     entre salvamentos simultâneos → nenhum sermão é sobrescrito/perdido).
-///  2. O boot NÃO instancia o acervo de modelos (646 KB). Os sermões de exemplo são
-///     gravados uma única vez (primeiro uso) e depois lidos do próprio cache.
-///  3. A sincronização com a nuvem faz MESCLAGEM (nunca substitui o que só existe no aparelho).
+///  1. A memória é a fonte de verdade durante a sessão; apenas os sermões criados ou
+///     editados pelo usuário são persistidos no delta local (`pregador_pro_user_sermons_delta_v1`),
+///     com gravação SÍNCRONA no `localStorage` + `SharedPreferences` via fila serializada.
+///  2. Os 150 sermões base do acervo usam datas determinísticas fixas (`2026-01-15`),
+///     garantindo que qualquer novo sermão ou edição fique SEMPRE no topo da lista.
+///  3. A sincronização com a nuvem faz MESCLAGEM por `updatedAt` (nunca descarta alterações locais).
 class SermonRepository {
   List<Sermon> _inMemorySermons = [];
+  Map<String, Sermon> _userModifiedSermons = {};
   Set<String> _deletedIds = {};
   bool _initialized = false;
   Future<void>? _initFuture;
@@ -25,7 +26,10 @@ class SermonRepository {
 
   SermonRepository();
 
-  /// Inicializa o repositório carregando os sermões persistidos.
+  bool get isInitialized => _initialized;
+  int get modifiedUserSermonsCount => _userModifiedSermons.length;
+
+  /// Inicializa o repositório carregando os sermões persistidos sem bloquear o boot.
   Future<void> init() {
     if (_initialized) return Future.value();
     _initFuture ??= _performInit();
@@ -34,34 +38,63 @@ class SermonRepository {
 
   Future<void> _performInit() async {
     try {
-      final cached = await OfflineCacheService.getCachedSermons();
-      _deletedIds = await OfflineCacheService.getDeletedIds();
+      final results = await Future.wait<Object?>([
+        OfflineCacheService.getUserSermonsDelta(),
+        OfflineCacheService.getDeletedIds(),
+        OfflineCacheService.isLegacyMigrated(),
+      ]);
 
-      // 1. Garante que todos os 150 sermões base do acervo homilético estejam presentes
-      //    (exceto os que o usuário excluiu explicitamente).
-      final map = <String, Sermon>{};
-      for (final s in _buildStarterSermons()) {
+      _userModifiedSermons = Map<String, Sermon>.from(
+        results[0] as Map<String, Sermon>,
+      );
+      _deletedIds = Set<String>.from(results[1] as Set<String>);
+      final isMigrated = results[2] as bool;
+
+      // 1. Constrói os 150 sermões base com datas fixas determinísticas
+      final starterList = _buildStarterSermons();
+      final starterMap = <String, Sermon>{
+        for (final s in starterList) s.id: s,
+      };
+
+      // 2. Migração única e segura do cache legado pesado (se houver dados prévios)
+      if (!isMigrated) {
+        final legacyCached = await OfflineCacheService.getCachedSermons();
+        bool migratedAny = false;
+        for (final s in legacyCached) {
+          if (_deletedIds.contains(s.id)) continue;
+          final starter = starterMap[s.id];
+          final isUserCreatedOrEdited =
+              starter == null || _isDifferentFromStarter(s, starter);
+          if (isUserCreatedOrEdited) {
+            final existing = _userModifiedSermons[s.id];
+            if (existing == null || s.updatedAt.isAfter(existing.updatedAt)) {
+              _userModifiedSermons[s.id] = s;
+              migratedAny = true;
+            }
+          }
+        }
+        if (migratedAny) {
+          await OfflineCacheService.saveUserSermonsDelta(_userModifiedSermons);
+        }
+        await OfflineCacheService.markLegacyMigrated();
+        await OfflineCacheService.clearLegacySermonsCache();
+      }
+
+      // 3. Mescla acervo base + sermões criados/editados pelo usuário
+      final mergedMap = <String, Sermon>{};
+      for (final s in starterList) {
         if (!_deletedIds.contains(s.id)) {
-          map[s.id] = s;
+          mergedMap[s.id] = s;
+        }
+      }
+      for (final entry in _userModifiedSermons.entries) {
+        if (!_deletedIds.contains(entry.key)) {
+          mergedMap[entry.key] = entry.value;
         }
       }
 
-      // 2. Sobrepõe com todos os sermões salvos localmente (criados ou editados pelo usuário).
-      //    Os sermões criados pelo usuário e as edições feitas nos sermões base têm prioridade total.
-      for (final s in cached) {
-        if (!_deletedIds.contains(s.id)) {
-          map[s.id] = s;
-        }
-      }
-
-      _inMemorySermons = map.values.toList();
-
-      // Se o cache tinha menos sermões (ex.: migração da versão que tinha apenas 6),
-      // persiste o acervo completo + sermões do usuário imediatamente.
-      if (cached.length < _inMemorySermons.length) {
-        final ok = await _persist();
-        if (ok) await OfflineCacheService.markSeeded();
-      }
+      _inMemorySermons = mergedMap.values.toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     } catch (e) {
       debugPrint('[SermonRepository] Falha ao inicializar: $e');
     }
@@ -72,10 +105,40 @@ class SermonRepository {
     unawaited(_trySyncWithSupabase());
   }
 
-  /// Fila serializada de gravação: sempre grava o estado MAIS RECENTE da memória.
+  bool _isDifferentFromStarter(Sermon candidate, Sermon starter) {
+    if (candidate.title != starter.title ||
+        candidate.biblicalReference != starter.biblicalReference ||
+        candidate.category != starter.category ||
+        candidate.sermonType != starter.sermonType ||
+        candidate.introduction != starter.introduction ||
+        candidate.conclusion != starter.conclusion ||
+        candidate.appeal != starter.appeal ||
+        candidate.isFavorite != starter.isFavorite ||
+        candidate.status != starter.status ||
+        candidate.preachCount != starter.preachCount ||
+        candidate.estimatedDurationMinutes != starter.estimatedDurationMinutes ||
+        candidate.blocks.length != starter.blocks.length) {
+      return true;
+    }
+    for (int i = 0; i < candidate.blocks.length; i++) {
+      final cb = candidate.blocks[i];
+      final sb = starter.blocks[i];
+      if (cb.title != sb.title ||
+          cb.biblicalReference != sb.biblicalReference ||
+          cb.explanation != sb.explanation ||
+          cb.illustration != sb.illustration ||
+          cb.application != sb.application) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Fila serializada de gravação: sempre grava o estado MAIS RECENTE do delta do usuário.
   Future<bool> _persist() {
+    final snapshot = Map<String, Sermon>.from(_userModifiedSermons);
     final run = _persistChain.then(
-      (_) => OfflineCacheService.cacheSermons(List<Sermon>.of(_inMemorySermons)),
+      (_) => OfflineCacheService.saveUserSermonsDelta(snapshot),
     );
     _persistChain = run.then((_) {}, onError: (_) {});
     return run;
@@ -98,23 +161,29 @@ class SermonRepository {
 
       if (remoteSermons.isEmpty) return;
 
-      // MESCLAGEM: nunca descarta o que existe só no aparelho.
+      // MESCLAGEM: nunca descarta o que existe de mais recente no aparelho.
       final map = <String, Sermon>{for (final s in _inMemorySermons) s.id: s};
+      bool updatedFromRemote = false;
       for (final remote in remoteSermons) {
         if (_deletedIds.contains(remote.id)) continue;
         final local = map[remote.id];
         if (local == null || remote.updatedAt.isAfter(local.updatedAt)) {
           map[remote.id] = remote;
+          _userModifiedSermons[remote.id] = remote;
+          updatedFromRemote = true;
         }
       }
-      _inMemorySermons = map.values.toList();
-      unawaited(_persist());
+      if (updatedFromRemote) {
+        _inMemorySermons = map.values.toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        unawaited(_persist());
+      }
     } catch (_) {
       // Falha silenciosa de rede mantendo cache offline
     }
   }
 
-  /// Retorna todos os sermões em memória sem filtros
+  /// Retorna todos os sermões em memória ordenados por atualização mais recente.
   Future<List<Sermon>> getAllSermons() async {
     if (!_initialized) await init();
     return List.unmodifiable(_inMemorySermons);
@@ -166,18 +235,25 @@ class SermonRepository {
     return filtered;
   }
 
-  /// Busca sermão por ID
-  Future<Sermon?> getSermonById(String id) async {
-    if (!_initialized) await init();
+  /// Busca síncrona imediata em memória (evita abrir versões antigas no editor)
+  Sermon? getSermonByIdSync(String id) {
     final index = _inMemorySermons.indexWhere((s) => s.id == id);
     if (index >= 0) return _inMemorySermons[index];
     return null;
   }
 
-  /// Salva ou atualiza sermão. Só retorna após a gravação em disco ser CONFIRMADA;
-  /// lança exceção se o armazenamento falhar (a UI exibe o erro em vez de fingir que salvou).
+  /// Busca sermão por ID
+  Future<Sermon?> getSermonById(String id) async {
+    if (!_initialized) await init();
+    return getSermonByIdSync(id);
+  }
+
+  /// Salva ou atualiza sermão. Só retorna após a gravação local ser CONFIRMADA;
+  /// lança exceção se o armazenamento falhar.
   Future<void> saveSermon(Sermon sermon) async {
     if (!_initialized) await init();
+
+    _userModifiedSermons[sermon.id] = sermon;
 
     final index = _inMemorySermons.indexWhere((s) => s.id == sermon.id);
     if (index >= 0) {
@@ -185,17 +261,19 @@ class SermonRepository {
     } else {
       _inMemorySermons.insert(0, sermon);
     }
+    _inMemorySermons.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
     if (_deletedIds.remove(sermon.id)) {
       await OfflineCacheService.saveDeletedIds(_deletedIds);
     }
 
-    // 1. Persistência local confirmada (fila serializada)
+    // 1. Persistência local confirmada (síncrona no webLocal + fila serializada SharedPreferences)
     final ok = await _persist();
     if (!ok) {
       throw StateError('Não foi possível gravar no armazenamento do aparelho.');
     }
 
-    // 2. Persistência remota assíncrona em background no Supabase
+    // 2. Persistência remota assíncrona em background no Supabase (quando autenticado no BaaS)
     final client = SupabaseConfig.client;
     if (client != null && client.auth.currentUser != null) {
       unawaited(
@@ -238,6 +316,7 @@ class SermonRepository {
   Future<void> deleteSermon(String id) async {
     if (!_initialized) await init();
     _inMemorySermons.removeWhere((s) => s.id == id);
+    _userModifiedSermons.remove(id);
     _deletedIds.add(id);
     await OfflineCacheService.saveDeletedIds(_deletedIds);
     await _persist();
@@ -250,40 +329,83 @@ class SermonRepository {
     }
   }
 
-  /// Lista de Modelos Homiléticos Curados (carregada somente quando a aba é aberta)
-  Future<List<SermonTemplate>> getTemplates() async {
-    return kCuratedSermonTemplates;
+  /// Restaura um sermão recém-excluído (usado pelo botão "Desfazer")
+  Future<void> restoreSermon(Sermon sermon) async {
+    if (!_initialized) await init();
+    _deletedIds.remove(sermon.id);
+    await OfflineCacheService.saveDeletedIds(_deletedIds);
+    await saveSermon(sermon);
   }
 
-  /// Todos os 150 sermões do acervo homilético — base completa do aplicativo.
-  List<Sermon> _buildStarterSermons() {
-    final now = DateTime.now();
-    return kCuratedSermonTemplates.asMap().entries.map((entry) {
-      final index = entry.key;
-      final tpl = entry.value;
-      final rawBlocks = (tpl.content['blocks'] as List<dynamic>?) ?? [];
-      final blocks = rawBlocks
-          .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
-          .toList();
+  /// Exclui um modelo do Acervo de Modelos (e remove seu sermão base associado)
+  Future<void> deleteTemplate(String templateId) async {
+    if (!_initialized) await init();
+    final sermonId = 'sermon-$templateId';
+    _deletedIds.add(templateId);
+    _deletedIds.add(sermonId);
+    _inMemorySermons.removeWhere((s) => s.id == sermonId);
+    _userModifiedSermons.remove(sermonId);
+    await OfflineCacheService.saveDeletedIds(_deletedIds);
+    await _persist();
+  }
 
-      return Sermon(
-        id: 'sermon-${tpl.id}',
-        userId: 'pastor-local-01',
-        title: tpl.title,
-        biblicalReference: tpl.keyVerse,
-        category: tpl.tags.isNotEmpty ? tpl.tags.first : 'Geral',
-        sermonType: tpl.sermonType,
-        introduction: tpl.content['introduction'] as String? ?? '',
-        blocks: blocks,
-        conclusion: tpl.content['conclusion'] as String? ?? '',
-        appeal: tpl.content['appeal'] as String? ?? '',
-        status: 'ready',
-        isFavorite: index < 5,
-        preachCount: index == 0 ? 3 : (index == 1 ? 1 : 0),
-        estimatedDurationMinutes: 40,
-        createdAt: now.subtract(Duration(days: 30 - index % 25)),
-        updatedAt: now.subtract(Duration(days: index % 10)),
+  /// Restaura um modelo excluído no Acervo de Modelos (usado pelo botão "Desfazer")
+  Future<void> restoreTemplate(String templateId) async {
+    if (!_initialized) await init();
+    final sermonId = 'sermon-$templateId';
+    _deletedIds.remove(templateId);
+    _deletedIds.remove(sermonId);
+    await OfflineCacheService.saveDeletedIds(_deletedIds);
+
+    final tplIdx = kCuratedSermonTemplates.indexWhere((t) => t.id == templateId);
+    if (tplIdx >= 0 && !_inMemorySermons.any((s) => s.id == sermonId)) {
+      _inMemorySermons.add(
+        _buildStarterSermon(tplIdx, kCuratedSermonTemplates[tplIdx]),
       );
+      _inMemorySermons.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    }
+  }
+
+  /// Lista de Modelos Homiléticos Curados (filtra modelos excluídos pelo usuário)
+  Future<List<SermonTemplate>> getTemplates() async {
+    if (!_initialized) await init();
+    return kCuratedSermonTemplates
+        .where((t) => !_deletedIds.contains(t.id))
+        .toList();
+  }
+
+  /// Todos os 150 sermões do acervo homilético com datas determinísticas fixas
+  /// para que nunca sobrescrevam nem passem à frente de sermões criados/editados pelo usuário.
+  List<Sermon> _buildStarterSermons() {
+    return kCuratedSermonTemplates.asMap().entries.map((entry) {
+      return _buildStarterSermon(entry.key, entry.value);
     }).toList();
+  }
+
+  Sermon _buildStarterSermon(int index, SermonTemplate tpl) {
+    final baseDate = DateTime(2026, 1, 15, 12, 0);
+    final rawBlocks = (tpl.content['blocks'] as List<dynamic>?) ?? [];
+    final blocks = rawBlocks
+        .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
+        .toList();
+
+    return Sermon(
+      id: 'sermon-${tpl.id}',
+      userId: 'pastor-local-01',
+      title: tpl.title,
+      biblicalReference: tpl.keyVerse,
+      category: tpl.tags.isNotEmpty ? tpl.tags.first : 'Geral',
+      sermonType: tpl.sermonType,
+      introduction: tpl.content['introduction'] as String? ?? '',
+      blocks: blocks,
+      conclusion: tpl.content['conclusion'] as String? ?? '',
+      appeal: tpl.content['appeal'] as String? ?? '',
+      status: 'ready',
+      isFavorite: index < 5,
+      preachCount: index == 0 ? 3 : (index == 1 ? 1 : 0),
+      estimatedDurationMinutes: 40,
+      createdAt: baseDate.subtract(Duration(days: 30 - index % 25)),
+      updatedAt: baseDate.subtract(Duration(days: index % 10, minutes: index)),
+    );
   }
 }

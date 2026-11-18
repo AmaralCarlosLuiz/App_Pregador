@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/storage/offline_cache_service.dart';
 
 class ThemeState {
   final ThemeMode themeMode;
@@ -34,16 +36,34 @@ class ThemeState {
 /// O estado inicial é carregado antes do primeiro frame (ver `main.dart`),
 /// então o app nunca "pisca" no tema errado ao abrir.
 class ThemeNotifier extends StateNotifier<ThemeState> {
+  static const _kThemeBundle = 'pregador_pro_theme_bundle_v2';
   static const _kThemeMode = 'pregador_pro_theme_mode_v1';
   static const _kHighContrast = 'pregador_pro_pulpit_high_contrast_v1';
   static const _kAmberTone = 'pregador_pro_pulpit_amber_tone_v1';
   static const _kFontSize = 'pregador_pro_pulpit_font_size_v1';
 
-  ThemeNotifier([ThemeState initial = const ThemeState()]) : super(initial);
+  ThemeNotifier([super.initial = const ThemeState()]);
 
   /// Lê as preferências salvas (chamado uma única vez no boot).
   static Future<ThemeState> loadSaved() async {
     try {
+      final bundleRaw = await OfflineCacheService.readResilientString(_kThemeBundle);
+      if (bundleRaw != null && bundleRaw.isNotEmpty) {
+        final map = jsonDecode(bundleRaw) as Map<String, dynamic>;
+        final mode = switch (map['themeMode'] as String?) {
+          'light' => ThemeMode.light,
+          'dark' => ThemeMode.dark,
+          _ => ThemeMode.system,
+        };
+        return ThemeState(
+          themeMode: mode,
+          isPulpitHighContrast: (map['highContrast'] as bool?) ?? true,
+          isPulpitAmberTone: (map['amberTone'] as bool?) ?? false,
+          pulpitFontSize: ((map['fontSize'] as num?)?.toDouble() ?? 22.0).clamp(16.0, 38.0),
+        );
+      }
+
+      // Migração de chaves antigas se existirem
       final prefs = await SharedPreferences.getInstance();
       final mode = switch (prefs.getString(_kThemeMode)) {
         'light' => ThemeMode.light,
@@ -64,12 +84,22 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
 
   Future<void> _save() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kThemeMode, switch (state.themeMode) {
+      final modeStr = switch (state.themeMode) {
         ThemeMode.light => 'light',
         ThemeMode.dark => 'dark',
         ThemeMode.system => 'system',
-      });
+      };
+      await OfflineCacheService.writeResilientString(
+        _kThemeBundle,
+        jsonEncode({
+          'themeMode': modeStr,
+          'highContrast': state.isPulpitHighContrast,
+          'amberTone': state.isPulpitAmberTone,
+          'fontSize': state.pulpitFontSize,
+        }),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kThemeMode, modeStr);
       await prefs.setBool(_kHighContrast, state.isPulpitHighContrast);
       await prefs.setBool(_kAmberTone, state.isPulpitAmberTone);
       await prefs.setDouble(_kFontSize, state.pulpitFontSize);

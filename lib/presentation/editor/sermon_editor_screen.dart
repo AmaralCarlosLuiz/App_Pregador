@@ -11,6 +11,7 @@ import '../../providers/sermon_editor_provider.dart';
 import '../ai_assistant/ai_assistant_sheet.dart';
 import '../bible/bible_screen.dart';
 import '../pulpit/pulpit_mode_screen.dart';
+import '../widgets/confirm_delete_dialog.dart';
 import 'widgets/biblical_picker_bar.dart';
 import 'widgets/homiletic_block_card.dart';
 
@@ -35,6 +36,7 @@ class SermonEditorScreen extends ConsumerWidget {
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
+        FocusScope.of(context).unfocus();
         if (editorState.hasUnsavedChanges) {
           await editorNotifier.saveImmediately();
         }
@@ -123,6 +125,7 @@ class SermonEditorScreen extends ConsumerWidget {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               onPressed: () async {
+                FocusScope.of(context).unfocus();
                 await editorNotifier.saveImmediately();
                 if (!context.mounted) return;
                 final saveError = ref.read(sermonEditorProvider(initialSermon)).error;
@@ -178,11 +181,28 @@ class SermonEditorScreen extends ConsumerWidget {
                 SermonShareService.showShareOptionsModal(context, sermon);
               },
             ),
+
+            // Excluir Sermão
+            IconButton(
+              tooltip: 'Excluir Sermão',
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: () async {
+                final deleted = await confirmAndDeleteSermon(
+                  context: context,
+                  ref: ref,
+                  sermon: sermon,
+                  onBeforeDelete: editorNotifier.markDeleted,
+                );
+                if (deleted && context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
           ] else ...[
             // Em smartphones, agrupa opções secundárias para evitar overflow na AppBar
             PopupMenuButton<String>(
               tooltip: 'Mais Ações',
-              onSelected: (value) {
+              onSelected: (value) async {
                 switch (value) {
                   case 'preview':
                     _showMarkdownPreview(context, sermon);
@@ -192,6 +212,17 @@ class SermonEditorScreen extends ConsumerWidget {
                     break;
                   case 'share':
                     SermonShareService.showShareOptionsModal(context, sermon);
+                    break;
+                  case 'delete':
+                    final deleted = await confirmAndDeleteSermon(
+                      context: context,
+                      ref: ref,
+                      sermon: sermon,
+                      onBeforeDelete: editorNotifier.markDeleted,
+                    );
+                    if (deleted && context.mounted) {
+                      Navigator.of(context).pop();
+                    }
                     break;
                 }
               },
@@ -223,6 +254,19 @@ class SermonEditorScreen extends ConsumerWidget {
                     title: Text('Prévia Markdown'),
                   ),
                 ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+                    title: Text(
+                      'Excluir Sermão',
+                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -240,11 +284,14 @@ class SermonEditorScreen extends ConsumerWidget {
               ),
               icon: const Icon(Icons.mic, size: 16),
               label: Text(isMobile ? 'Púlpito' : 'Modo Púlpito'),
-              onPressed: () {
-                editorNotifier.saveImmediately();
+              onPressed: () async {
+                FocusScope.of(context).unfocus();
+                await editorNotifier.saveImmediately();
+                if (!context.mounted) return;
+                final latestSermon = ref.read(sermonEditorProvider(initialSermon)).sermon;
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => PulpitModeScreen(sermon: sermon),
+                    builder: (_) => PulpitModeScreen(sermon: latestSermon),
                   ),
                 );
               },

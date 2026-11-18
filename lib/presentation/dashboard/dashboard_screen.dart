@@ -11,6 +11,7 @@ import '../../providers/theme_provider.dart';
 import '../ai_assistant/ai_assistant_sheet.dart';
 import '../editor/sermon_editor_screen.dart';
 import '../pulpit/pulpit_mode_screen.dart';
+import '../widgets/confirm_delete_dialog.dart';
 import 'widgets/dashboard_metrics_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -675,6 +676,19 @@ class DashboardScreen extends ConsumerWidget {
                     ref.read(sermonListProvider.notifier).toggleFavorite(sermon.id);
                   },
                 ),
+                IconButton(
+                  tooltip: 'Excluir Sermão',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                    size: 20,
+                  ),
+                  onPressed: () => confirmAndDeleteSermon(
+                    context: context,
+                    ref: ref,
+                    sermon: sermon,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -786,12 +800,13 @@ class DashboardScreen extends ConsumerWidget {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => SermonEditorScreen(initialSermon: sermon),
                       ),
                     );
+                    await ref.read(sermonListProvider.notifier).loadSermons();
                   },
                   icon: const Icon(Icons.edit, size: 15),
                   label: const Text('Editar'),
@@ -865,22 +880,25 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   void _openNewSermon(BuildContext context, WidgetRef ref) async {
+    final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
+    final now = DateTime.now();
     final newSermon = Sermon(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      userId: 'pastor-local-01',
+      id: 'sermon-${now.millisecondsSinceEpoch}',
+      userId: userId,
       title: 'Novo Sermão',
       biblicalReference: 'João 3:16',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
     await ref.read(sermonRepositoryProvider).saveSermon(newSermon);
     await ref.read(sermonListProvider.notifier).loadSermons();
     if (context.mounted) {
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SermonEditorScreen(initialSermon: newSermon),
         ),
       );
+      await ref.read(sermonListProvider.notifier).loadSermons();
     }
   }
 

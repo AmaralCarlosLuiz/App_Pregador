@@ -47,19 +47,29 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState>
     with WidgetsBindingObserver {
   final Ref _ref;
   Timer? _debounceTimer;
+  bool _isDeleted = false;
 
-  /// Tempo de espera após a última digitação. Curto o bastante para que sair do app
-  /// quase sempre já tenha salvo; o salvamento imediato por ciclo de vida cobre o resto.
-  static const Duration _debounceDelay = Duration(milliseconds: 500);
+  /// Tempo de espera após a última digitação (curto graças ao Delta Storage síncrono).
+  static const Duration _debounceDelay = Duration(milliseconds: 250);
 
   SermonEditorNotifier(this._ref, Sermon initialSermon)
-      : super(SermonEditorState(
-          sermon: initialSermon,
-          lastSavedAt: initialSermon.updatedAt,
-        )) {
+      : super(_buildInitialState(_ref, initialSermon)) {
     WidgetsBinding.instance.addObserver(this);
     // Garante persistência imediata do sermão no repositório e cache local
-    _ensureInitialPersisted(initialSermon);
+    _ensureInitialPersisted(state.sermon);
+  }
+
+  static SermonEditorState _buildInitialState(Ref ref, Sermon initialSermon) {
+    final repo = ref.read(sermonRepositoryProvider);
+    final inMemory = repo.getSermonByIdSync(initialSermon.id);
+    final effective = (inMemory != null &&
+            inMemory.updatedAt.isAfter(initialSermon.updatedAt))
+        ? inMemory
+        : initialSermon;
+    return SermonEditorState(
+      sermon: effective,
+      lastSavedAt: effective.updatedAt,
+    );
   }
 
   void _ensureInitialPersisted(Sermon initialSermon) async {
@@ -77,15 +87,25 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState>
   /// ou fechar: ao sair de primeiro plano, qualquer edição pendente é gravada na hora.
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
-    if (lifecycleState != AppLifecycleState.resumed && state.hasUnsavedChanges) {
+    if (!_isDeleted &&
+        lifecycleState != AppLifecycleState.resumed &&
+        state.hasUnsavedChanges) {
       saveImmediately();
+    }
+  }
+
+  void markDeleted() {
+    _isDeleted = true;
+    _debounceTimer?.cancel();
+    if (mounted) {
+      state = state.copyWith(hasUnsavedChanges: false);
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (state.hasUnsavedChanges) {
+    if (!_isDeleted && state.hasUnsavedChanges) {
       final currentSermon = state.sermon.copyWith(updatedAt: DateTime.now());
       try {
         final repo = _ref.read(sermonRepositoryProvider);
@@ -101,11 +121,11 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState>
   }
 
   void _triggerDebounceSave() {
-    if (!mounted) return;
+    if (!mounted || _isDeleted) return;
     state = state.copyWith(hasUnsavedChanges: true);
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_debounceDelay, () {
-      if (mounted) {
+      if (mounted && !_isDeleted) {
         saveImmediately();
       }
     });
@@ -113,7 +133,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState>
 
   Future<void> saveImmediately() async {
     _debounceTimer?.cancel();
-    if (!mounted) return;
+    if (!mounted || _isDeleted) return;
     state = state.copyWith(isSaving: true);
 
     // Foto do que está sendo gravado. Se o usuário continuar digitando durante a
@@ -285,7 +305,7 @@ class SermonEditorNotifier extends StateNotifier<SermonEditorState>
   }
 }
 
-final sermonEditorProvider = StateNotifierProvider.family<
+final sermonEditorProvider = StateNotifierProvider.autoDispose.family<
     SermonEditorNotifier, SermonEditorState, Sermon>((ref, initialSermon) {
   return SermonEditorNotifier(ref, initialSermon);
 });

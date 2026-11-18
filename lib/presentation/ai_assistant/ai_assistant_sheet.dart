@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/ai_homiletics_service.dart';
@@ -37,6 +36,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
   late final TextEditingController _exegesisPassageCtrl;
 
   bool _hasCustomGeminiKey = false;
+  String _selectedGeminiModel = GeminiHomileticsAgent.defaultModel;
 
   @override
   void initState() {
@@ -87,9 +87,11 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
 
   Future<void> _checkGeminiApiKey() async {
     final key = await GeminiHomileticsAgent.getSavedApiKey();
+    final model = await GeminiHomileticsAgent.getSavedModel();
     if (mounted) {
       setState(() {
         _hasCustomGeminiKey = key != null && key.isNotEmpty;
+        _selectedGeminiModel = model;
       });
     }
   }
@@ -116,81 +118,211 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
 
   void _openGeminiApiKeyDialog() async {
     final currentKey = await GeminiHomileticsAgent.getSavedApiKey() ?? '';
+    final currentModel = await GeminiHomileticsAgent.getSavedModel();
     final controller = TextEditingController(text: currentKey);
+    String chosenModel = GeminiHomileticsAgent.availableModels.containsKey(currentModel)
+        ? currentModel
+        : GeminiHomileticsAgent.defaultModel;
+    bool obscureKey = true;
+    bool isTesting = false;
+    String? testFeedback;
+    bool testPassed = false;
 
-    if (!mounted) return;
+    if (!mounted) {
+      controller.dispose();
+      return;
+    }
 
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
-              SizedBox(width: 10),
-              Flexible(
-                child: Text('Agente Gemini Homilética IA', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                  SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'Motor Gemini Pro • Configuração',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'O Pregador Pro utiliza o Google Gemini como agente de inteligência teológica para construir sermões exegéticos profundos.',
-                style: TextStyle(fontSize: 13, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Chave de API Gemini (Opcional - Google AI Studio):',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: controller,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: 'Cole sua Gemini API Key (AIzaSy...)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.key),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
+                      ),
+                      child: const Text(
+                        'Base configurada: Gemini 2.5 Pro (Google AI). '
+                        'Gere sua chave de API gratuita ou vinculada ao Google Cloud na sua conta em aistudio.google.com/apikey.',
+                        style: TextStyle(fontSize: 12, height: 1.4),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Modelo Base do Agente:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: chosenModel,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: GeminiHomileticsAgent.availableModels.entries
+                          .map((e) => DropdownMenuItem(
+                                value: e.key,
+                                child: Text(e.value, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            chosenModel = val;
+                            testFeedback = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Chave de API Gemini (Google AI Studio):',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: controller,
+                      obscureText: obscureKey,
+                      decoration: InputDecoration(
+                        hintText: 'Cole sua Gemini API Key (AIzaSy...)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.key),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureKey ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                          onPressed: () => setDialogState(() => obscureKey = !obscureKey),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    if (testFeedback != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (testPassed ? const Color(0xFF10B981) : Colors.redAccent).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (testPassed ? const Color(0xFF10B981) : Colors.redAccent).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              testPassed ? Icons.check_circle : Icons.error_outline,
+                              size: 16,
+                              color: testPassed ? const Color(0xFF10B981) : Colors.redAccent,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                testFeedback!,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: testPassed ? const Color(0xFF10B981) : Colors.redAccent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Obs.: A assinatura Google AI Pro do app Gemini não libera a API externa automaticamente sem uma API Key do AI Studio (a conta conta com cota gratuita e créditos Cloud opcionais). Sem chave, o sistema usa o motor teológico offline.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey, height: 1.35),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                '💡 Se não informar uma chave, o sistema opera automaticamente com o motor teológico contextual integrado de alta precisão.',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
-              onPressed: () async {
-                await GeminiHomileticsAgent.saveApiKey(controller.text);
-                await _checkGeminiApiKey();
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Configurações do Agente Gemini salvas com sucesso!'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: isTesting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancelar'),
+                ),
+                OutlinedButton.icon(
+                  icon: isTesting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering, size: 16),
+                  label: const Text('Testar Chave'),
+                  onPressed: isTesting
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isTesting = true;
+                            testFeedback = null;
+                          });
+                          final res = await GeminiHomileticsAgent.testApiKeyConnection(
+                            controller.text,
+                            model: chosenModel,
+                          );
+                          if (!ctx.mounted) return;
+                          setDialogState(() {
+                            isTesting = false;
+                            testPassed = res.ok;
+                            testFeedback = res.message;
+                          });
+                        },
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+                  onPressed: isTesting
+                      ? null
+                      : () async {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          await GeminiHomileticsAgent.saveApiKey(controller.text);
+                          await GeminiHomileticsAgent.saveModel(chosenModel);
+                          await _checkGeminiApiKey();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  controller.text.trim().isNotEmpty
+                                      ? 'Configurado: ${GeminiHomileticsAgent.modelDisplayName(chosenModel)}'
+                                      : 'Chave removida. Operando com motor contextual offline.',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
         );
       },
-    );
+    ).then((_) => controller.dispose());
   }
 
   void _saveSermonToLibrary(GeneratedOutlineResult outline) async {
@@ -323,18 +455,30 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                                         borderRadius: BorderRadius.circular(10),
                                         onTap: _openGeminiApiKeyDialog,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                            color: (_hasCustomGeminiKey ? const Color(0xFF10B981) : const Color(0xFF7C3AED))
+                                                .withValues(alpha: 0.14),
                                             borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35)),
+                                            border: Border.all(
+                                              color: (_hasCustomGeminiKey ? const Color(0xFF10B981) : const Color(0xFF7C3AED))
+                                                  .withValues(alpha: 0.38),
+                                            ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Text(
-                                                'Gemini',
-                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED)),
+                                              Text(
+                                                _hasCustomGeminiKey
+                                                    ? (_selectedGeminiModel.contains('pro') ? 'Gemini Pro' : 'Gemini AI')
+                                                    : 'Configurar Pro',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: _hasCustomGeminiKey
+                                                      ? const Color(0xFF10B981)
+                                                      : const Color(0xFF7C3AED),
+                                                ),
                                               ),
                                               const SizedBox(width: 3),
                                               Icon(
@@ -421,9 +565,11 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Gemini IA Construindo Esboço Homilético Profundo...',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              _hasCustomGeminiKey
+                  ? '${GeminiHomileticsAgent.modelDisplayName(_selectedGeminiModel)} Construindo Esboço...'
+                  : 'Construindo Esboço Homilético Profundo...',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -611,17 +757,26 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              '✨ Esboço Gerado por Gemini IA (5 Pontos)',
-                              style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 12),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (outline.isGeminiCloud ? const Color(0xFF10B981) : const Color(0xFF7C3AED))
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '✨ ${outline.usedModel} (5 Pontos)',
+                                style: TextStyle(
+                                  color: outline.isGeminiCloud ? const Color(0xFF10B981) : const Color(0xFF7C3AED),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11.5,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -635,6 +790,34 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                           ),
                         ],
                       ),
+                      if (!outline.isGeminiCloud) ...[
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: _openGeminiApiKeyDialog,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentGold.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.accentGold.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.key, size: 14, color: AppColors.accentGold),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Toque aqui para ativar o Gemini 2.5 Pro com sua chave do Google AI Studio.',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.accentGold),
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward_ios, size: 11, color: AppColors.accentGold),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Text(
                         outline.title,

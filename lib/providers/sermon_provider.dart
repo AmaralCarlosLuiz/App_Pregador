@@ -83,7 +83,11 @@ class SermonListState {
   int get totalPreachCount => allSermons.fold(0, (acc, s) => acc + s.preachCount);
   int get preachedSermonsCount => allSermons.where((s) => s.preachCount > 0).length;
   List<Sermon> get favoriteSermons => allSermons.where((s) => s.isFavorite).toList();
-  List<Sermon> get recentSermons => allSermons.take(5).toList();
+  List<Sermon> get recentSermons {
+    final sorted = List<Sermon>.from(allSermons)
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return sorted.take(5).toList();
+  }
 
   // Categorias que possuem sermões reais (elimina categorias vazias da interface e ordena alfabeticamente)
   Map<String, int> get activeCategoriesWithCounts {
@@ -259,6 +263,21 @@ class SermonListNotifier extends StateNotifier<SermonListState> {
 
   Future<void> deleteSermon(String id) async {
     await _repository.deleteSermon(id);
+    await loadSermons();
+  }
+
+  Future<void> restoreSermon(Sermon sermon) async {
+    await _repository.restoreSermon(sermon);
+    await loadSermons();
+  }
+
+  Future<void> deleteTemplate(String templateId) async {
+    await _repository.deleteTemplate(templateId);
+    await loadSermons();
+  }
+
+  Future<void> restoreTemplate(String templateId) async {
+    await _repository.restoreTemplate(templateId);
     await loadSermons();
   }
 

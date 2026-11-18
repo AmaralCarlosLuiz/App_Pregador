@@ -9,13 +9,15 @@ import 'bible_tts_engine_stub.dart';
 import 'gemini_homiletics_agent.dart';
 export 'bible_tts_engine_stub.dart' show TtsVoiceOption, BibleTtsEngine, VoidCallback;
 
-/// Motor de leitura em voz da Bíblia (Web / PWA).
+/// Motor de leitura em voz da Bíblia (Web / PWA / iPhone Safari).
 ///
-/// Duas camadas, com queda automática de uma para a outra:
-///  1. VOZ NEURAL HUMANA (Gemini TTS) — quando há chave Gemini configurada. Voz masculina
-///     e feminina realmente distintas, com sotaque carioca (Rio de Janeiro) por instrução.
-///  2. VOZ DO APARELHO (Web Speech API) — selecionada por gênero e qualidade
-///     (Luciana/Felipe/Eddy/Flo etc. no iOS; Francisca/Antonio no Edge; Google no Chrome).
+/// Duas camadas, com transição automática:
+///  1. VOZ NEURAL HUMANA (Gemini TTS) — quando há chave Gemini configurada.
+///     Voz masculina (`Charon`) e feminina (`Aoede`) realmente distintas, com sotaque
+///     carioca natural do Rio de Janeiro (Brasil).
+///  2. VOZ DO APARELHO (Web Speech API) — selecionada por gênero estrito e qualidade
+///     em `pt-BR` (Felipe/Eddy/Reed/Antonio vs Luciana/Flo/Francisca/Google pt-BR),
+///     com modelagem acústica diferenciada quando o aparelho possui apenas um timbre instalado.
 class WebBibleTtsEngine implements BibleTtsEngine {
   html.SpeechSynthesis? _synth;
   Timer? _chromeKeepAliveTimer;
@@ -24,8 +26,8 @@ class WebBibleTtsEngine implements BibleTtsEngine {
 
   // --- Camada neural (Gemini TTS) ---
   static const String _geminiTtsModel = 'gemini-2.5-flash-preview-tts';
-  static const String _maleCloudVoice = 'Charon'; // grave, sereno
-  static const String _femaleCloudVoice = 'Aoede'; // suave, acolhedora
+  static const String _maleCloudVoice = 'Charon'; // grave, sereno, masculino
+  static const String _femaleCloudVoice = 'Aoede'; // suave, clara, feminina
   html.AudioElement? _audio;
   StreamSubscription<html.Event>? _audioEndSub;
   StreamSubscription<html.Event>? _audioErrorSub;
@@ -47,6 +49,15 @@ class WebBibleTtsEngine implements BibleTtsEngine {
   bool get isSupported => _synth != null || _hasCloudKey;
 
   @override
+  bool get isCloudNeuralActive =>
+      _hasCloudKey && DateTime.now().isAfter(_cloudBackoffUntil);
+
+  @override
+  void resetCloudBackoff() {
+    _cloudBackoffUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  @override
   Future<void> init({VoidCallback? onVoicesReady}) async {
     _hasCloudKey = (await GeminiHomileticsAgent.getSavedApiKey()) != null;
 
@@ -58,24 +69,22 @@ class WebBibleTtsEngine implements BibleTtsEngine {
 
     try {
       _refreshVoices();
-      if (_rawVoices.isNotEmpty) {
-        onVoicesReady?.call();
-      }
+      onVoicesReady?.call();
 
-      // Listener assíncrono para quando o navegador terminar de carregar as vozes
       synth.addEventListener('voiceschanged', (_) {
         _refreshVoices();
         onVoicesReady?.call();
       });
 
-      // Fallback de polling rápido caso o evento voiceschanged já tenha disparado antes
-      for (int i = 0; i < 6; i++) {
+      // Fallback de polling rápido caso o evento voiceschanged já tenha disparado antes (Safari/iOS)
+      for (int i = 0; i < 8; i++) {
         await Future.delayed(const Duration(milliseconds: 250));
+        final prevCount = _rawVoices.length;
         _refreshVoices();
-        if (_rawVoices.isNotEmpty) {
+        if (_rawVoices.isNotEmpty && _rawVoices.length != prevCount) {
           onVoicesReady?.call();
-          break;
         }
+        if (_rawVoices.isNotEmpty && i >= 2) break;
       }
     } catch (_) {
       onVoicesReady?.call();
@@ -92,16 +101,16 @@ class WebBibleTtsEngine implements BibleTtsEngine {
   }
 
   // ---------------------------------------------------------------------------
-  // Classificação de vozes locais
+  // Classificação rigorosa de vozes Brasil (pt-BR) por gênero
   // ---------------------------------------------------------------------------
 
   static const _maleKeywords = [
     // iOS / macOS (pt-BR)
     'felipe', 'eddy', 'reed', 'rocko', 'grandpa',
-    // Windows / Edge (pt-BR)
+    // Windows / Edge / Android (pt-BR)
     'antonio', 'antônio', 'donato', 'fabio', 'fábio', 'humberto', 'julio', 'júlio',
     'nicolau', 'valerio', 'valério', 'daniel', 'ricardo', 'tiago', 'marcos', 'paulo',
-    'carlos', 'luca',
+    'carlos', 'luca', 'jorge', 'henrique', 'rafael', 'gabriel', 'lucas',
     // Genéricos
     'male', 'masculin', 'homem',
   ];
@@ -109,11 +118,17 @@ class WebBibleTtsEngine implements BibleTtsEngine {
   static const _femaleKeywords = [
     // iOS / macOS (pt-BR)
     'luciana', 'flo', 'sandy', 'shelley', 'grandma',
-    // Windows / Edge (pt-BR)
+    // Windows / Edge / Chrome / Android (pt-BR)
     'francisca', 'thalita', 'maria', 'brenda', 'giovanna', 'leila', 'manuela',
     'yara', 'heloisa', 'heloísa', 'vitória', 'vitoria', 'camila', 'fernanda',
+    'leticia', 'letícia', 'raquel', 'ana', 'julia', 'júlia',
+    'google português', 'google portugues',
     // Genéricos
     'female', 'feminin', 'mulher',
+  ];
+
+  static const _portugalKeywords = [
+    'pt-pt', 'pt_pt', 'portugal', 'cristiano', 'inês', 'ines', 'duarte', 'joana',
   ];
 
   bool _hasKeyword(String nameLower, List<String> keywords) {
@@ -126,10 +141,19 @@ class WebBibleTtsEngine implements BibleTtsEngine {
   bool _isVoiceMale(String nameLower) => _hasKeyword(nameLower, _maleKeywords);
   bool _isVoiceFemale(String nameLower) => _hasKeyword(nameLower, _femaleKeywords);
 
-  /// Pontuação de qualidade: vozes "aprimoradas/premium/neurais" soam muito mais humanas.
+  bool _isPortugalVoice(html.SpeechSynthesisVoice v) {
+    final lang = (v.lang ?? '').toLowerCase().replaceAll('_', '-');
+    if (lang.startsWith('pt-pt')) return true;
+    final name = (v.name ?? '').toLowerCase();
+    return _hasKeyword(name, _portugalKeywords) && !lang.startsWith('pt-br');
+  }
+
+  /// Pontuação de qualidade: prioriza vozes naturais/neurais/aprimoradas do Brasil.
   int _voiceQuality(html.SpeechSynthesisVoice v) {
     final n = (v.name ?? '').toLowerCase();
+    final lang = (v.lang ?? '').toLowerCase().replaceAll('_', '-');
     var score = 0;
+    if (lang.startsWith('pt-br')) score += 5;
     if (n.contains('premium') || n.contains('enhanced') || n.contains('aprimorad')) {
       score += 4;
     }
@@ -140,23 +164,29 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     if (n.contains('francisca') || n.contains('antonio') || n.contains('thalita')) {
       score += 3;
     }
-    if (n.contains('luciana') || n.contains('felipe')) score += 1;
+    if (n.contains('felipe') || n.contains('luciana')) score += 2;
     if (v.localService == false) score += 1;
     return score;
   }
 
-  bool _isNaturalOrNeural(html.SpeechSynthesisVoice v) => _voiceQuality(v) >= 3;
+  bool _isNaturalOrNeural(html.SpeechSynthesisVoice v) => _voiceQuality(v) >= 7;
 
   List<html.SpeechSynthesisVoice> _ptBrCandidates() {
-    final ptBr = _rawVoices.where((v) {
+    // 1. Estrito pt-BR (Brasil), descartando vozes de Portugal
+    final strictPtBr = _rawVoices.where((v) {
       final lang = (v.lang ?? '').toLowerCase().replaceAll('_', '-');
-      return lang.startsWith('pt-br');
+      return lang.startsWith('pt-br') && !_isPortugalVoice(v);
     }).toList();
-    if (ptBr.isNotEmpty) return ptBr;
-    return _rawVoices.where((v) {
-      final lang = (v.lang ?? '').toLowerCase();
-      return lang.startsWith('pt') && !lang.startsWith('pt-pt');
+    if (strictPtBr.isNotEmpty) return strictPtBr;
+
+    // 2. Fallback para qualquer pt que não seja Portugal
+    final ptOther = _rawVoices.where((v) {
+      final lang = (v.lang ?? '').toLowerCase().replaceAll('_', '-');
+      return lang.startsWith('pt') && !_isPortugalVoice(v);
     }).toList();
+    if (ptOther.isNotEmpty) return ptOther;
+
+    return const [];
   }
 
   @override
@@ -175,6 +205,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
           name: name,
           lang: v.lang ?? 'pt-BR',
           isMale: _isVoiceMale(nameLower),
+          isFemale: _isVoiceFemale(nameLower),
           isNaturalNeural: _isNaturalOrNeural(v),
         ),
       );
@@ -189,7 +220,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     _refreshVoices();
     if (_rawVoices.isEmpty) return null;
 
-    // 1. Se o usuário escolheu uma voz específica pelo ID
+    // 1. Voz específica escolhida manualmente pelo usuário
     if (specificVoiceId != null && specificVoiceId.isNotEmpty) {
       for (final v in _rawVoices) {
         if (v.voiceUri == specificVoiceId || v.name == specificVoiceId) {
@@ -201,7 +232,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     final candidates = _ptBrCandidates();
     if (candidates.isEmpty) return null;
 
-    // 2. Voz do gênero desejado, priorizando a de maior qualidade
+    // 2. Voz do gênero desejado em pt-BR, priorizando maior qualidade
     final genderMatches = candidates.where((v) {
       final nameLower = (v.name ?? '').toLowerCase();
       return preferMale ? _isVoiceMale(nameLower) : _isVoiceFemale(nameLower);
@@ -209,17 +240,66 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       ..sort((a, b) => _voiceQuality(b).compareTo(_voiceQuality(a)));
     if (genderMatches.isNotEmpty) return genderMatches.first;
 
-    // 3. Sem voz do gênero: usa a melhor pt-BR disponível (ajustando o timbre via pitch)
+    // 3. Se pediu masculina e só existem vozes desconhecidas/mistas, tenta evitar uma voz
+    //    explicitamente feminina caso exista alguma neutra; se só houver feminina (ex.: apenas Luciana
+    //    ou Google pt-BR instalada no aparelho), retorna ela para aplicar modelagem acústica grave.
+    if (preferMale) {
+      final nonFemale = candidates
+          .where((v) => !_isVoiceFemale((v.name ?? '').toLowerCase()))
+          .toList()
+        ..sort((a, b) => _voiceQuality(b).compareTo(_voiceQuality(a)));
+      if (nonFemale.isNotEmpty) return nonFemale.first;
+    } else {
+      final nonMale = candidates
+          .where((v) => !_isVoiceMale((v.name ?? '').toLowerCase()))
+          .toList()
+        ..sort((a, b) => _voiceQuality(b).compareTo(_voiceQuality(a)));
+      if (nonMale.isNotEmpty) return nonMale.first;
+    }
+
     candidates.sort((a, b) => _voiceQuality(b).compareTo(_voiceQuality(a)));
     return candidates.first;
   }
 
+  @override
+  String describeActiveVoice({
+    required bool preferMale,
+    String? specificVoiceId,
+  }) {
+    if (specificVoiceId == null && isCloudNeuralActive) {
+      return preferMale
+          ? 'Neural Carioca RJ • Charon (Masculina)'
+          : 'Neural Carioca RJ • Aoede (Feminina)';
+    }
+
+    final selected = _selectBestVoice(
+      preferMale: preferMale,
+      specificVoiceId: specificVoiceId,
+    );
+    if (selected == null) {
+      return preferMale
+          ? 'Padrão Sistema (Masculina • Brasil)'
+          : 'Padrão Sistema (Feminina • Brasil)';
+    }
+
+    final vName = selected.name ?? 'Voz pt-BR';
+    final nameLower = vName.toLowerCase();
+    final isNativeMale = _isVoiceMale(nameLower);
+    final isNativeFemale = _isVoiceFemale(nameLower);
+
+    if (preferMale && !isNativeMale) {
+      return '$vName (Timbre Masculino Grave • pt-BR)';
+    }
+    if (!preferMale && !isNativeFemale) {
+      return '$vName (Timbre Feminino • pt-BR)';
+    }
+    return '$vName (Brasil • pt-BR)';
+  }
+
   // ---------------------------------------------------------------------------
-  // Camada neural: Gemini TTS
+  // Camada neural: Gemini TTS (Sotaque Carioca - Rio de Janeiro / Brasil)
   // ---------------------------------------------------------------------------
 
-  /// iOS/Safari só permite tocar áudio se o elemento foi "destravado" dentro de um toque
-  /// do usuário. Fazemos isso de forma síncrona, no início de `speak`.
   void _unlockAudio() {
     if (_audioUnlocked) return;
     try {
@@ -233,7 +313,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
   }
 
   String _silentWavDataUri() {
-    final wav = _pcmToWav(Uint8List(2400), 24000); // 50 ms de silêncio
+    final wav = _pcmToWav(Uint8List(2400), 24000);
     return 'data:audio/wav;base64,${base64Encode(wav)}';
   }
 
@@ -265,8 +345,6 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     return out.toBytes();
   }
 
-  /// Busca (ou reaproveita do cache) o áudio neural de um trecho. Retorna a URL do blob
-  /// ou `null` em caso de falha.
   Future<String?> _cloudAudioUrl(String text, bool preferMale) {
     final cacheKey = '${preferMale ? 'm' : 'f'}|$text';
     final cached = _cloudAudioCache[cacheKey];
@@ -276,7 +354,6 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     _cloudAudioCache[cacheKey] = future;
     _cloudCacheOrder.add(cacheKey);
 
-    // Cache curto (evita crescer sem limite e libera memória do navegador)
     while (_cloudCacheOrder.length > 10) {
       final oldKey = _cloudCacheOrder.removeAt(0);
       final old = _cloudAudioCache.remove(oldKey);
@@ -285,7 +362,6 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       });
     }
 
-    // Falhas não ficam em cache
     future.then((url) {
       if (url == null) {
         _cloudAudioCache.remove(cacheKey);
@@ -301,8 +377,8 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       if (apiKey == null) return null;
 
       final direction = preferMale
-          ? 'Diga com sotaque carioca natural do Rio de Janeiro, em tom caloroso, sereno e pausado de um pastor'
-          : 'Diga com sotaque carioca natural do Rio de Janeiro, em tom suave, acolhedor e pausado de uma pastora';
+          ? 'Read aloud in Brazilian Portuguese with an authentic Rio de Janeiro (carioca) accent, warm deep calm male pastor voice, natural carioca rhythm. Do not read these instructions, read only the Bible text below:\n\n'
+          : 'Read aloud in Brazilian Portuguese with an authentic Rio de Janeiro (carioca) accent, warm gentle clear female narrator voice, natural carioca rhythm. Do not read these instructions, read only the Bible text below:\n\n';
 
       final response = await http
           .post(
@@ -317,7 +393,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
               'contents': [
                 {
                   'parts': [
-                    {'text': '$direction: $text'},
+                    {'text': '$direction$text'},
                   ],
                 },
               ],
@@ -337,14 +413,21 @@ class WebBibleTtsEngine implements BibleTtsEngine {
 
       if (response.statusCode != 200) {
         debugPrint('[WebBibleTtsEngine] Gemini TTS HTTP ${response.statusCode}');
-        // Cota/chave inválida: não insiste por 2 minutos (cai para a voz do aparelho)
-        _cloudBackoffUntil = DateTime.now().add(const Duration(minutes: 2));
+        _cloudBackoffUntil = DateTime.now().add(const Duration(seconds: 25));
         return null;
       }
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final parts = ((json['candidates'] as List).first['content']['parts']) as List;
-      final inline = parts.first['inlineData'] as Map<String, dynamic>;
+      Map<String, dynamic>? inline;
+      for (final p in parts) {
+        if (p is Map && p['inlineData'] != null) {
+          inline = Map<String, dynamic>.from(p['inlineData'] as Map);
+          break;
+        }
+      }
+      if (inline == null) return null;
+
       final mime = (inline['mimeType'] as String?) ?? '';
       final rate = int.tryParse(RegExp(r'rate=(\d+)').firstMatch(mime)?.group(1) ?? '') ?? 24000;
       final pcm = base64Decode(inline['data'] as String);
@@ -354,13 +437,11 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       return html.Url.createObjectUrlFromBlob(blob);
     } catch (e) {
       debugPrint('[WebBibleTtsEngine] Falha no Gemini TTS: $e');
-      _cloudBackoffUntil = DateTime.now().add(const Duration(minutes: 1));
+      _cloudBackoffUntil = DateTime.now().add(const Duration(seconds: 20));
       return null;
     }
   }
 
-  /// Tenta falar com a voz neural. Retorna `true` se assumiu a leitura (ou se foi
-  /// substituída por outra), `false` se o chamador deve usar a voz do aparelho.
   Future<bool> _speakWithCloud({
     required String text,
     required bool preferMale,
@@ -372,7 +453,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     if (!_hasCloudKey || DateTime.now().isBefore(_cloudBackoffUntil)) return false;
 
     final url = await _cloudAudioUrl(text, preferMale);
-    if (token != _utteranceToken) return true; // usuário já trocou de faixa/parou
+    if (token != _utteranceToken) return true;
     if (url == null) return false;
 
     final audio = _audio ??= html.AudioElement();
@@ -400,7 +481,6 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       return false;
     }
 
-    // Pré-carrega o próximo versículo enquanto este toca → leitura contínua, sem pausas.
     if (nextText != null && nextText.isNotEmpty) {
       unawaited(_cloudAudioUrl(nextText, preferMale));
     }
@@ -419,28 +499,31 @@ class WebBibleTtsEngine implements BibleTtsEngine {
     double rate = 1.0,
     double pitch = 1.0,
     String? nextText,
+    bool interruptPrevious = true,
     VoidCallback? onComplete,
     void Function(String error)? onError,
   }) async {
-    // IMPORTANTE: executa de forma síncrona dentro do toque do usuário (exigência do iOS).
+    // Executa síncronamente dentro do toque do usuário (exigência iOS Safari)
     if (_hasCloudKey) _unlockAudio();
 
     final synth = _synth;
     final currentToken = ++_utteranceToken;
     _cancelKeepAlive();
-    try {
-      _audio?.pause();
-    } catch (_) {}
-    try {
-      synth?.cancel();
-    } catch (_) {}
+    if (interruptPrevious) {
+      try {
+        _audio?.pause();
+      } catch (_) {}
+      try {
+        synth?.cancel();
+      } catch (_) {}
+    }
 
-    // Atualiza a existência da chave (o pastor pode tê-la salvo agora)
+    // Atualiza disponibilidade da chave caso o usuário tenha configurado agora
     _hasCloudKey = (await GeminiHomileticsAgent.getSavedApiKey()) != null;
     if (currentToken != _utteranceToken) return;
 
-    // 1. Voz neural humana (Gemini TTS) — se indisponível, cai para a voz do aparelho
-    if (_hasCloudKey) {
+    // 1. Voz neural humana carioca (Gemini TTS) quando sem voz específica local selecionada
+    if (_hasCloudKey && (specificVoiceId == null || specificVoiceId.isEmpty)) {
       final handled = await _speakWithCloud(
         text: text,
         preferMale: preferMale,
@@ -459,8 +542,8 @@ class WebBibleTtsEngine implements BibleTtsEngine {
       return;
     }
 
-    // Pequeno respiro para evitar bug de cancelamento do Chrome Web Speech API
-    await Future.delayed(const Duration(milliseconds: 45));
+    // Pequeno respiro para estabilidade no iOS Safari / Chrome após cancel()
+    await Future.delayed(Duration(milliseconds: interruptPrevious ? 65 : 20));
     if (currentToken != _utteranceToken) return;
 
     try {
@@ -472,7 +555,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
         specificVoiceId: specificVoiceId,
       );
 
-      double effectivePitch = pitch;
+      double effectivePitch;
       double effectiveRate = rate;
 
       if (selectedVoice != null) {
@@ -481,17 +564,28 @@ class WebBibleTtsEngine implements BibleTtsEngine {
         final voiceIsMale = _isVoiceMale(vName);
         final voiceIsFemale = _isVoiceFemale(vName);
 
-        // Só ajusta o timbre quando o aparelho NÃO tem uma voz do gênero pedido.
-        if (preferMale && !voiceIsMale) {
-          effectivePitch = (pitch * 0.86).clamp(0.7, 1.0);
-          effectiveRate = (rate * 0.97).clamp(0.75, 1.5);
-        } else if (!preferMale && !voiceIsFemale) {
-          effectivePitch = (pitch * 1.14).clamp(1.0, 1.35);
+        if (preferMale && voiceIsMale) {
+          // Voz masculina nativa real (Felipe, Eddy, Antonio, Daniel, etc.):
+          // mantém timbre natural masculino levemente firme.
+          effectivePitch = 0.94;
+          effectiveRate = (rate * 0.98).clamp(0.72, 1.45);
+        } else if (!preferMale && voiceIsFemale) {
+          // Voz feminina nativa real (Luciana, Francisca, Google pt-BR, Flo, etc.):
+          // mantém timbre feminino claro e natural.
+          effectivePitch = 1.08;
+          effectiveRate = rate.clamp(0.75, 1.45);
+        } else if (preferMale && !voiceIsMale) {
+          // O aparelho NÃO possui voz masculina pt-BR instalada (comum no iPhone/Chrome padrão):
+          // aplica modelagem acústica grave nítida para distinguir claramente do modo feminino.
+          effectivePitch = 0.62;
+          effectiveRate = (rate * 0.92).clamp(0.72, 1.4);
         } else {
-          effectivePitch = 1.0; // voz do gênero correto: timbre natural, sem distorção
+          // O aparelho só tem voz masculina e o usuário pediu feminina:
+          effectivePitch = 1.32;
+          effectiveRate = (rate * 1.03).clamp(0.75, 1.5);
         }
       } else {
-        effectivePitch = preferMale ? 0.88 : 1.05;
+        effectivePitch = preferMale ? 0.65 : 1.12;
       }
 
       utterance.rate = effectiveRate.clamp(0.5, 2.0);
@@ -514,7 +608,6 @@ class WebBibleTtsEngine implements BibleTtsEngine {
         if (finished || currentToken != _utteranceToken) return;
         finished = true;
         _cancelKeepAlive();
-        // Ignora erro 'canceled' ou 'interrupted' gerado quando o usuário troca de faixa/para
         try {
           final dynamic errEvent = event;
           final errCode = errEvent.error?.toString() ?? '';
@@ -527,7 +620,7 @@ class WebBibleTtsEngine implements BibleTtsEngine {
 
       synth.speak(utterance);
 
-      // Watchdog anti-congelamento do Chrome (evita que falas longas travem após 14 segundos)
+      // Watchdog anti-congelamento do Chrome
       _chromeKeepAliveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
         if (currentToken != _utteranceToken) {
           _cancelKeepAlive();

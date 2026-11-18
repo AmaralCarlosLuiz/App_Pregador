@@ -488,6 +488,44 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 6),
+
+                  // Botão Testar / Escolher Voz Brasil (RJ)
+                  Tooltip(
+                    message: 'Vozes Disponíveis (Brasil • RJ) & Teste',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _openVoiceSelectorSheet(context, isDark),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: ttsState.isCloudNeural
+                                ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                                : (isDark ? Colors.white24 : Colors.black12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              ttsState.isCloudNeural ? Icons.auto_awesome : Icons.tune,
+                              size: 14,
+                              color: ttsState.isCloudNeural
+                                  ? const Color(0xFF10B981)
+                                  : AppColors.primaryBlue,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Vozes RJ',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
 
                   // Botão Selecionar Trecho
@@ -585,7 +623,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ],
           ),
 
-          // Status da leitura em andamento ou instrução de seleção de trecho
+          // Status da leitura em andamento ou voz ativa
           if (ttsState.isPlaying && currentSpoken != null) ...[
             const SizedBox(height: 6),
             Row(
@@ -594,7 +632,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Lendo agora: ${currentSpoken.reference} • ${ttsState.voiceProfileLabel}'
+                    'Lendo agora: ${currentSpoken.reference} • ${ttsState.activeVoiceLabel}'
                     '${ttsState.isPaused ? " (Pausado)" : ""}',
                     style: const TextStyle(
                       fontSize: 11.5,
@@ -606,7 +644,49 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 ),
               ],
             ),
-          ] else if (ttsState.isSelectionMode) ...[
+          ] else ...[
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Icon(
+                  ttsState.isCloudNeural ? Icons.graphic_eq : Icons.record_voice_over_outlined,
+                  size: 13,
+                  color: ttsState.isCloudNeural
+                      ? const Color(0xFF10B981)
+                      : (isDark ? Colors.white60 : Colors.black54),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Motor ativo: ${ttsState.activeVoiceLabel}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                InkWell(
+                  onTap: () => ref.read(bibleTtsProvider.notifier).speakSample(),
+                  borderRadius: BorderRadius.circular(6),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Text(
+                      'Testar voz',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (ttsState.isSelectionMode) ...[
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -659,6 +739,171 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  void _openVoiceSelectorSheet(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return Consumer(
+          builder: (context, sheetRef, _) {
+            final ttsState = sheetRef.watch(bibleTtsProvider);
+            final ttsNotifier = sheetRef.read(bibleTtsProvider.notifier);
+            final ptBrVoices = ttsState.availableVoices;
+            final hasNativeMale = ptBrVoices.any((v) => v.isMale);
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Vozes Bíblicas (Brasil • Rio de Janeiro)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ativa: ${ttsState.activeVoiceLabel}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accentGold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Masculina (RJ)'),
+                            selected: ttsState.gender == BibleVoiceGender.male,
+                            selectedColor: AppColors.primaryBlue,
+                            labelStyle: TextStyle(
+                              color: ttsState.gender == BibleVoiceGender.male ? Colors.white : null,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (_) => ttsNotifier.setGender(BibleVoiceGender.male),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Feminina (RJ)'),
+                            selected: ttsState.gender == BibleVoiceGender.female,
+                            selectedColor: const Color(0xFF7C3AED),
+                            labelStyle: TextStyle(
+                              color: ttsState.gender == BibleVoiceGender.female ? Colors.white : null,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            onSelected: (_) => ttsNotifier.setGender(BibleVoiceGender.female),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: AppColors.accentGold),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text('Testar Voz Agora (Salmos 23:1)'),
+                        onPressed: () => ttsNotifier.speakSample(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Motores e Vozes Detectadas (pt-BR):',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 240),
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          ListTile(
+                            dense: true,
+                            leading: Icon(
+                              ttsState.selectedVoiceId == null
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              color: AppColors.primaryBlue,
+                            ),
+                            title: const Text(
+                              'Automático (Brasil • RJ / Neural Gemini se ativo)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              ttsState.isCloudNeural
+                                  ? 'Vozes neurais cariocas Charon (M) e Aoede (F) ativas'
+                                  : 'Seleciona automaticamente a melhor voz pt-BR do aparelho',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            onTap: () => ttsNotifier.setSpecificVoice(null),
+                          ),
+                          ...ptBrVoices.map((v) {
+                            final isSelected = ttsState.selectedVoiceId == v.id;
+                            final genderTag = v.isMale
+                                ? 'Masculina'
+                                : (v.isFemale ? 'Feminina' : 'Brasil');
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: v.isMale ? AppColors.primaryBlue : const Color(0xFF7C3AED),
+                              ),
+                              title: Text(v.name, style: const TextStyle(fontSize: 13)),
+                              subtitle: Text(
+                                '${v.lang} • $genderTag${v.isNaturalNeural ? " • Natural" : ""}',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              onTap: () => ttsNotifier.setSpecificVoice(v.id),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                    if (!hasNativeMale && !ttsState.isCloudNeural) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          '💡 Dica no iPhone: o sistema vem só com a voz feminina (Luciana). Para voz masculina nativa extra, vá em Ajustes > Acessibilidade > Conteúdo Falado > Vozes > Português (Brasil) e baixe "Felipe" ou "Eddy", ou ative sua chave Gemini para voz neural carioca.',
+                          style: TextStyle(fontSize: 11, height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

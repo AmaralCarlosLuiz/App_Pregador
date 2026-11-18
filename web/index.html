@@ -215,13 +215,33 @@
 
   <script>
     // Remove o preloader instantaneamente assim que o 1º frame do Flutter é pintado
-    window.addEventListener("flutter-first-frame", function () {
-      const preloader = document.getElementById("app-preloader");
-      if (preloader) {
-        preloader.classList.add("loaded");
-        setTimeout(() => preloader.remove(), 260);
+    // (com watchdog de segurança para nunca ficar rodando spinner indefinidamente no iOS)
+    (function () {
+      var dismissed = false;
+      function dismissPreloader() {
+        if (dismissed) return;
+        dismissed = true;
+        var preloader = document.getElementById("app-preloader");
+        if (preloader) {
+          preloader.classList.add("loaded");
+          setTimeout(function () {
+            if (preloader.parentNode) preloader.remove();
+          }, 260);
+        }
       }
-    });
+      window.addEventListener("flutter-first-frame", dismissPreloader);
+      // Watchdog de segurança: se o WebClip/iOS atrasar ou perder o evento customizado,
+      // verifica se o Flutter já renderizou o canvas/glass-pane antes de remover o spinner.
+      setTimeout(function checkRender() {
+        if (dismissed) return;
+        var hasFlutterView = document.querySelector("flutter-view, flt-glass-pane");
+        if (hasFlutterView) {
+          dismissPreloader();
+        } else {
+          setTimeout(dismissPreloader, 3500);
+        }
+      }, 2200);
+    })();
   </script>
 
   <script>
@@ -358,26 +378,41 @@
   </script>
 
   <script>
-    // Limpa caches antigos de Service Worker no iOS Safari para garantir carregamento imediato da versão mais recente
+    // Controle de versão inteligente do cache no iOS Safari / WebClip:
+    // Limpa caches antigos SOMENTE quando a versão do app muda, preservando
+    // CanvasKit.wasm e assets em cache nas aberturas seguintes para boot instantâneo.
     (function () {
+      var APP_CACHE_VERSION = "2026.11.17.2";
       try {
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            for (var i = 0; i < regs.length; i++) {
-              regs[i].unregister();
+        var prevVersion = null;
+        try {
+          prevVersion = window.localStorage ? window.localStorage.getItem("pregador_pro_cache_version") : null;
+        } catch (_) {}
+
+        if (prevVersion !== APP_CACHE_VERSION) {
+          if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              for (var i = 0; i < regs.length; i++) {
+                regs[i].unregister();
+              }
+            });
+          }
+          if ("caches" in window) {
+            caches.keys().then(function (names) {
+              for (var i = 0; i < names.length; i++) {
+                caches.delete(names[i]);
+              }
+            });
+          }
+          try {
+            if (window.localStorage) {
+              window.localStorage.setItem("pregador_pro_cache_version", APP_CACHE_VERSION);
             }
-          });
-        }
-        if ("caches" in window) {
-          caches.keys().then(function (names) {
-            for (var i = 0; i < names.length; i++) {
-              caches.delete(names[i]);
-            }
-          });
+          } catch (_) {}
         }
       } catch (_) {}
     })();
   </script>
-  <script src="flutter_bootstrap.js?v=20261115_150" async></script>
+  <script src="flutter_bootstrap.js?v=20261117_2" async></script>
 </body>
 </html>

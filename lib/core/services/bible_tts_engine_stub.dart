@@ -5,6 +5,7 @@ class TtsVoiceOption {
   final String name;
   final String lang;
   final bool isMale;
+  final bool isFemale;
   final bool isNaturalNeural;
 
   const TtsVoiceOption({
@@ -12,14 +13,21 @@ class TtsVoiceOption {
     required this.name,
     required this.lang,
     required this.isMale,
+    this.isFemale = false,
     this.isNaturalNeural = false,
   });
 }
 
 abstract class BibleTtsEngine {
   bool get isSupported;
+  bool get isCloudNeuralActive;
   Future<void> init({VoidCallback? onVoicesReady});
   List<TtsVoiceOption> getAvailableVoices();
+  String describeActiveVoice({
+    required bool preferMale,
+    String? specificVoiceId,
+  });
+  void resetCloudBackoff();
   Future<void> speak({
     required String text,
     required bool preferMale,
@@ -27,6 +35,7 @@ abstract class BibleTtsEngine {
     double rate = 1.0,
     double pitch = 1.0,
     String? nextText,
+    bool interruptPrevious = true,
     VoidCallback? onComplete,
     void Function(String error)? onError,
   });
@@ -42,12 +51,25 @@ class StubBibleTtsEngine implements BibleTtsEngine {
   bool get isSupported => false;
 
   @override
+  bool get isCloudNeuralActive => false;
+
+  @override
   Future<void> init({VoidCallback? onVoicesReady}) async {
     onVoicesReady?.call();
   }
 
   @override
   List<TtsVoiceOption> getAvailableVoices() => const [];
+
+  @override
+  String describeActiveVoice({
+    required bool preferMale,
+    String? specificVoiceId,
+  }) =>
+      preferMale ? 'Voz Masculina (Brasil • RJ)' : 'Voz Feminina (Brasil • RJ)';
+
+  @override
+  void resetCloudBackoff() {}
 
   @override
   Future<void> speak({
@@ -57,6 +79,7 @@ class StubBibleTtsEngine implements BibleTtsEngine {
     double rate = 1.0,
     double pitch = 1.0,
     String? nextText,
+    bool interruptPrevious = true,
     VoidCallback? onComplete,
     void Function(String error)? onError,
   }) async {
@@ -74,4 +97,3 @@ class StubBibleTtsEngine implements BibleTtsEngine {
 }
 
 BibleTtsEngine createBibleTtsEngine() => StubBibleTtsEngine();
-

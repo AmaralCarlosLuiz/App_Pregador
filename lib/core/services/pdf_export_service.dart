@@ -68,7 +68,7 @@ class PdfExportService {
                     children: [
                       pw.Text(
                         _sanitizePdfText('$idx. ${block.title}'),
-                        style: pw.TextStyle(
+                        style: const pw.TextStyle(
                           fontSize: 12,
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColors.blueGrey900,
@@ -78,7 +78,7 @@ class PdfExportService {
                         pw.SizedBox(height: 2),
                         pw.Text(
                           _sanitizePdfText('Texto: ${block.biblicalReference}'),
-                          style: pw.TextStyle(
+                          style: const pw.TextStyle(
                             fontSize: 10,
                             fontStyle: pw.FontStyle.italic,
                             color: PdfColors.blue800,
@@ -127,7 +127,7 @@ class PdfExportService {
               pw.SizedBox(height: 4),
               pw.Paragraph(
                 text: _sanitizePdfText(sermon.appeal),
-                style: pw.TextStyle(
+                style: const pw.TextStyle(
                   fontSize: 11,
                   fontStyle: pw.FontStyle.italic,
                   fontWeight: pw.FontWeight.bold,
@@ -160,7 +160,7 @@ class PdfExportService {
           children: [
             pw.Text(
               'PREGADOR PRO - ESBOÇO HOMILÉTICO',
-              style: pw.TextStyle(
+              style: const pw.TextStyle(
                 fontSize: 9,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.blueGrey600,
@@ -176,7 +176,7 @@ class PdfExportService {
         pw.SizedBox(height: 6),
         pw.Text(
           _sanitizePdfText(sermon.title),
-          style: pw.TextStyle(
+          style: const pw.TextStyle(
             fontSize: 18,
             fontWeight: pw.FontWeight.bold,
             color: PdfColors.blueGrey900,
@@ -189,7 +189,7 @@ class PdfExportService {
           children: [
             pw.Text(
               _sanitizePdfText('Texto Base: ${sermon.biblicalReference}'),
-              style: pw.TextStyle(
+              style: const pw.TextStyle(
                 fontSize: 11,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.blue900,
@@ -234,7 +234,7 @@ class PdfExportService {
   static pw.Widget _buildSectionTitle(String title) {
     return pw.Text(
       _sanitizePdfText(title),
-      style: pw.TextStyle(
+      style: const pw.TextStyle(
         fontSize: 11,
         fontWeight: pw.FontWeight.bold,
         color: PdfColors.blue900,

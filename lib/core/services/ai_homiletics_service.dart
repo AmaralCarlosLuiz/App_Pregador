@@ -12,6 +12,7 @@ class GeneratedOutlineResult {
   final String appeal;
   final List<String> crossReferences; // Referências de Ponte (AT e NT)
   final String historicalContext;     // Contexto Histórico e Autoria
+  final String usedModel;             // Identificação do motor/modelo que gerou o esboço
 
   const GeneratedOutlineResult({
     required this.title,
@@ -23,7 +24,27 @@ class GeneratedOutlineResult {
     required this.appeal,
     this.crossReferences = const [],
     this.historicalContext = '',
+    this.usedModel = 'Motor Contextual Integrado',
   });
+
+  bool get isGeminiCloud => usedModel.toLowerCase().contains('gemini');
+
+  GeneratedOutlineResult copyWith({
+    String? usedModel,
+  }) {
+    return GeneratedOutlineResult(
+      title: title,
+      biblicalReference: biblicalReference,
+      sermonType: sermonType,
+      introduction: introduction,
+      blocks: blocks,
+      conclusion: conclusion,
+      appeal: appeal,
+      crossReferences: crossReferences,
+      historicalContext: historicalContext,
+      usedModel: usedModel ?? this.usedModel,
+    );
+  }
 
   /// Converte o esboço gerado pela IA em um objeto Sermon completo pronto para salvar ou editar
   Sermon toSermon({String? category}) {
@@ -306,12 +327,20 @@ class AiHomileticsService {
     );
   }
 
-  /// Gera sugestões de ilustrações práticas para enriquecer o sermão
+  /// Gera sugestões de ilustrações práticas para enriquecer o sermão (via Gemini Pro se configurado)
   static Future<List<String>> generateIllustrations({
     required String sermonTheme,
     required String pointContext,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 700));
+    final cloudResult = await GeminiHomileticsAgent.generateIllustrations(
+      sermonTheme: sermonTheme,
+      pointContext: pointContext,
+    );
+    if (cloudResult != null && cloudResult.isNotEmpty) {
+      return cloudResult;
+    }
+
+    await Future.delayed(const Duration(milliseconds: 500));
 
     return [
       'O Relógio do Mestre: Uma criança vê o relojoeiro desmontar as engrenagens e acha que ele estragou a máquina; porém, após a limpeza meticulosa, o relógio volta a marcar as horas com absoluta precisão.',
@@ -320,11 +349,18 @@ class AiHomileticsService {
     ];
   }
 
-  /// Fornece análise exegética de termos em Grego e Hebraico com contexto histórico
+  /// Fornece análise exegética de termos em Grego e Hebraico com contexto histórico (via Gemini Pro se configurado)
   static Future<List<GreekHebrewInsight>> getLexicalInsights({
     required String biblicalPassage,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    final cloudResult = await GeminiHomileticsAgent.getLexicalInsights(
+      biblicalPassage: biblicalPassage,
+    );
+    if (cloudResult != null && cloudResult.isNotEmpty) {
+      return cloudResult;
+    }
+
+    await Future.delayed(const Duration(milliseconds: 450));
 
     if (biblicalPassage.toLowerCase().contains('filip') ||
         biblicalPassage.toLowerCase().contains('ansied')) {

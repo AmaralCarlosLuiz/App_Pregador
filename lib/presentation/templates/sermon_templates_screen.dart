@@ -5,8 +5,10 @@ import '../../models/sermon_block.dart';
 import '../../models/sermon_model.dart';
 import '../../models/sermon_template_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sermon_provider.dart';
 import '../../providers/templates_provider.dart';
 import '../editor/sermon_editor_screen.dart';
+import '../widgets/confirm_delete_dialog.dart';
 
 class SermonTemplatesScreen extends ConsumerStatefulWidget {
   const SermonTemplatesScreen({super.key});
@@ -322,6 +324,19 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Excluir Modelo',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Colors.redAccent,
+                  ),
+                  onPressed: () => _confirmDeleteTemplate(context, template),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -510,6 +525,18 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
                   label: const Text('Usar este Modelo'),
                   onPressed: () => _useTemplate(context, template),
                 ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.45)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Excluir'),
+                  onPressed: () => _confirmDeleteTemplate(context, template),
+                ),
               ],
             ),
           ],
@@ -531,15 +558,53 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
     }
   }
 
-  void _useTemplate(BuildContext context, SermonTemplate template) {
+  Future<void> _confirmDeleteTemplate(
+    BuildContext context,
+    SermonTemplate template,
+  ) async {
+    final confirmed = await showConfirmDeleteDialog(
+      context,
+      itemLabel: 'Modelo',
+      itemTitle: template.title,
+      extraNote: 'O modelo será removido do Acervo de Modelos e da lista inicial.',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final container = ProviderScope.containerOf(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final sermonNotifier = container.read(sermonListProvider.notifier);
+
+    await sermonNotifier.deleteTemplate(template.id);
+    container.invalidate(templatesProvider);
+
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Modelo "${template.title}" excluído.'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Desfazer',
+          textColor: const Color(0xFFFBBF24),
+          onPressed: () async {
+            await sermonNotifier.restoreTemplate(template.id);
+            container.invalidate(templatesProvider);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _useTemplate(BuildContext context, SermonTemplate template) async {
     final rawBlocks = (template.content['blocks'] as List<dynamic>?) ?? [];
     final blocks = rawBlocks
         .map((b) => HomileticBlock.fromJson(b as Map<String, dynamic>))
         .toList();
 
     final userId = ref.read(authProvider).userProfile?.id ?? 'admin-master-01';
+    final now = DateTime.now();
     final newSermon = Sermon(
-      id: UniqueKeyString.generate(),
+      id: 'sermon-${UniqueKeyString.generate()}',
       userId: userId,
       title: template.title,
       biblicalReference: template.keyVerse,
@@ -549,9 +614,13 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
       blocks: blocks,
       conclusion: template.content['conclusion'] as String? ?? '',
       appeal: template.content['appeal'] as String? ?? '',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
+
+    await ref.read(sermonRepositoryProvider).saveSermon(newSermon);
+    await ref.read(sermonListProvider.notifier).loadSermons();
+    if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -561,10 +630,13 @@ class _SermonTemplatesScreenState extends ConsumerState<SermonTemplatesScreen> {
       ),
     );
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SermonEditorScreen(initialSermon: newSermon),
       ),
     );
+    if (mounted) {
+      await ref.read(sermonListProvider.notifier).loadSermons();
+    }
   }
 }

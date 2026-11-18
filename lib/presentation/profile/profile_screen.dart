@@ -661,6 +661,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             FilledButton(
               onPressed: () async {
+                FocusManager.instance.primaryFocus?.unfocus();
                 try {
                   await ref.read(authProvider.notifier).updateProfile(
                         fullName: nameCtrl.text,
