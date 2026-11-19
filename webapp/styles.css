@@ -1031,7 +1031,7 @@ body.theme-light .tag-blue {
 }
 
 /* ==========================================================================
-   MODO PÚLPITO OLED FULLSCREEN
+   MODO PÚLPITO OLED FULLSCREEN (HIGH-END SRE & TELEPROMPTER UX)
    ========================================================================== */
 .pulpit-overlay {
   position: fixed;
@@ -1043,15 +1043,16 @@ body.theme-light .tag-blue {
   color: #ffffff;
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
+  user-select: text;
 }
 
 .pulpit-overlay.pulpit-amber {
-  background: #090600;
-  color: #fde68a;
+  background: #0c0802;
+  color: #fef3c7;
 }
 
 .pulpit-overlay.pulpit-light {
-  background: #ffffff;
+  background: #f8fafc;
   color: #0f172a;
 }
 
@@ -1060,30 +1061,255 @@ body.theme-light .tag-blue {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.pulpit-overlay.pulpit-amber .pulpit-topbar {
+  background: rgba(12, 8, 2, 0.95);
+  border-bottom-color: rgba(245, 158, 11, 0.24);
 }
 
 .pulpit-overlay.pulpit-light .pulpit-topbar {
+  background: rgba(255, 255, 255, 0.94);
   border-bottom-color: rgba(15, 23, 42, 0.12);
 }
 
-.pulpit-body {
+/* Barra de Progresso Homilético Dinâmica e Fina */
+.pulpit-progress-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 9;
+}
+
+.pulpit-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+  transition: width 0.08s ease-out;
+}
+
+/* ZERO SCROLLBAR: Barra de rolagem nativa 100% oculta em todos os browsers */
+.pulpit-scroll-container {
   flex: 1;
-  overflow-y: auto;
-  padding: 24px 20px 80px;
-  max-width: 860px;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE e Edge */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pulpit-scroll-container::-webkit-scrollbar,
+.pulpit-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+.pulpit-body {
+  max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  line-height: 1.65;
+  padding: 36px 24px 140px;
+  line-height: 1.75;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Georgia", serif;
+  letter-spacing: -0.15px;
+}
+
+/* Timer Ministerial com Alertas de Tempo */
+.pulpit-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .pulpit-timer {
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 19px;
   color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+.pulpit-timer.timer-warning {
+  color: #f59e0b;
+}
+
+.pulpit-timer.timer-danger {
+  color: #ef4444;
+}
+
+/* Cards Executivos de Seção no Modo Púlpito */
+.pulpit-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 26px;
+  margin-bottom: 28px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.pulpit-overlay.pulpit-amber .pulpit-card {
+  background: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.18);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.pulpit-header-card {
+  border-top: 4px solid var(--gold);
+  padding: 28px 26px;
+}
+
+.pulpit-intro-card {
+  border-left: 5px solid var(--primary);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.pulpit-block-card {
+  border-left: 5px solid var(--purple);
+  background: rgba(139, 92, 246, 0.04);
+}
+
+.pulpit-conclusion-card {
+  border-left: 5px solid #06b6d4;
+  background: rgba(6, 182, 212, 0.05);
+}
+
+.pulpit-appeal-card {
+  border: 2px solid var(--gold);
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.18);
+}
+
+/* Caixas de Ilustração e Aplicação Destacadas */
+.pulpit-callout {
+  padding: 16px 18px;
+  border-radius: 14px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pulpit-callout.illustration {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.pulpit-callout.application {
+  background: rgba(16, 185, 129, 0.09);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.pulpit-callout-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.88em;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.pulpit-callout.illustration .pulpit-callout-head {
+  color: #fbbf24;
+}
+
+.pulpit-callout.application .pulpit-callout-head {
+  color: #34d399;
+}
+
+/* Floating Quick Navigator (Navegação Rápida no Púlpito) */
+.pulpit-floating-nav {
+  position: fixed;
+  bottom: calc(16px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 105;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+  max-width: 94vw;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pulpit-floating-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.pulpit-nav-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pulpit-nav-chip:hover, .pulpit-nav-chip.active {
+  color: #ffffff;
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--gold);
+}
+
+.pulpit-autoscroll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+
+.pulpit-autoscroll-btn.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
 }
 
 /* ==========================================================================
