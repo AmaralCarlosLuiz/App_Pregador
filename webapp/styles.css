@@ -151,9 +151,10 @@ button {
 .main-content {
   flex: 1;
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   padding: 16px 16px calc(92px + var(--safe-bottom));
+  box-sizing: border-box;
 }
 
 .bottom-nav {
@@ -295,7 +296,15 @@ button {
   }
 
   .main-content {
-    padding: 26px 32px 48px;
+    padding: 22px 28px 48px;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 1400px) {
+  .main-content {
+    padding: 24px 36px 60px;
+    max-width: 100%;
   }
 }
 
@@ -867,7 +876,8 @@ body.theme-light .tag-blue {
 
 @media (min-width: 960px) {
   .library-split {
-    grid-template-columns: 400px 1fr;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
     align-items: start;
   }
 
@@ -876,6 +886,31 @@ body.theme-light .tag-blue {
     top: 24px;
     max-height: calc(100dvh - 70px);
     overflow-y: auto;
+  }
+}
+
+@media (min-width: 1300px) {
+  .library-split {
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+  }
+}
+
+/* Grids fluidos para modelos e sermões recentes no Desktop */
+@media (min-width: 960px) {
+  #tpl-list.sermon-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+}
+
+@media (min-width: 1100px) {
+  #dash-recent-list.sermon-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 14px;
   }
 }
 
@@ -1047,11 +1082,21 @@ body.theme-light .tag-blue {
 }
 
 .pulpit-overlay.pulpit-amber {
+  --text: #fef3c7;
+  --text-muted: #d97706;
   background: #0c0802;
   color: #fef3c7;
 }
 
 .pulpit-overlay.pulpit-light {
+  --text: #0f172a;
+  --text-muted: #475569;
+  --gold: #b45309;
+  --gold-soft: rgba(180, 83, 9, 0.1);
+  --primary: #2563eb;
+  --purple: #7c3aed;
+  --border: rgba(15, 23, 42, 0.14);
+  --border-strong: rgba(15, 23, 42, 0.24);
   background: #f8fafc;
   color: #0f172a;
 }
@@ -1077,9 +1122,97 @@ body.theme-light .tag-blue {
   border-bottom-color: rgba(245, 158, 11, 0.24);
 }
 
+.pulpit-overlay.pulpit-amber .pulpit-topbar .btn-outline {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fef3c7;
+}
+
+.pulpit-overlay.pulpit-amber .pulpit-timer-badge,
+.pulpit-overlay.pulpit-amber .pulpit-font-box {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #fef3c7;
+}
+
 .pulpit-overlay.pulpit-light .pulpit-topbar {
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-topbar .btn-outline {
+  background: #f1f5f9;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-topbar .btn-outline:hover {
+  background: #e2e8f0;
+  border-color: rgba(15, 23, 42, 0.35);
+  color: #000000 !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-timer-badge {
+  background: #f1f5f9;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-timer {
+  color: #b45309 !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-timer.timer-warning {
+  color: #d97706 !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-timer.timer-danger {
+  color: #dc2626 !important;
+}
+
+.pulpit-font-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-font-box {
+  background: #f1f5f9 !important;
+  border: 1px solid rgba(15, 23, 42, 0.18) !important;
+  color: #0f172a !important;
+}
+
+.pulpit-overlay.pulpit-light #pulpit-font-indicator {
+  color: #0f172a !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-progress-track {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-floating-nav {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-nav-chip {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-nav-chip:hover,
+.pulpit-overlay.pulpit-light .pulpit-nav-chip.active {
+  color: #0f172a;
+  background: #fef3c7;
+  border-color: #f59e0b;
 }
 
 /* Barra de Progresso Homilético Dinâmica e Fina */
@@ -1234,7 +1367,64 @@ body.theme-light .tag-blue {
   background: #ffffff;
   border-color: rgba(15, 23, 42, 0.12);
   color: #0f172a;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-intro-card {
+  background: #eff6ff;
+  border-left-color: #2563eb;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-intro-card span {
+  color: #1d4ed8 !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-block-card {
+  background: #ffffff;
+  border-left-color: #7c3aed;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-conclusion-card {
+  background: #ecfeff;
+  border-left-color: #0891b2;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-conclusion-card span {
+  color: #0e7490 !important;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-appeal-card {
+  background: #fffbeb;
+  border-color: #b45309;
+  box-shadow: 0 4px 24px rgba(180, 83, 9, 0.12);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-callout.illustration {
+  background: #fffbeb;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-callout.illustration .pulpit-callout-head {
+  color: #b45309;
+}
+
+.pulpit-overlay.pulpit-light .pulpit-callout.application {
+  background: #ecfdf5;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.pulpit-overlay.pulpit-light .pulpit-callout.application .pulpit-callout-head {
+  color: #047857;
+}
+
+.pulpit-overlay.pulpit-light .tag-muted {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.pulpit-overlay.pulpit-light .point-pill {
+  background: #7c3aed;
+  color: #ffffff;
 }
 
 .pulpit-header-card {
