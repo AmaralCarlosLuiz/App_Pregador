@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#070B14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pregador Pro">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="Pregador Pro — Bancada Homilética, Bíblia Sagrada e Modo Púlpito com Sincronização Real.">
+
+  <title>Pregador Pro</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css?v=20261119_1">
+</head>
+<body class="theme-dark">
+  <!-- App Shell: Renderização instantânea (< 50ms) -->
+  <div id="app" class="app-shell">
+    <!-- Sidebar Desktop / iPad Landscape -->
+    <aside id="sidebar" class="sidebar" aria-label="Navegação Principal">
+      <div class="sidebar-brand">
+        <div class="brand-badge">
+          <span class="brand-icon" aria-hidden="true">📖</span>
+          <div>
+            <div class="brand-title">Pregador <span class="gold-pill">PRO</span></div>
+            <div class="brand-sub">Bancada Homilética</div>
+          </div>
+        </div>
+        <button id="sidebar-new-sermon-btn" class="btn btn-primary btn-block">
+          <span>＋</span> Novo Sermão
+        </button>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+
+      <div class="sidebar-footer">
+        <div id="sync-status-pill" class="sync-pill">
+          <span class="sync-dot"></span>
+          <span class="sync-label">Offline-First Ativo</span>
+        </div>
+        <div class="sidebar-user" id="sidebar-user-card"></div>
+      </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <div class="main-column">
+      <!-- Mobile Top Bar -->
+      <header id="mobile-topbar" class="mobile-topbar">
+        <div class="topbar-left">
+          <span class="topbar-logo">📖</span>
+          <span class="topbar-title" id="topbar-title">Pregador Pro</span>
+        </div>
+        <div class="topbar-actions">
+          <span id="mobile-sync-badge" class="mini-badge">Pronto</span>
+          <button id="topbar-theme-btn" class="icon-btn" title="Alternar Tema" aria-label="Alternar Tema">🌓</button>
+        </div>
+      </header>
+
+      <!-- Dynamic Screen Container -->
+      <main id="main-content" class="main-content" role="main">
+        <div class="boot-skeleton">
+          <div class="spinner"></div>
+          <p>Carregando seu acervo...</p>
+        </div>
+      </main>
+    </div>
+
+    <!-- Bottom Tab Bar Mobile (Estilo iOS 18 Glass) -->
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Menu Mobile"></nav>
+  </div>
+
+  <!-- Fullscreen Pulpit Mode Overlay -->
+  <div id="pulpit-overlay" class="pulpit-overlay hidden" role="dialog" aria-modal="true"></div>
+
+  <!-- Reusable Bottom Sheet / Modal Layer -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="modal-sheet" class="modal-sheet" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <!-- Toast / Undo Snackbar Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Printable A4 Sermon Container -->
+  <div id="print-area" class="print-area"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js?v=20261119_1').then(function (reg) {
+          try { reg.update(); } catch (_) {}
+        }).catch(function () {});
+      });
+    }
+  </script>
+  <script src="app.js?v=20261119_1" defer></script>
+</body>
+</html>

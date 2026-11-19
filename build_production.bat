@@ -1,43 +1,39 @@
 @echo off
 chcp 65001 >nul
-title Pregador Pro - Build de Produção Deterministico
+title Pregador Pro - Build de Produção Web Nativo Ultra-Rápido
 
 echo ============================================================================
-echo   PREGADOR PRO - BUILD DETERMINÍSTICO DE PRODUÇÃO
+echo   PREGADOR PRO - EMPACOTAMENTO WEB ONLINE NATIVO (PWA + OFFLINE-FIRST)
 echo   Desenvolvido por Carlos Luiz Amaral
 echo ============================================================================
 echo.
 
-echo [1/4] Desativando telemetria e bloqueios de prompt do Flutter...
-call flutter config --no-analytics >nul 2>&1
-
-echo [2/4] Verificando dependências do projeto...
-call flutter pub get
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERRO] Falha ao baixar dependências do pubspec.yaml.
+if not exist "webapp\index.html" (
+    echo [ERRO] Pasta webapp\ nao encontrada.
     pause
-    exit /b %ERRORLEVEL%
+    exit /b 1
 )
 
-echo.
-echo [3/4] Compilando Web / PWA 100%% Offline-First (Base HREF: /App_Pregador/)...
-call flutter build web --release --base-href "/App_Pregador/" --no-web-resources-cdn
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERRO] Falha na compilação do Flutter Web.
-    pause
-    exit /b %ERRORLEVEL%
-)
+echo [1/3] Preparando diretorio de distribuicao build\web...
+if exist "build\web" rmdir /s /q "build\web"
+mkdir "build\web" >nul 2>&1
 
-echo.
-echo [4/4] Empacotando instalador mobileconfig no build de distribuição...
+echo [2/3] Copiando aplicacao web nativa (HTML5 / CSS3 / JS + 150 Modelos + 6 Biblias)...
+xcopy "webapp\*" "build\web\" /E /I /Y >nul
 if exist "instaladores_ios\Pregador_Pro_iOS_iPadOS.mobileconfig" (
     copy /y "instaladores_ios\Pregador_Pro_iOS_iPadOS.mobileconfig" "build\web\Pregador_Pro.mobileconfig" >nul
 )
 
+echo [3/3] Validando integridade dos arquivos...
+if not exist "build\web\app.js" (
+    echo [ERRO] Falha ao empacotar build\web.
+    pause
+    exit /b 1
+)
+
 echo.
 echo ============================================================================
-echo   BUILD CONCLUÍDO COM SUCESSO!
-echo   Artefatos prontos em: build/web/
+echo   BUILD CONCLUIDO EM SEGUNDOS! Artefatos prontos em: build\web\
 echo ============================================================================
 echo.
 exit /b 0

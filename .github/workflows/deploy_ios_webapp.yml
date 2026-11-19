@@ -1,4 +1,4 @@
-name: Build APK Android + iOS/iPadOS & Deploy Pregador Pro
+name: Build APK Android + WebApp Nativo iOS/iPadOS & Deploy Pregador Pro
 
 on:
   push:
@@ -11,35 +11,21 @@ permissions:
   id-token: write
 
 jobs:
-  build_and_deploy_web:
+  deploy_webapp:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Production Web / iOS / iPadOS Package (100% Offline-First)
-        run: flutter build web --release --base-href "/App_Pregador/" --no-web-resources-cdn
-
-      - name: Bundle iOS MobileConfig Installer into Download Portal
+      - name: Package Native WebApp (Ultra-Fast SaaS + Offline-First)
         run: |
+          rm -rf build/web
+          mkdir -p build/web
+          cp -r webapp/* build/web/
+          touch build/web/.nojekyll
           if [ -f "instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig" ]; then
             cp instaladores_ios/Pregador_Pro_iOS_iPadOS.mobileconfig build/web/Pregador_Pro.mobileconfig
           fi
-
-      - name: Upload Web & iOS Release Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Pregador-Pro-iOS-iPadOS-Release
-          path: build/web
 
       - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
