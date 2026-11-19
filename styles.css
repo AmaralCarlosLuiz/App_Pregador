@@ -1122,13 +1122,67 @@ body.theme-light .tag-blue {
 }
 
 .pulpit-body {
-  max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 36px 24px 140px;
-  line-height: 1.75;
+  line-height: 1.78;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Georgia", serif;
   letter-spacing: -0.15px;
+  transition: max-width 0.25s ease, padding 0.25s ease;
+}
+
+/* Modo Fluido Inteligente (Padrão: preenche a tela sem espaços mortos nas laterais) */
+.pulpit-body.width-fluid {
+  max-width: min(1560px, 95vw);
+}
+
+.pulpit-body.width-full {
+  max-width: 98vw;
+}
+
+.pulpit-body.width-focus {
+  max-width: 980px;
+}
+
+/* Responsividade Automática para Smartphone (iPhone), Tablet (iPad) e Notebook */
+@media (max-width: 640px) {
+  .pulpit-body {
+    max-width: 100% !important;
+    padding: 16px 12px calc(92px + var(--safe-bottom));
+  }
+  .pulpit-card {
+    padding: 18px 14px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .pulpit-body {
+    max-width: 96vw;
+    padding: 24px 20px 120px;
+  }
+  .pulpit-card {
+    padding: 24px 22px;
+    margin-bottom: 24px;
+    border-radius: 18px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .pulpit-body {
+    padding: 32px 48px 140px;
+  }
+  .pulpit-card {
+    padding: 28px 36px;
+    margin-bottom: 28px;
+    border-radius: 22px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .pulpit-body {
+    padding: 36px 64px 160px;
+  }
 }
 
 /* Timer Ministerial com Alertas de Tempo */
@@ -1209,14 +1263,30 @@ body.theme-light .tag-blue {
   box-shadow: 0 0 24px rgba(245, 158, 11, 0.18);
 }
 
+/* Grid Responsivo para Ilustração e Aplicação no Notebook */
+.pulpit-callouts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin: 18px 0 6px;
+}
+
+@media (min-width: 860px) {
+  .pulpit-callouts-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+}
+
 /* Caixas de Ilustração e Aplicação Destacadas */
 .pulpit-callout {
   padding: 16px 18px;
   border-radius: 14px;
-  margin: 16px 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  height: 100%;
 }
 
 .pulpit-callout.illustration {
