@@ -295,6 +295,10 @@
       timerRunning: false,
       timerInterval: null,
       wakeLock: null,
+      autoScroll: false,
+      autoScrollInterval: null,
+      autoScrollSpeed: 1,
+      keyHandler: null,
     },
   };
 
@@ -1343,12 +1347,25 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     state.pulpit.sermon = sermon;
     state.pulpit.timerSeconds = 0;
     state.pulpit.timerRunning = true;
+    state.pulpit.autoScroll = false;
+    state.pulpit.autoScrollSpeed = 1;
     clearInterval(state.pulpit.timerInterval);
+    clearInterval(state.pulpit.autoScrollInterval);
+
     state.pulpit.timerInterval = setInterval(() => {
       if (state.pulpit.timerRunning) {
         state.pulpit.timerSeconds++;
         const el = document.getElementById('pulpit-timer-display');
-        if (el) el.textContent = formatTimer(state.pulpit.timerSeconds);
+        if (el) {
+          el.textContent = formatTimer(state.pulpit.timerSeconds);
+          if (state.pulpit.timerSeconds >= 2700) {
+            el.className = 'pulpit-timer timer-danger';
+          } else if (state.pulpit.timerSeconds >= 2100) {
+            el.className = 'pulpit-timer timer-warning';
+          } else {
+            el.className = 'pulpit-timer';
+          }
+        }
       }
     }, 1000);
 
@@ -1358,11 +1375,49 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       }
     } catch (_) {}
 
+    const overlay = document.getElementById('pulpit-overlay');
+    overlay.classList.remove('hidden');
+
+    // Registrar atalhos de teclado para navegação fluida no púlpito
+    if (state.pulpit.keyHandler) {
+      window.removeEventListener('keydown', state.pulpit.keyHandler);
+    }
+    state.pulpit.keyHandler = (e) => {
+      if (overlay.classList.contains('hidden')) return;
+      const scrollEl = document.getElementById('pulpit-scroll-container');
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closePulpitMode();
+      } else if (e.code === 'Space' && (e.target === document.body || e.target === scrollEl)) {
+        e.preventDefault();
+        togglePulpitAutoScroll();
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        if (scrollEl) scrollEl.scrollBy({ top: 260, behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        if (scrollEl) scrollEl.scrollBy({ top: -260, behavior: 'smooth' });
+      } else if (e.key === 'Home') {
+        if (scrollEl) scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (e.key === 'End') {
+        if (scrollEl) scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
+      } else if (e.key.toLowerCase() === 't') {
+        state.pulpit.timerRunning = !state.pulpit.timerRunning;
+        const btn = document.getElementById('pulpit-timer-toggle');
+        if (btn) btn.textContent = state.pulpit.timerRunning ? '⏸' : '▶';
+      }
+    };
+    window.addEventListener('keydown', state.pulpit.keyHandler);
+
     renderPulpit();
   }
 
   function closePulpitMode() {
     clearInterval(state.pulpit.timerInterval);
+    clearInterval(state.pulpit.autoScrollInterval);
+    state.pulpit.autoScroll = false;
+    if (state.pulpit.keyHandler) {
+      window.removeEventListener('keydown', state.pulpit.keyHandler);
+      state.pulpit.keyHandler = null;
+    }
     if (state.pulpit.wakeLock) {
       state.pulpit.wakeLock.release().catch(() => {});
       state.pulpit.wakeLock = null;
@@ -1377,6 +1432,39 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     return `${m}:${s}`;
   }
 
+  function togglePulpitAutoScroll() {
+    state.pulpit.autoScroll = !state.pulpit.autoScroll;
+    const btn = document.getElementById('pulpit-btn-autoscroll');
+    const scrollEl = document.getElementById('pulpit-scroll-container');
+    clearInterval(state.pulpit.autoScrollInterval);
+
+    if (state.pulpit.autoScroll) {
+      if (btn) {
+        btn.innerHTML = '⏸ Pausar';
+        btn.classList.add('active');
+      }
+      const speed = state.pulpit.autoScrollSpeed || 1;
+      const step = speed === 1 ? 1 : speed === 1.5 ? 2 : 3.2;
+      state.pulpit.autoScrollInterval = setInterval(() => {
+        if (!state.pulpit.autoScroll) {
+          clearInterval(state.pulpit.autoScrollInterval);
+          return;
+        }
+        if (scrollEl) {
+          scrollEl.scrollTop += step;
+          if (scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 4) {
+            togglePulpitAutoScroll();
+          }
+        }
+      }, 30);
+    } else {
+      if (btn) {
+        btn.innerHTML = '▶ Auto-Rolagem';
+        btn.classList.remove('active');
+      }
+    }
+  }
+
   function renderPulpit() {
     const s = state.pulpit.sermon;
     if (!s) return;
@@ -1388,63 +1476,242 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
           ? 'pulpit-light'
           : '';
     overlay.className = `pulpit-overlay ${modeClass}`;
-    const fs = state.settings.pulpitFont;
+    const fs = state.settings.pulpitFont || 22;
 
     overlay.innerHTML = `
-      <div class="pulpit-topbar">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button class="btn btn-sm btn-outline" id="pulpit-exit-btn">← Sair</button>
-          <span id="pulpit-timer-display" class="pulpit-timer">${formatTimer(state.pulpit.timerSeconds)}</span>
-          <button class="btn btn-xs btn-outline" id="pulpit-timer-toggle">${state.pulpit.timerRunning ? '⏸' : '▶'}</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <button class="btn btn-xs btn-outline" id="pulpit-font-dec">A-</button>
-          <span style="font-size:12px;font-weight:700;">${fs}px</span>
-          <button class="btn btn-xs btn-outline" id="pulpit-font-inc">A+</button>
-          <button class="btn btn-xs btn-outline" id="pulpit-theme-cycle">🎨 Fundo</button>
-          <button class="btn btn-xs btn-emerald" id="pulpit-finish-btn">✓ Concluir</button>
-        </div>
-      </div>
-      <div class="pulpit-body" style="font-size:${fs}px;">
-        <div style="font-size:0.72em;color:var(--gold);font-weight:800;margin-bottom:6px;">${esc(s.biblicalReference)} • ${esc(s.sermonType)}</div>
-        <h1 style="margin:0 0 18px;font-size:1.5em;line-height:1.2;">${esc(s.title)}</h1>
-        ${s.introduction ? `<div style="margin-bottom:24px;padding:16px;border-left:4px solid var(--primary);background:rgba(59,130,246,0.08);border-radius:10px;"><strong>📖 Introdução</strong><p style="margin:8px 0 0;">${esc(s.introduction)}</p></div>` : ''}
-        ${s.blocks.map((b, i) => `
-          <div style="margin-bottom:26px;padding-bottom:18px;border-bottom:1px solid rgba(148,163,184,0.2);">
-            <h2 style="margin:0 0 6px;font-size:1.18em;color:var(--gold);">${esc(b.title || `Ponto ${i + 1}`)}</h2>
-            ${b.biblicalReference ? `<div style="font-size:0.8em;opacity:0.8;font-style:italic;margin-bottom:10px;">${esc(b.biblicalReference)}</div>` : ''}
-            ${b.explanation ? `<p style="margin:0 0 10px;">${esc(b.explanation)}</p>` : ''}
-            ${b.illustration ? `<p style="margin:0 0 10px;opacity:0.9;"><strong>💡 Ilustração:</strong> ${esc(b.illustration)}</p>` : ''}
-            ${b.application ? `<p style="margin:0;color:var(--green);"><strong>🎯 Aplicação:</strong> ${esc(b.application)}</p>` : ''}
+      <!-- Topbar Fixa e Elegante -->
+      <header class="pulpit-topbar">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button class="btn btn-sm btn-outline" id="pulpit-exit-btn" title="Atalho: Esc">← Sair</button>
+          
+          <div class="pulpit-timer-badge">
+            <span style="font-size:16px;">⏱</span>
+            <span id="pulpit-timer-display" class="pulpit-timer">${formatTimer(state.pulpit.timerSeconds)}</span>
+            <button class="btn btn-xs btn-outline" id="pulpit-timer-toggle" style="padding:2px 8px;min-height:28px;" title="Atalho: T">${state.pulpit.timerRunning ? '⏸' : '▶'}</button>
+            <button class="btn btn-xs btn-outline" id="pulpit-timer-reset" style="padding:2px 8px;min-height:28px;" title="Reiniciar cronômetro">↺</button>
           </div>
-        `).join('')}
-        ${s.conclusion ? `<div style="margin-bottom:22px;"><strong>🏁 Conclusão</strong><p style="margin:6px 0 0;">${esc(s.conclusion)}</p></div>` : ''}
-        ${s.appeal ? `<div style="padding:16px;border:1px solid var(--gold);border-radius:12px;"><strong>🔥 Apelo Ministerial</strong><p style="margin:6px 0 0;">${esc(s.appeal)}</p></div>` : ''}
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <!-- Teleprompter Auto-Scroll -->
+          <button class="pulpit-autoscroll-btn ${state.pulpit.autoScroll ? 'active' : ''}" id="pulpit-btn-autoscroll" title="Atalho: Espaço">
+            ${state.pulpit.autoScroll ? '⏸ Pausar' : '▶ Auto-Rolagem'}
+          </button>
+          <button class="btn btn-xs btn-outline" id="pulpit-speed-btn" title="Alterar velocidade de rolagem" style="min-height:34px;padding:4px 10px;">
+            ${state.pulpit.autoScrollSpeed || 1}x
+          </button>
+
+          <!-- Ajuste de Fonte Sem Perder o Ponto de Leitura -->
+          <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);padding:2px 6px;border-radius:10px;">
+            <button class="btn btn-xs btn-outline" id="pulpit-font-dec" style="min-height:30px;padding:2px 8px;">A-</button>
+            <span id="pulpit-font-indicator" style="font-size:13px;font-weight:800;min-width:38px;text-align:center;">${fs}px</span>
+            <button class="btn btn-xs btn-outline" id="pulpit-font-inc" style="min-height:30px;padding:2px 8px;">A+</button>
+          </div>
+
+          <!-- Tema Visual -->
+          <button class="btn btn-xs btn-outline" id="pulpit-theme-cycle" style="min-height:34px;">
+            ${state.settings.pulpitTheme === 'amber' ? '📜 Sépia' : state.settings.pulpitTheme === 'light' ? '☀️ Claro' : '🌙 OLED'}
+          </button>
+
+          <!-- Concluir Ministração -->
+          <button class="btn btn-xs btn-emerald" id="pulpit-finish-btn" style="min-height:34px;">✓ Concluir</button>
+        </div>
+      </header>
+
+      <!-- Barra de Progresso Homilético Fina -->
+      <div class="pulpit-progress-track">
+        <div id="pulpit-progress-bar" class="pulpit-progress-bar"></div>
       </div>
+
+      <!-- Container com ZERO Scrollbar (100% de Rolagem Fluida) -->
+      <div id="pulpit-scroll-container" class="pulpit-scroll-container">
+        <main id="pulpit-body" class="pulpit-body" style="font-size:${fs}px;">
+          <!-- Card de Cabeçalho do Sermão -->
+          <section id="pulpit-sec-header" class="pulpit-card pulpit-header-card">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+              <span class="gold-pill" style="font-size:12px;padding:4px 10px;">${esc(s.biblicalReference || 'Texto Bíblico')}</span>
+              <span class="tag tag-blue" style="font-size:12px;">${esc(s.sermonType || 'Expositivo')}</span>
+              ${s.durationMinutes ? `<span class="tag tag-muted" style="font-size:12px;">⏱ ~${s.durationMinutes} min</span>` : ''}
+              <span class="tag tag-muted" style="font-size:12px;">📅 ${esc(formatPtDate())}</span>
+            </div>
+            <h1 style="margin:0;font-size:1.8em;font-weight:900;line-height:1.25;letter-spacing:-0.5px;">${esc(s.title)}</h1>
+          </section>
+
+          <!-- Introdução -->
+          ${s.introduction ? `
+            <section id="pulpit-sec-intro" class="pulpit-card pulpit-intro-card">
+              <div style="display:flex;align-items:center;gap:8px;font-size:0.85em;font-weight:800;color:#60a5fa;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">
+                <span>📖</span> Introdução Homilética
+              </div>
+              <p style="margin:0;line-height:1.75;">${esc(s.introduction)}</p>
+            </section>
+          ` : ''}
+
+          <!-- Pontos Principais (Blocos Exegéticos) -->
+          ${(s.blocks || []).map((b, i) => `
+            <section id="pulpit-sec-point-${i}" class="pulpit-card pulpit-block-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+                <span class="point-pill" style="font-size:13px;padding:4px 12px;">PONTO ${i + 1}</span>
+                ${b.biblicalReference ? `<span style="font-size:0.85em;color:var(--gold);font-weight:700;font-style:italic;">📖 ${esc(b.biblicalReference)}</span>` : ''}
+              </div>
+
+              <h2 style="margin:0 0 16px;font-size:1.3em;font-weight:800;color:var(--gold);line-height:1.3;">
+                ${esc(b.title || `Ponto ${i + 1}`)}
+              </h2>
+
+              ${b.explanation ? `
+                <div style="margin-bottom:18px;line-height:1.75;opacity:0.96;">
+                  ${esc(b.explanation)}
+                </div>
+              ` : ''}
+
+              ${b.illustration ? `
+                <div class="pulpit-callout illustration">
+                  <div class="pulpit-callout-head">
+                    <span>💡</span> Ilustração Prática
+                  </div>
+                  <div style="line-height:1.65;opacity:0.95;">
+                    ${esc(b.illustration)}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${b.application ? `
+                <div class="pulpit-callout application">
+                  <div class="pulpit-callout-head">
+                    <span>🎯</span> Aplicação Ministerial
+                  </div>
+                  <div style="line-height:1.65;opacity:0.95;">
+                    ${esc(b.application)}
+                  </div>
+                </div>
+              ` : ''}
+            </section>
+          `).join('')}
+
+          <!-- Conclusão -->
+          ${s.conclusion ? `
+            <section id="pulpit-sec-conclusion" class="pulpit-card pulpit-conclusion-card">
+              <div style="display:flex;align-items:center;gap:8px;font-size:0.85em;font-weight:800;color:#22d3ee;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">
+                <span>🏁</span> Conclusão & Síntese
+              </div>
+              <p style="margin:0;line-height:1.75;">${esc(s.conclusion)}</p>
+            </section>
+          ` : ''}
+
+          <!-- Apelo Ministerial -->
+          ${s.appeal ? `
+            <section id="pulpit-sec-appeal" class="pulpit-card pulpit-appeal-card">
+              <div style="display:flex;align-items:center;gap:8px;font-size:0.9em;font-weight:900;color:var(--gold);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">
+                <span>🔥</span> Apelo Ministerial & Decisão
+              </div>
+              <p style="margin:0;line-height:1.75;font-weight:500;">${esc(s.appeal)}</p>
+            </section>
+          ` : ''}
+        </main>
+      </div>
+
+      <!-- Barra Flutuante de Atalhos Rápidos (Jump Navigation) -->
+      <nav class="pulpit-floating-nav" aria-label="Navegação do Púlpito">
+        <button class="pulpit-nav-chip" data-jump="#pulpit-sec-header">Topo</button>
+        ${s.introduction ? `<button class="pulpit-nav-chip" data-jump="#pulpit-sec-intro">Intro</button>` : ''}
+        ${(s.blocks || []).map((_, i) => `<button class="pulpit-nav-chip" data-jump="#pulpit-sec-point-${i}">P${i + 1}</button>`).join('')}
+        ${s.conclusion ? `<button class="pulpit-nav-chip" data-jump="#pulpit-sec-conclusion">Conclusão</button>` : ''}
+        ${s.appeal ? `<button class="pulpit-nav-chip" data-jump="#pulpit-sec-appeal">Apelo</button>` : ''}
+      </nav>
     `;
 
+    // Vincular Eventos
+    const scrollContainer = overlay.querySelector('#pulpit-scroll-container');
+    const progressBar = overlay.querySelector('#pulpit-progress-bar');
+
+    // Atualização em tempo real da barra de progresso no scroll
+    if (scrollContainer && progressBar) {
+      scrollContainer.addEventListener('scroll', () => {
+        const max = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        if (max > 0) {
+          const pct = Math.min(100, Math.max(0, (scrollContainer.scrollTop / max) * 100));
+          progressBar.style.width = pct + '%';
+        }
+      }, { passive: true });
+    }
+
+    // Navegação rápida pelos chips flutuantes
+    overlay.querySelectorAll('.pulpit-nav-chip[data-jump]').forEach((chip) => {
+      chip.onclick = (e) => {
+        e.preventDefault();
+        const targetId = chip.getAttribute('data-jump');
+        const targetEl = overlay.querySelector(targetId);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+    });
+
     overlay.querySelector('#pulpit-exit-btn').onclick = closePulpitMode;
+
     overlay.querySelector('#pulpit-timer-toggle').onclick = () => {
       state.pulpit.timerRunning = !state.pulpit.timerRunning;
-      renderPulpit();
+      const btn = overlay.querySelector('#pulpit-timer-toggle');
+      if (btn) btn.textContent = state.pulpit.timerRunning ? '⏸' : '▶';
     };
+
+    overlay.querySelector('#pulpit-timer-reset').onclick = () => {
+      state.pulpit.timerSeconds = 0;
+      const el = overlay.querySelector('#pulpit-timer-display');
+      if (el) {
+        el.textContent = '00:00';
+        el.className = 'pulpit-timer';
+      }
+    };
+
+    overlay.querySelector('#pulpit-btn-autoscroll').onclick = togglePulpitAutoScroll;
+
+    overlay.querySelector('#pulpit-speed-btn').onclick = () => {
+      const speeds = [1, 1.5, 2];
+      const cur = state.pulpit.autoScrollSpeed || 1;
+      const next = speeds[(speeds.indexOf(cur) + 1) % speeds.length];
+      state.pulpit.autoScrollSpeed = next;
+      const btn = overlay.querySelector('#pulpit-speed-btn');
+      if (btn) btn.textContent = `${next}x`;
+      if (state.pulpit.autoScroll) {
+        togglePulpitAutoScroll();
+        togglePulpitAutoScroll();
+      }
+    };
+
+    // Ajuste de fonte dinâmico sem recarregar a tela (mantém o scroll onde está)
     overlay.querySelector('#pulpit-font-dec').onclick = () => {
-      state.settings.pulpitFont = Math.max(16, state.settings.pulpitFont - 2);
+      state.settings.pulpitFont = Math.max(16, (state.settings.pulpitFont || 22) - 2);
       writeStore(KEYS.SETTINGS, state.settings);
-      renderPulpit();
+      const b = overlay.querySelector('#pulpit-body');
+      const ind = overlay.querySelector('#pulpit-font-indicator');
+      if (b) b.style.fontSize = `${state.settings.pulpitFont}px`;
+      if (ind) ind.textContent = `${state.settings.pulpitFont}px`;
     };
+
     overlay.querySelector('#pulpit-font-inc').onclick = () => {
-      state.settings.pulpitFont = Math.min(38, state.settings.pulpitFont + 2);
+      state.settings.pulpitFont = Math.min(38, (state.settings.pulpitFont || 22) + 2);
       writeStore(KEYS.SETTINGS, state.settings);
-      renderPulpit();
+      const b = overlay.querySelector('#pulpit-body');
+      const ind = overlay.querySelector('#pulpit-font-indicator');
+      if (b) b.style.fontSize = `${state.settings.pulpitFont}px`;
+      if (ind) ind.textContent = `${state.settings.pulpitFont}px`;
     };
+
+    // Alternar tema sem perder a posição do sermão
     overlay.querySelector('#pulpit-theme-cycle').onclick = () => {
       const order = ['oled', 'amber', 'light'];
       const next = order[(order.indexOf(state.settings.pulpitTheme) + 1) % order.length];
       state.settings.pulpitTheme = next;
       writeStore(KEYS.SETTINGS, state.settings);
-      renderPulpit();
+      overlay.className = `pulpit-overlay ${next === 'amber' ? 'pulpit-amber' : next === 'light' ? 'pulpit-light' : ''}`;
+      const btn = overlay.querySelector('#pulpit-theme-cycle');
+      if (btn) {
+        btn.textContent = next === 'amber' ? '📜 Sépia' : next === 'light' ? '☀️ Claro' : '🌙 OLED';
+      }
     };
+
     overlay.querySelector('#pulpit-finish-btn').onclick = () => {
       saveSermon({
         ...s,
@@ -1454,7 +1721,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       });
       closePulpitMode();
       renderMain();
-      showToast('Ministração registrada no histórico!', 'success');
+      showToast('Ministração registrada com sucesso no histórico!', 'success');
     };
   }
 
