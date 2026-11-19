@@ -220,6 +220,7 @@
   const DEFAULT_SETTINGS = {
     theme: 'dark', // 'dark' | 'light'
     pulpitTheme: 'oled', // 'oled' | 'amber' | 'light'
+    pulpitWidth: 'fluid', // 'fluid' | 'focus' | 'full'
     pulpitFont: 22,
     bibleFont: 18,
     bibleVersion: 'ARC',
@@ -1513,6 +1514,11 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             ${state.settings.pulpitTheme === 'amber' ? '📜 Sépia' : state.settings.pulpitTheme === 'light' ? '☀️ Claro' : '🌙 OLED'}
           </button>
 
+          <!-- Largura Adaptativa Automática / Foco -->
+          <button class="btn btn-xs btn-outline" id="pulpit-width-toggle" title="Alternar largura (Fluida / Foco / Tela Cheia)" style="min-height:34px;">
+            ${state.settings.pulpitWidth === 'focus' ? '↔ Foco' : state.settings.pulpitWidth === 'full' ? '↔ 100%' : '↔ Fluida'}
+          </button>
+
           <!-- Concluir Ministração -->
           <button class="btn btn-xs btn-emerald" id="pulpit-finish-btn" style="min-height:34px;">✓ Concluir</button>
         </div>
@@ -1525,7 +1531,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
 
       <!-- Container com ZERO Scrollbar (100% de Rolagem Fluida) -->
       <div id="pulpit-scroll-container" class="pulpit-scroll-container">
-        <main id="pulpit-body" class="pulpit-body" style="font-size:${fs}px;">
+        <main id="pulpit-body" class="pulpit-body width-${state.settings.pulpitWidth || 'fluid'}" style="font-size:${fs}px;">
           <!-- Card de Cabeçalho do Sermão -->
           <section id="pulpit-sec-header" class="pulpit-card pulpit-header-card">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -1565,25 +1571,29 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
                 </div>
               ` : ''}
 
-              ${b.illustration ? `
-                <div class="pulpit-callout illustration">
-                  <div class="pulpit-callout-head">
-                    <span>💡</span> Ilustração Prática
-                  </div>
-                  <div style="line-height:1.65;opacity:0.95;">
-                    ${esc(b.illustration)}
-                  </div>
-                </div>
-              ` : ''}
+              ${(b.illustration || b.application) ? `
+                <div class="pulpit-callouts-grid">
+                  ${b.illustration ? `
+                    <div class="pulpit-callout illustration">
+                      <div class="pulpit-callout-head">
+                        <span>💡</span> Ilustração Prática
+                      </div>
+                      <div style="line-height:1.65;opacity:0.95;">
+                        ${esc(b.illustration)}
+                      </div>
+                    </div>
+                  ` : ''}
 
-              ${b.application ? `
-                <div class="pulpit-callout application">
-                  <div class="pulpit-callout-head">
-                    <span>🎯</span> Aplicação Ministerial
-                  </div>
-                  <div style="line-height:1.65;opacity:0.95;">
-                    ${esc(b.application)}
-                  </div>
+                  ${b.application ? `
+                    <div class="pulpit-callout application">
+                      <div class="pulpit-callout-head">
+                        <span>🎯</span> Aplicação Ministerial
+                      </div>
+                      <div style="line-height:1.65;opacity:0.95;">
+                        ${esc(b.application)}
+                      </div>
+                    </div>
+                  ` : ''}
                 </div>
               ` : ''}
             </section>
@@ -1709,6 +1719,23 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       const btn = overlay.querySelector('#pulpit-theme-cycle');
       if (btn) {
         btn.textContent = next === 'amber' ? '📜 Sépia' : next === 'light' ? '☀️ Claro' : '🌙 OLED';
+      }
+    };
+
+    // Alternar largura (Fluida / Foco / Tela Cheia) sem recarregar a tela
+    overlay.querySelector('#pulpit-width-toggle').onclick = () => {
+      const modes = ['fluid', 'focus', 'full'];
+      const cur = state.settings.pulpitWidth || 'fluid';
+      const next = modes[(modes.indexOf(cur) + 1) % modes.length];
+      state.settings.pulpitWidth = next;
+      writeStore(KEYS.SETTINGS, state.settings);
+      const b = overlay.querySelector('#pulpit-body');
+      if (b) {
+        b.className = `pulpit-body width-${next}`;
+      }
+      const btn = overlay.querySelector('#pulpit-width-toggle');
+      if (btn) {
+        btn.textContent = next === 'focus' ? '↔ Foco' : next === 'full' ? '↔ 100%' : '↔ Fluida';
       }
     };
 
