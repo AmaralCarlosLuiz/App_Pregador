@@ -1,9 +1,10 @@
-const CACHE_NAME = 'pregador-pro-web-v20261119';
+const CACHE_NAME = 'pregador-pro-web-v20261119_2';
 
 const SHELL_ASSETS = [
   './',
   'index.html',
   'styles.css',
+  'sourceProtection.js',
   'app.js',
   'manifest.json',
   'favicon.png',
