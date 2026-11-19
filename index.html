@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261119_4">
+  <link rel="stylesheet" href="styles.css?v=20261119_5">
 </head>
 <body class="theme-dark">
   <!-- App Shell: Renderização instantânea (< 50ms) -->
@@ -90,14 +90,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js?v=20261119_4').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=20261119_5').then(function (reg) {
           try { reg.update(); } catch (_) {}
         }).catch(function () {});
       });
     }
   </script>
-  <script src="sourceProtection.js?v=20261119_4" defer></script>
-  <script src="app.js?v=20261119_4" defer></script>
+  <script src="sourceProtection.js?v=20261119_5" defer></script>
+  <script src="app.js?v=20261119_5" defer></script>
 </body>
 </html>
 

@@ -1503,7 +1503,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
           </button>
 
           <!-- Ajuste de Fonte Sem Perder o Ponto de Leitura -->
-          <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);padding:2px 6px;border-radius:10px;">
+          <div class="pulpit-font-box">
             <button class="btn btn-xs btn-outline" id="pulpit-font-dec" style="min-height:30px;padding:2px 8px;">A-</button>
             <span id="pulpit-font-indicator" style="font-size:13px;font-weight:800;min-width:38px;text-align:center;">${fs}px</span>
             <button class="btn btn-xs btn-outline" id="pulpit-font-inc" style="min-height:30px;padding:2px 8px;">A+</button>
