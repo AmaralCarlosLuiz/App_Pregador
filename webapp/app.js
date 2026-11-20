@@ -17,7 +17,8 @@
     CLOUD_AUTH: 'pp_web_cloud_auth_v1',
     TEMPLATES_CACHE: 'pp_web_templates_cache_v1',
     PENDING_SYNC: 'pp_web_pending_sync_v1',
-    SESSION_AUTH: 'pp_web_session_auth_v1',
+    SESSION_AUTH: 'pp_web_session_auth_v2',
+    ADMIN_AUTH: 'pp_web_admin_auth_v1',
   };
 
   const SERMON_CATEGORIES = [
@@ -218,8 +219,132 @@
     role: 'admin',
   };
 
+  const DEFAULT_ADMIN_AUTH = {
+    email: 'carlosluizamaral@gmail.com',
+    role: 'admin',
+    password: '123',
+    mustChangePassword: true,
+    updatedAt: null,
+  };
+
+  const COLOR_PALETTES = [
+    {
+      id: 'royal-gold',
+      name: 'Azul Real & Ouro (Padrão)',
+      desc: 'Equilíbrio executivo entre Azul Safira e Ouro Ministerial.',
+      primary: '#3b82f6',
+      primaryHover: '#2563eb',
+      primaryLight: '#1d4ed8',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.14)',
+      bgDark: '#070b14',
+      elevatedDark: '#0f172a',
+      surfaceDark: '#131c31',
+      surface2Dark: '#1b2742',
+    },
+    {
+      id: 'emerald-grace',
+      name: 'Esmeralda Pastoral & Ouro',
+      desc: 'Verde Esmeralda profundo com destaques dourados.',
+      primary: '#10b981',
+      primaryHover: '#059669',
+      primaryLight: '#047857',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.14)',
+      bgDark: '#05110d',
+      elevatedDark: '#0a1e17',
+      surfaceDark: '#0f2920',
+      surface2Dark: '#16382c',
+    },
+    {
+      id: 'imperial-purple',
+      name: 'Roxo Imperial & Âmbar',
+      desc: 'Nobreza litúrgica em Violeta Imperial e Âmbar.',
+      primary: '#8b5cf6',
+      primaryHover: '#7c3aed',
+      primaryLight: '#6d28d9',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.15)',
+      bgDark: '#0b0716',
+      elevatedDark: '#140e26',
+      surfaceDark: '#1c1433',
+      surface2Dark: '#271c47',
+    },
+    {
+      id: 'crimson-covenant',
+      name: 'Carmesim Aliança & Ouro',
+      desc: 'Vermelho Rubi teológico com contraste dourado.',
+      primary: '#f43f5e',
+      primaryHover: '#e11d48',
+      primaryLight: '#be123c',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.15)',
+      bgDark: '#14060a',
+      elevatedDark: '#210b12',
+      surfaceDark: '#2c1019',
+      surface2Dark: '#3d1623',
+    },
+    {
+      id: 'ocean-teal',
+      name: 'Oceano Turquesa & Safira',
+      desc: 'Leitura serena em Ciano Oceânico e Azul Celeste.',
+      primary: '#06b6d4',
+      primaryHover: '#0891b2',
+      primaryLight: '#0e7490',
+      gold: '#38bdf8',
+      goldSoft: 'rgba(56, 189, 248, 0.15)',
+      bgDark: '#041016',
+      elevatedDark: '#081c26',
+      surfaceDark: '#0d2633',
+      surface2Dark: '#143547',
+    },
+    {
+      id: 'amber-parchment',
+      name: 'Âmbar Clássico & Bronze',
+      desc: 'Inspirado em pergaminhos clássicos e madeira de púlpito.',
+      primary: '#f59e0b',
+      primaryHover: '#d97706',
+      primaryLight: '#b45309',
+      gold: '#fbbf24',
+      goldSoft: 'rgba(251, 191, 36, 0.16)',
+      bgDark: '#120d06',
+      elevatedDark: '#1f160a',
+      surfaceDark: '#2b1f0f',
+      surface2Dark: '#3b2b15',
+    },
+    {
+      id: 'olive-zion',
+      name: 'Verde Oliveira Sião & Ouro',
+      desc: 'Tom orgânico Monte das Oliveiras com dourado.',
+      primary: '#84cc16',
+      primaryHover: '#65a30d',
+      primaryLight: '#4d7c0f',
+      gold: '#eab308',
+      goldSoft: 'rgba(234, 179, 8, 0.15)',
+      bgDark: '#091006',
+      elevatedDark: '#121e0b',
+      surfaceDark: '#1a2a10',
+      surface2Dark: '#243a17',
+    },
+    {
+      id: 'slate-executive',
+      name: 'Grafite Executivo & Índigo',
+      desc: 'Minimalismo moderno em Grafite Neutro e Índigo.',
+      primary: '#6366f1',
+      primaryHover: '#4f46e5',
+      primaryLight: '#4338ca',
+      gold: '#38bdf8',
+      goldSoft: 'rgba(56, 189, 248, 0.14)',
+      bgDark: '#090b10',
+      elevatedDark: '#11151f',
+      surfaceDark: '#181d2a',
+      surface2Dark: '#22293a',
+    },
+  ];
+
   const DEFAULT_SETTINGS = {
     theme: 'dark', // 'dark' | 'light'
+    palette: 'royal-gold',
     pulpitTheme: 'oled', // 'oled' | 'amber' | 'light'
     pulpitWidth: 'fluid', // 'fluid' | 'focus' | 'full'
     pulpitFont: 22,
@@ -235,9 +360,34 @@
     geminiModel: 'gemini-2.5-pro',
   };
 
+  function applyThemeAndPalette() {
+    const isLight = state.settings.theme === 'light';
+    document.body.className = `theme-${isLight ? 'light' : 'dark'}`;
+    const pal = COLOR_PALETTES.find((p) => p.id === state.settings.palette) || COLOR_PALETTES[0];
+    const rootStyle = document.documentElement.style;
+
+    rootStyle.setProperty('--primary', isLight ? pal.primaryLight : pal.primary);
+    rootStyle.setProperty('--primary-hover', pal.primaryHover);
+    rootStyle.setProperty('--gold', pal.gold);
+    rootStyle.setProperty('--gold-soft', pal.goldSoft);
+
+    if (isLight) {
+      rootStyle.setProperty('--bg', '#f1f5f9');
+      rootStyle.setProperty('--bg-elevated', '#ffffff');
+      rootStyle.setProperty('--surface', '#ffffff');
+      rootStyle.setProperty('--surface-2', '#f8fafc');
+    } else {
+      rootStyle.setProperty('--bg', pal.bgDark);
+      rootStyle.setProperty('--bg-elevated', pal.elevatedDark);
+      rootStyle.setProperty('--surface', pal.surfaceDark);
+      rootStyle.setProperty('--surface-2', pal.surface2Dark);
+    }
+  }
+
   const state = {
-    tab: 'dashboard', // dashboard | library | editor | bible | templates | profile
+    tab: 'dashboard', // dashboard | library | editor | bible | templates | profile | settings
     profile: { ...DEFAULT_PROFILE },
+    adminAuth: { ...DEFAULT_ADMIN_AUTH },
     settings: { ...DEFAULT_SETTINGS },
     cloudAuth: null, // { accessToken, refreshToken, userId, email }
     templates: [],
@@ -655,11 +805,19 @@
             writeStore(KEYS.PROFILE, state.profile);
 
             if (remoteProf.settings && typeof remoteProf.settings === 'object') {
-              const { _deletedIds, ...cleanSettings } = remoteProf.settings;
+              const { _deletedIds, _adminAuth, ...cleanSettings } = remoteProf.settings;
               if (Object.keys(cleanSettings).length > 0) {
                 state.settings = { ...state.settings, ...cleanSettings };
-                document.body.className = `theme-${state.settings.theme || 'dark'}`;
+                applyThemeAndPalette();
                 writeStore(KEYS.SETTINGS, state.settings);
+              }
+              if (_adminAuth && typeof _adminAuth === 'object') {
+                const localAuthTs = new Date(state.adminAuth.updatedAt || 0).getTime();
+                const remoteAuthTs = new Date(_adminAuth.updatedAt || 0).getTime();
+                if (!localStorage.getItem(KEYS.ADMIN_AUTH) || remoteAuthTs >= localAuthTs) {
+                  state.adminAuth = { ...DEFAULT_ADMIN_AUTH, ..._adminAuth };
+                  writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+                }
               }
               if (Array.isArray(_deletedIds)) {
                 _deletedIds.forEach((d) => state.deletedIds.add(d));
@@ -687,6 +845,7 @@
             church_name: state.profile.churchName,
             settings: {
               ...state.settings,
+              _adminAuth: state.adminAuth,
               _deletedIds: Array.from(state.deletedIds),
             },
             updated_at: nowIso,
@@ -2146,7 +2305,15 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     { id: 'bible', icon: '📖', label: 'Bíblia' },
     { id: 'templates', icon: '✨', label: 'Modelos' },
     { id: 'profile', icon: '👤', label: 'Perfil' },
+    { id: 'settings', icon: '⚙️', label: 'Configurações' },
   ];
+
+  function closeSidebarUserMenu() {
+    const menuEl = document.getElementById('sidebar-user-menu');
+    const cardEl = document.getElementById('sidebar-user-card');
+    if (menuEl) menuEl.classList.add('hidden');
+    if (cardEl) cardEl.classList.remove('menu-open');
+  }
 
   function renderChrome() {
     // Sidebar nav
@@ -2158,7 +2325,10 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       </button>
     `).join('');
     sNav.querySelectorAll('[data-nav]').forEach((b) => {
-      b.onclick = () => switchTab(b.dataset.nav);
+      b.onclick = () => {
+        closeSidebarUserMenu();
+        switchTab(b.dataset.nav);
+      };
     });
 
     // Bottom nav mobile
@@ -2166,27 +2336,82 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     bNav.innerHTML = NAV_ITEMS.map((n) => `
       <button class="bottom-nav-btn ${state.tab === n.id ? 'active' : ''}" data-nav="${n.id}">
         <span class="nav-ico">${n.icon}</span>
-        <span>${n.label}</span>
+        <span>${n.id === 'settings' ? 'Config.' : n.label}</span>
       </button>
     `).join('');
     bNav.querySelectorAll('[data-nav]').forEach((b) => {
       b.onclick = () => switchTab(b.dataset.nav);
     });
 
-    // Sidebar user card
+    // Sidebar user card com menu de Logoff integrado no próprio nome do usuário
     const initials = (state.profile.fullName || 'P')
       .split(' ')
       .filter(Boolean)
       .slice(0, 2)
       .map((w) => w[0].toUpperCase())
       .join('');
-    document.getElementById('sidebar-user-card').innerHTML = `
+    const userCard = document.getElementById('sidebar-user-card');
+    const userMenu = document.getElementById('sidebar-user-menu');
+
+    userCard.innerHTML = `
       <div class="user-avatar">${esc(initials)}</div>
-      <div class="user-meta">
-        <div class="user-name">${esc(state.profile.fullName)}</div>
-        <div class="user-role">${esc(state.profile.churchName || state.profile.ministryTitle)}</div>
+      <div class="user-meta" style="min-width:0;flex:1;">
+        <div class="user-name" style="display:flex;align-items:center;gap:6px;">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(state.profile.fullName)}</span>
+        </div>
+        <div class="user-role" style="display:flex;align-items:center;gap:5px;">
+          <span class="gold-pill" style="font-size:9px;padding:1px 5px;">ADMIN</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(state.profile.ministryTitle)}</span>
+        </div>
       </div>
+      <span class="sidebar-user-chevron">▾</span>
     `;
+
+    if (userMenu) {
+      userMenu.innerHTML = `
+        <div class="user-menu-header">
+          <div style="font-size:13.5px;font-weight:800;color:var(--text);">${esc(state.profile.fullName)}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);">${esc(state.profile.email)} • Perfil Admin</div>
+        </div>
+        <button class="user-menu-item" id="um-profile"><span>👤</span><span>Meu Perfil Ministerial</span></button>
+        <button class="user-menu-item" id="um-settings"><span>🎨</span><span>Configurações & Paleta de Cores</span></button>
+        <button class="user-menu-item" id="um-pass"><span>🔑</span><span>Alterar Senha Admin</span></button>
+        <button class="user-menu-item danger" id="um-logout"><span>🚪</span><span>Fazer Logoff (Sair da Conta)</span></button>
+      `;
+
+      userMenu.querySelector('#um-profile').onclick = (e) => {
+        e.stopPropagation();
+        closeSidebarUserMenu();
+        switchTab('profile');
+      };
+      userMenu.querySelector('#um-settings').onclick = (e) => {
+        e.stopPropagation();
+        closeSidebarUserMenu();
+        switchTab('settings');
+      };
+      userMenu.querySelector('#um-pass').onclick = (e) => {
+        e.stopPropagation();
+        closeSidebarUserMenu();
+        openForcePasswordChangeModal({ mandatory: false });
+      };
+      userMenu.querySelector('#um-logout').onclick = (e) => {
+        e.stopPropagation();
+        closeSidebarUserMenu();
+        performLogout();
+      };
+    }
+
+    userCard.onclick = (e) => {
+      e.stopPropagation();
+      if (!userMenu) return;
+      const isHidden = userMenu.classList.contains('hidden');
+      if (isHidden) {
+        userMenu.classList.remove('hidden');
+        userCard.classList.add('menu-open');
+      } else {
+        closeSidebarUserMenu();
+      }
+    };
 
     // Topbar title
     const activeNav = NAV_ITEMS.find((n) => n.id === state.tab);
@@ -2199,26 +2424,12 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
   function updateSyncIndicators() {
     const isCloud = Boolean(state.cloudAuth?.accessToken) || _cloudDbReady;
     const online = navigator.onLine;
-    const pill = document.getElementById('sync-status-pill');
     const mobileBadge = document.getElementById('mobile-sync-badge');
+    const cls = !online ? 'offline' : isCloud ? 'cloud' : '';
 
-    let text = 'Salvo no Aparelho';
-    let cls = '';
-    if (!online) {
-      text = 'Modo Offline (Púlpito OK)';
-      cls = 'offline';
-    } else if (isCloud) {
-      text = 'Nuvem Supabase Conectada';
-      cls = 'cloud';
-    }
-
-    if (pill) {
-      pill.className = `sync-pill ${cls}`;
-      pill.querySelector('.sync-label').textContent = text;
-    }
     if (mobileBadge) {
       mobileBadge.className = `mini-badge ${cls}`;
-      mobileBadge.textContent = !online ? 'Offline OK' : isCloud ? 'Nuvem ✓' : 'Salvo ✓';
+      mobileBadge.textContent = !online ? 'Offline OK' : isCloud ? 'Nuvem ✓' : 'Online';
     }
   }
 
@@ -3730,11 +3941,269 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
 
   function toggleTheme() {
     state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
-    document.body.className = `theme-${state.settings.theme}`;
+    applyThemeAndPalette();
     writeStore(KEYS.SETTINGS, state.settings);
     markProfileUpdated();
     syncCloudNow({ silent: true, pushProfile: true });
-    if (state.tab === 'profile') renderMain();
+    if (state.tab === 'profile' || state.tab === 'settings') renderMain();
+  }
+
+  // ---- TELA 7: CONFIGURAÇÕES & PALETA DE CORES EXECUTIVAS ----
+  function renderSettings(root) {
+    const curPalette = state.settings.palette || 'royal-gold';
+    const isDark = state.settings.theme !== 'light';
+
+    root.innerHTML = `
+      <div class="section-header" style="margin-top:0;">
+        <div>
+          <h1 class="section-title" style="font-size:22px;">⚙️ Configurações da Plataforma</h1>
+          <span class="section-subtitle">Personalize paleta de cores, aparência, segurança do perfil Admin e preferências de púlpito</span>
+        </div>
+      </div>
+
+      <!-- 1. Paletas de Cores Prontas -->
+      <div class="card" style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          <div>
+            <h3 style="margin:0 0 4px;">🎨 Paleta de Cores da Interface (8 Temas Prontos)</h3>
+            <div style="font-size:13px;color:var(--text-muted);">Selecione uma paleta pronta para aplicar instantaneamente em todo o sistema e sincronizar na nuvem.</div>
+          </div>
+          <span class="tag tag-gold">Sincronizado na Nuvem ✓</span>
+        </div>
+
+        <div class="palette-grid">
+          ${COLOR_PALETTES.map((pal) => {
+            const active = pal.id === curPalette;
+            return `
+              <button class="palette-card ${active ? 'active' : ''}" data-pick-palette="${esc(pal.id)}">
+                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                  <div class="palette-swatches">
+                    <span class="palette-dot" style="background:${pal.primary};" title="Cor Primária"></span>
+                    <span class="palette-dot" style="background:${pal.gold};" title="Destaque Ministerial"></span>
+                    <span class="palette-dot" style="background:${pal.surfaceDark};" title="Superfície"></span>
+                  </div>
+                  ${active ? `<span class="tag tag-gold" style="font-size:11px;">✓ Ativa</span>` : ''}
+                </div>
+                <div class="palette-name">${esc(pal.name)}</div>
+                <div class="palette-desc">${esc(pal.desc)}</div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- 2. Modo de Exibição (Escuro / Claro) -->
+      <div class="card" style="margin-bottom:18px;">
+        <h3 style="margin:0 0 6px;">🌓 Modo de Luminosidade</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Alterne entre o Modo Escuro Executivo e o Modo Claro Limpo (a paleta escolhida adapta-se automaticamente).</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+          <button class="btn ${isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-dark" style="justify-content:center;">
+            🌙 Modo Escuro Executivo ${isDark ? '✓' : ''}
+          </button>
+          <button class="btn ${!isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-light" style="justify-content:center;">
+            ☀️ Modo Claro Limpo ${!isDark ? '✓' : ''}
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Segurança & Credenciais Admin -->
+      <div class="card" style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <h3 style="margin:0 0 4px;">🔐 Segurança & Credenciais do Administrador</h3>
+            <div style="font-size:13px;color:var(--text-muted);">
+              Conta: <strong>${esc(state.adminAuth.email)}</strong> • Perfil: <span class="gold-pill">ADMIN</span>
+              • Status de Senha: <strong>${state.adminAuth.mustChangePassword ? 'Temporária (Alterar no Próximo Login)' : 'Senha Pessoal Definida'}</strong>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <button class="btn btn-sm btn-primary" id="set-change-pass-btn">🔑 Alterar Minha Senha Agora</button>
+          <button class="btn btn-sm btn-outline" id="set-reset-pass-123-btn">↺ Redefinir para Senha "123" (Exigir Troca no Próximo Login)</button>
+          <button class="btn btn-sm btn-danger" id="set-logout-btn">🚪 Fazer Logoff Agora</button>
+        </div>
+      </div>
+
+      <!-- 4. Preferências do Modo Púlpito & IA -->
+      <div class="card">
+        <h3 style="margin:0 0 12px;">🎤 Preferências Padrão do Púlpito & Inteligência Artificial</h3>
+        <div class="form-grid-2" style="margin-bottom:14px;">
+          <div>
+            <label class="editor-section-label">Tema Padrão do Púlpito</label>
+            <select id="set-pulpit-theme" class="select-field">
+              <option value="oled" ${state.settings.pulpitTheme === 'oled' ? 'selected' : ''}>🌙 OLED Alto Contraste</option>
+              <option value="amber" ${state.settings.pulpitTheme === 'amber' ? 'selected' : ''}>📜 Sépia / Âmbar Leitura</option>
+              <option value="light" ${state.settings.pulpitTheme === 'light' ? 'selected' : ''}>☀️ Claro Editorial</option>
+            </select>
+          </div>
+          <div>
+            <label class="editor-section-label">Largura Padrão do Púlpito</label>
+            <select id="set-pulpit-width" class="select-field">
+              <option value="fluid" ${state.settings.pulpitWidth === 'fluid' ? 'selected' : ''}>↔ Fluida Adaptativa</option>
+              <option value="focus" ${state.settings.pulpitWidth === 'focus' ? 'selected' : ''}>↔ Foco Centralizado</option>
+              <option value="full" ${state.settings.pulpitWidth === 'full' ? 'selected' : ''}>↔ Tela Cheia (100%)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <button class="btn btn-sm btn-purple" id="set-gemini-btn">✨ Configurar Chave Gemini 2.5 Pro</button>
+          <button class="btn btn-sm btn-gold" id="set-voice-btn">🎙️ Configurar Vozes Bíblicas (RJ)</button>
+        </div>
+      </div>
+    `;
+
+    root.querySelectorAll('[data-pick-palette]').forEach((btn) => {
+      btn.onclick = () => {
+        state.settings.palette = btn.dataset.pickPalette;
+        applyThemeAndPalette();
+        writeStore(KEYS.SETTINGS, state.settings);
+        markProfileUpdated();
+        syncCloudNow({ silent: true, pushProfile: true });
+        renderChrome();
+        renderMain();
+        const palObj = COLOR_PALETTES.find((p) => p.id === state.settings.palette);
+        showToast(`Paleta "${palObj?.name || 'Nova'}" aplicada!`, 'success');
+      };
+    });
+
+    root.querySelector('#set-mode-dark').onclick = () => {
+      if (state.settings.theme !== 'dark') toggleTheme();
+    };
+    root.querySelector('#set-mode-light').onclick = () => {
+      if (state.settings.theme !== 'light') toggleTheme();
+    };
+
+    root.querySelector('#set-change-pass-btn').onclick = () =>
+      openForcePasswordChangeModal({ mandatory: false });
+
+    root.querySelector('#set-reset-pass-123-btn').onclick = () => {
+      state.adminAuth = {
+        ...DEFAULT_ADMIN_AUTH,
+        password: '123',
+        mustChangePassword: true,
+        updatedAt: new Date().toISOString(),
+      };
+      writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+      markProfileUpdated();
+      syncCloudNow({ silent: true, pushProfile: true });
+      renderMain();
+      showToast('Senha redefinida para "123" com troca obrigatória no próximo login!', 'info');
+    };
+
+    root.querySelector('#set-logout-btn').onclick = performLogout;
+
+    root.querySelector('#set-pulpit-theme').onchange = (e) => {
+      state.settings.pulpitTheme = e.target.value;
+      writeStore(KEYS.SETTINGS, state.settings);
+      markProfileUpdated();
+      syncCloudNow({ silent: true, pushProfile: true });
+      showToast('Tema padrão do púlpito salvo!', 'success');
+    };
+
+    root.querySelector('#set-pulpit-width').onchange = (e) => {
+      state.settings.pulpitWidth = e.target.value;
+      writeStore(KEYS.SETTINGS, state.settings);
+      markProfileUpdated();
+      syncCloudNow({ silent: true, pushProfile: true });
+      showToast('Largura padrão do púlpito salva!', 'success');
+    };
+
+    root.querySelector('#set-gemini-btn').onclick = () => openGeminiConfigModal(() => renderMain());
+    root.querySelector('#set-voice-btn').onclick = openVoiceStudioModal;
+  }
+
+  function openForcePasswordChangeModal({ mandatory = true } = {}) {
+    openModal(
+      `
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">🔐</span>
+          <div>
+            <h3 class="modal-title">${mandatory ? 'Troca Obrigatória de Senha no 1º Login' : 'Alterar Senha de Administrador'}</h3>
+            <span class="gold-pill">PERFIL ADMIN • ${esc(state.adminAuth.email)}</span>
+          </div>
+        </div>
+        ${mandatory ? '' : `<button class="icon-btn-ghost" data-close-modal>✕</button>`}
+      </div>
+      <p style="font-size:13.5px;color:var(--text-muted);margin:10px 0 14px;line-height:1.45;">
+        ${mandatory
+          ? 'Você autenticou com a senha temporária inicial (<strong>123</strong>). Por política de segurança, defina agora a sua nova senha pessoal de Administrador.'
+          : 'Defina uma nova senha para o usuário Administrador (carlosluizamaral@gmail.com).'}
+      </p>
+      <div id="fp-err" class="auth-error-box hidden"></div>
+      <label class="editor-section-label">Nova Senha</label>
+      <div class="auth-input-wrap" style="margin-bottom:12px;">
+        <input id="fp-new-pass" type="password" class="input-field" placeholder="Digite sua nova senha" autofocus>
+        <button type="button" id="fp-eye-1" class="auth-eye-btn">👁️</button>
+      </div>
+      <label class="editor-section-label">Confirmar Nova Senha</label>
+      <div class="auth-input-wrap" style="margin-bottom:16px;">
+        <input id="fp-confirm-pass" type="password" class="input-field" placeholder="Repita a nova senha">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        ${mandatory ? '' : `<button class="btn btn-outline" data-close-modal>Cancelar</button>`}
+        <button class="btn btn-primary" id="fp-save-btn">💾 Salvar Nova Senha</button>
+      </div>
+      `,
+      (sheet) => {
+        if (!mandatory) {
+          sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        }
+        const p1 = sheet.querySelector('#fp-new-pass');
+        const p2 = sheet.querySelector('#fp-confirm-pass');
+        const eye = sheet.querySelector('#fp-eye-1');
+        const errEl = sheet.querySelector('#fp-err');
+
+        eye.onclick = () => {
+          const isPass = p1.type === 'password';
+          p1.type = isPass ? 'text' : 'password';
+          p2.type = isPass ? 'text' : 'password';
+          eye.textContent = isPass ? '🙈' : '👁️';
+        };
+
+        const doSavePass = () => {
+          errEl.classList.add('hidden');
+          const v1 = p1.value.trim();
+          const v2 = p2.value.trim();
+          if (!v1) {
+            errEl.textContent = 'Informe a nova senha.';
+            errEl.classList.remove('hidden');
+            return;
+          }
+          if (mandatory && v1 === '123') {
+            errEl.textContent = 'A nova senha deve ser diferente da senha temporária "123".';
+            errEl.classList.remove('hidden');
+            return;
+          }
+          if (v1 !== v2) {
+            errEl.textContent = 'A confirmação de senha não confere.';
+            errEl.classList.remove('hidden');
+            return;
+          }
+
+          state.adminAuth = {
+            ...state.adminAuth,
+            email: 'carlosluizamaral@gmail.com',
+            role: 'admin',
+            password: v1,
+            mustChangePassword: false,
+            updatedAt: new Date().toISOString(),
+          };
+          writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
+          closeModal();
+          renderChrome();
+          renderMain();
+          showToast('Nova senha do Administrador gravada e sincronizada!', 'success');
+        };
+
+        sheet.querySelector('#fp-save-btn').onclick = doSavePass;
+        p2.onkeydown = (e) => {
+          if (e.key === 'Enter') doSavePass();
+        };
+      }
+    );
   }
 
   function renderMain() {
@@ -3745,6 +4214,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     else if (state.tab === 'bible') renderBible(root);
     else if (state.tab === 'templates') renderTemplates(root);
     else if (state.tab === 'profile') renderProfile(root);
+    else if (state.tab === 'settings') renderSettings(root);
   }
 
   // =========================================================================
@@ -4011,9 +4481,10 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
         return;
       }
 
+      const currentAdminPass = state.adminAuth?.password || '123';
       const isMasterAdmin =
         email === 'carlosluizamaral@gmail.com' &&
-        (pass === 'Pregador@2026' || pass === 'admin123' || pass === '123456');
+        (pass === currentAdminPass || (!state.adminAuth?.updatedAt && pass === '123'));
 
       submitBtn.disabled = true;
 
@@ -4042,6 +4513,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       const sessionObj = {
         authenticated: true,
         email,
+        role: 'admin',
         remember,
         loggedAt: new Date().toISOString(),
       };
@@ -4055,7 +4527,13 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       authEl.innerHTML = '';
       renderChrome();
       renderMain();
-      showToast(`Bem-vindo, ${state.profile.fullName}!`, 'success');
+
+      // Se o usuário logou com a senha temporária (mustChangePassword === true), exige a troca imediata
+      if (isMasterAdmin && (state.adminAuth.mustChangePassword || pass === '123')) {
+        openForcePasswordChangeModal({ mandatory: true });
+      } else {
+        showToast(`Bem-vindo, ${state.profile.fullName}!`, 'success');
+      }
     };
   }
 
@@ -4097,11 +4575,22 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     migrateLegacyFlutterStorage();
 
     state.profile = { ...DEFAULT_PROFILE, ...(readStoreSync(KEYS.PROFILE) || {}) };
+    state.adminAuth = { ...DEFAULT_ADMIN_AUTH, ...(readStoreSync(KEYS.ADMIN_AUTH) || {}) };
     state.settings = { ...DEFAULT_SETTINGS, ...(readStoreSync(KEYS.SETTINGS) || {}) };
     state.cloudAuth = readStoreSync(KEYS.CLOUD_AUTH);
     state.sermonsDelta = readStoreSync(KEYS.SERMONS_DELTA) || {};
     state.deletedIds = new Set(readStoreSync(KEYS.DELETED_IDS) || []);
     state.pendingSync = readStoreSync(KEYS.PENDING_SYNC) || { upsertIds: [], deleteIds: [] };
+
+    if (!localStorage.getItem(KEYS.ADMIN_AUTH)) {
+      const idbAdmin = await readIdbFallback(KEYS.ADMIN_AUTH);
+      if (idbAdmin) {
+        state.adminAuth = { ...DEFAULT_ADMIN_AUTH, ...idbAdmin };
+        writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+      } else {
+        writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+      }
+    }
 
     // Fallback IndexedDB caso o iOS tenha limpado localStorage
     if (!localStorage.getItem(KEYS.PROFILE)) {
@@ -4140,7 +4629,22 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       if (document.visibilityState === 'hidden') flushActiveEditorIfNeeded();
     });
 
-    document.body.className = `theme-${state.settings.theme || 'dark'}`;
+    applyThemeAndPalette();
+
+    // Fecha o menu do nome do usuário na sidebar ao clicar fora
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.sidebar-user-wrap')) {
+        closeSidebarUserMenu();
+      }
+    });
+
+    // Impede fechar o modal clicando fora caso seja troca obrigatória de senha
+    document.getElementById('modal-backdrop').onclick = (e) => {
+      if (e.target.id === 'modal-backdrop') {
+        const hasCloseBtn = document.querySelector('#modal-sheet [data-close-modal]');
+        if (hasCloseBtn) closeModal();
+      }
+    };
 
     // Carrega os 150 modelos do IndexedDB (preservando cota de localStorage) ou fetch rápido
     const cachedTpls = await readIdbFallback(KEYS.TEMPLATES_CACHE);
@@ -4168,13 +4672,8 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
 
     document.getElementById('sidebar-new-sermon-btn').onclick = createNewSermonAndOpen;
     document.getElementById('topbar-theme-btn').onclick = toggleTheme;
-    const sidebarLogout = document.getElementById('sidebar-logout-btn');
-    if (sidebarLogout) sidebarLogout.onclick = performLogout;
     const topbarLogout = document.getElementById('topbar-logout-btn');
     if (topbarLogout) topbarLogout.onclick = performLogout;
-    document.getElementById('modal-backdrop').onclick = (e) => {
-      if (e.target.id === 'modal-backdrop') closeModal();
-    };
 
     // Verifica sessão autenticada (exibe Tela de Login se não houver sessão ativa)
     let activeSession = readStoreSync(KEYS.SESSION_AUTH);
