@@ -15,9 +15,33 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261120_1">
+  <link rel="stylesheet" href="styles.css?v=20261120_2">
 </head>
 <body class="theme-dark">
+  <!-- Tela de Login Executiva -->
+  <div id="auth-screen" class="auth-screen hidden" role="dialog" aria-modal="true" aria-label="Acesso à Plataforma"></div>
+
+  <!-- Modal de Transição / Autenticação (3,5 segundos) para Login e Logoff -->
+  <div id="auth-transition-modal" class="auth-transition-backdrop hidden" role="alertdialog" aria-modal="true" aria-live="assertive">
+    <div class="auth-transition-card">
+      <div class="auth-transition-ring-wrap">
+        <div class="auth-transition-ring"></div>
+        <div class="auth-transition-ring-inner"></div>
+        <div id="auth-transition-icon" class="auth-transition-icon">🔐</div>
+      </div>
+      <div id="auth-transition-badge" class="auth-transition-badge">AUTENTICAÇÃO SEGURA • HSF</div>
+      <h2 id="auth-transition-title" class="auth-transition-title">Autenticando Acesso Ministerial</h2>
+      <p id="auth-transition-step" class="auth-transition-step">Validando credenciais e permissões ministeriais...</p>
+      <div class="auth-transition-progress-track">
+        <div id="auth-transition-progress-bar" class="auth-transition-progress-bar" style="width: 0%"></div>
+      </div>
+      <div class="auth-transition-meta">
+        <span id="auth-transition-status-tag">Criptografia Ativa</span>
+        <span id="auth-transition-pct" class="auth-transition-pct">0%</span>
+      </div>
+    </div>
+  </div>
+
   <!-- App Shell: Renderização instantânea (< 50ms) -->
   <div id="app" class="app-shell">
     <!-- Sidebar Desktop / iPad Landscape -->
@@ -43,6 +67,9 @@
           <span class="sync-label">Offline-First Ativo</span>
         </div>
         <div class="sidebar-user" id="sidebar-user-card"></div>
+        <button id="sidebar-logout-btn" class="btn btn-sm btn-outline btn-logout-sidebar" title="Encerrar Sessão (Logoff)">
+          <span>🚪</span> Sair da Conta
+        </button>
       </div>
     </aside>
 
@@ -57,6 +84,7 @@
         <div class="topbar-actions">
           <span id="mobile-sync-badge" class="mini-badge">Pronto</span>
           <button id="topbar-theme-btn" class="icon-btn" title="Alternar Tema" aria-label="Alternar Tema">🌓</button>
+          <button id="topbar-logout-btn" class="icon-btn" title="Sair da Conta (Logoff)" aria-label="Sair da Conta" style="color:var(--danger);border-color:rgba(239,68,68,0.35);">🚪</button>
         </div>
       </header>
 
@@ -90,14 +118,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js?v=20261120_1').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=20261120_2').then(function (reg) {
           try { reg.update(); } catch (_) {}
         }).catch(function () {});
       });
     }
   </script>
-  <script src="sourceProtection.js?v=20261120_1" defer></script>
-  <script src="app.js?v=20261120_1" defer></script>
+  <script src="sourceProtection.js?v=20261120_2" defer></script>
+  <script src="app.js?v=20261120_2" defer></script>
 </body>
 </html>
 
