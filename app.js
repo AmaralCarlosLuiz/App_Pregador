@@ -4440,15 +4440,6 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block" style="min-height:50px;font-size:15.5px;font-weight:800;">
               🔐 Entrar na Plataforma
             </button>
-
-            <div style="height:1px;background:rgba(148,163,184,0.16);margin:22px 0 18px;"></div>
-
-            <div style="text-align:center;font-size:12.5px;color:#94a3b8;margin-bottom:10px;">
-              Ainda não possui credenciais de acesso?
-            </div>
-            <button type="button" id="auth-request-btn" class="btn btn-outline btn-block" style="color:#fbbf24;border-color:rgba(245,158,11,0.5);font-size:13px;">
-              ✉️ Solicitar Criação de Usuário por E-mail
-            </button>
           </form>
         </div>
       </div>
@@ -4461,8 +4452,6 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       passInp.type = isPass ? 'text' : 'password';
       toggleBtn.textContent = isPass ? '🙈' : '👁️';
     };
-
-    authEl.querySelector('#auth-request-btn').onclick = openRequestAccessModal;
 
     const form = authEl.querySelector('#auth-login-form');
     const errBox = authEl.querySelector('#auth-error-msg');
