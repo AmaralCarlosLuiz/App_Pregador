@@ -216,6 +216,72 @@ button {
     border-right: 1px solid var(--border);
     padding: 20px 14px;
     gap: 16px;
+    transition: margin-left 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, visibility 0.24s ease;
+    z-index: 30;
+  }
+
+  .sidebar.collapsed {
+    margin-left: -268px !important;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  .sidebar-toggle-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    margin-left: 6px;
+  }
+
+  .sidebar-toggle-btn:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: var(--surface);
+    transform: translateX(-2px);
+  }
+
+  .desktop-sidebar-expand-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 35;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.18s ease;
+  }
+
+  .desktop-sidebar-expand-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    transform: translateX(2px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .desktop-sidebar-expand-btn.hidden {
+    display: none !important;
   }
 
   .sidebar-brand {

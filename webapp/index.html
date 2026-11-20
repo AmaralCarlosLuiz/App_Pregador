@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261120_4">
+  <link rel="stylesheet" href="styles.css?v=20261120_5">
 </head>
 <body class="theme-dark">
   <!-- Tela de Login Executiva -->
@@ -47,12 +47,17 @@
     <!-- Sidebar Desktop / iPad Landscape -->
     <aside id="sidebar" class="sidebar" aria-label="Navegação Principal">
       <div class="sidebar-brand">
-        <div class="brand-badge">
-          <span class="brand-icon" aria-hidden="true">📖</span>
-          <div>
-            <div class="brand-title">Pregador <span class="gold-pill">PRO</span></div>
-            <div class="brand-sub">Bancada Homilética</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+          <div class="brand-badge">
+            <span class="brand-icon" aria-hidden="true">📖</span>
+            <div>
+              <div class="brand-title">Pregador <span class="gold-pill">PRO</span></div>
+              <div class="brand-sub">Bancada Homilética</div>
+            </div>
           </div>
+          <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="Ocultar Barra Lateral (Ctrl + B)" aria-label="Ocultar Barra Lateral">
+            ◀
+          </button>
         </div>
         <button id="sidebar-new-sermon-btn" class="btn btn-primary btn-block">
           <span>＋</span> Novo Sermão
@@ -71,6 +76,13 @@
 
     <!-- Main Viewport -->
     <div class="main-column">
+      <!-- Botão Flutuante Desktop para Reabrir Barra Lateral quando Oculta -->
+      <button id="desktop-sidebar-expand-btn" class="desktop-sidebar-expand-btn hidden" title="Exibir Barra Lateral (Ctrl + B)" aria-label="Exibir Barra Lateral">
+        <span>📖</span>
+        <span style="font-size:12.5px;font-weight:700;">Menu</span>
+        <span style="font-size:11px;">▶</span>
+      </button>
+
       <!-- Mobile Top Bar -->
       <header id="mobile-topbar" class="mobile-topbar">
         <div class="topbar-left">
@@ -114,14 +126,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js?v=20261120_4').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=20261120_5').then(function (reg) {
           try { reg.update(); } catch (_) {}
         }).catch(function () {});
       });
     }
   </script>
-  <script src="sourceProtection.js?v=20261120_4" defer></script>
-  <script src="app.js?v=20261120_4" defer></script>
+  <script src="sourceProtection.js?v=20261120_5" defer></script>
+  <script src="app.js?v=20261120_5" defer></script>
 </body>
 </html>
 
