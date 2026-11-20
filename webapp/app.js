@@ -19,6 +19,8 @@
     PENDING_SYNC: 'pp_web_pending_sync_v1',
     SESSION_AUTH: 'pp_web_session_auth_v2',
     ADMIN_AUTH: 'pp_web_admin_auth_v1',
+    USERS: 'pp_web_users_v2',
+    AUDIT_LOGS: 'pp_web_audit_logs_v1',
   };
 
   const SERMON_CATEGORIES = [
@@ -227,6 +229,125 @@
     updatedAt: null,
   };
 
+  const USER_ROLES = [
+    {
+      id: 'admin',
+      name: 'Administrador Master',
+      badge: 'ADMIN',
+      icon: '🛡️',
+      color: '#f59e0b',
+      desc: 'Acesso irrestrito a usuários, auditoria, configurações, acervo e púlpito.',
+    },
+    {
+      id: 'pastor',
+      name: 'Pastor / Ministro',
+      badge: 'PASTOR',
+      icon: '📖',
+      color: '#3b82f6',
+      desc: 'Gestão completa de sermões, IA Gemini Pro, modo púlpito e estúdio bíblico.',
+    },
+    {
+      id: 'obreiro',
+      name: 'Evangelista / Obreiro',
+      badge: 'OBREIRO',
+      icon: '✝️',
+      color: '#10b981',
+      desc: 'Criação e edição de esboços homiléticos, leitura bíblica e notas.',
+    },
+    {
+      id: 'leitor',
+      name: 'Seminarista / Leitor',
+      badge: 'LEITOR',
+      icon: '🎓',
+      color: '#8b5cf6',
+      desc: 'Acesso de consulta, leitura bíblica e modo púlpito sem permissão de exclusão.',
+    },
+  ];
+
+  const DEFAULT_USERS_SEED = [
+    {
+      id: '00000000-0000-4000-8000-000000000001',
+      fullName: 'Pr. Carlos Luiz Amaral',
+      email: 'carlosluizamaral@gmail.com',
+      role: 'admin',
+      ministryTitle: 'Pastor Titular',
+      churchName: 'Igreja Batista',
+      status: 'active',
+      password: '123',
+      mustChangePassword: true,
+      createdAt: '2026-11-20T00:00:00.000Z',
+      updatedAt: '2026-11-20T00:00:00.000Z',
+      lastLoginAt: '2026-11-20T01:30:00.000Z',
+      isMaster: true,
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000002',
+      fullName: 'Pr. Marcos Vinicius Oliveira',
+      email: 'pr.marcos@igreja.com',
+      role: 'pastor',
+      ministryTitle: 'Pastor Auxiliar',
+      churchName: 'Igreja Batista Central',
+      status: 'active',
+      password: '123',
+      mustChangePassword: true,
+      createdAt: '2026-11-19T14:20:00.000Z',
+      updatedAt: '2026-11-19T14:20:00.000Z',
+      lastLoginAt: '2026-11-19T18:45:00.000Z',
+      isMaster: false,
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000003',
+      fullName: 'Ev. Lucas Santana Ribeiro',
+      email: 'ev.lucas@igreja.com',
+      role: 'obreiro',
+      ministryTitle: 'Evangelista & Pregador',
+      churchName: 'Igreja Batista Memorial',
+      status: 'active',
+      password: '123',
+      mustChangePassword: true,
+      createdAt: '2026-11-18T10:15:00.000Z',
+      updatedAt: '2026-11-18T10:15:00.000Z',
+      lastLoginAt: null,
+      isMaster: false,
+    },
+  ];
+
+  const DEFAULT_AUDIT_SEED = [
+    {
+      id: 'aud-001',
+      timestamp: '2026-11-20T01:30:00.000Z',
+      action: 'LOGIN_SUCCESS',
+      actionLabel: 'Autenticação no Sistema',
+      severity: 'success',
+      actorEmail: 'carlosluizamaral@gmail.com',
+      actorName: 'Pr. Carlos Luiz Amaral',
+      target: 'Painel Geral',
+      details: 'Sessão administrativa iniciada com sucesso.',
+    },
+    {
+      id: 'aud-002',
+      timestamp: '2026-11-20T01:25:00.000Z',
+      action: 'SETTINGS_UPDATE',
+      actionLabel: 'Alteração de Configurações',
+      severity: 'info',
+      actorEmail: 'carlosluizamaral@gmail.com',
+      actorName: 'Pr. Carlos Luiz Amaral',
+      target: 'Paleta & Tema',
+      details: 'Paleta Azul Real & Ouro sincronizada com a nuvem.',
+    },
+    {
+      id: 'aud-003',
+      timestamp: '2026-11-20T01:20:00.000Z',
+      action: 'CLOUD_SYNC',
+      actionLabel: 'Sincronização em Nuvem',
+      severity: 'success',
+      actorEmail: 'carlosluizamaral@gmail.com',
+      actorName: 'Pr. Carlos Luiz Amaral',
+      target: 'Supabase PostgreSQL',
+      details: 'Sincronização bidirecional do acervo de sermões concluída.',
+    },
+  ];
+
   const COLOR_PALETTES = [
     {
       id: 'royal-gold',
@@ -340,6 +461,118 @@
       surfaceDark: '#181d2a',
       surface2Dark: '#22293a',
     },
+    {
+      id: 'burgundy-rose',
+      name: 'Vinho Litúrgico & Ouro Rosé',
+      desc: 'Vinho cálice nobre com reflexos dourados rosados.',
+      primary: '#e11d48',
+      primaryHover: '#be123c',
+      primaryLight: '#9f1239',
+      gold: '#fb7185',
+      goldSoft: 'rgba(251, 113, 133, 0.15)',
+      bgDark: '#15050a',
+      elevatedDark: '#220912',
+      surfaceDark: '#2d0d19',
+      surface2Dark: '#3d1222',
+    },
+    {
+      id: 'midnight-cyan',
+      name: 'Meia-Noite & Ciano Cósmico',
+      desc: 'Profundidade cósmica com alta legibilidade em Ciano.',
+      primary: '#0284c7',
+      primaryHover: '#0369a1',
+      primaryLight: '#075985',
+      gold: '#38bdf8',
+      goldSoft: 'rgba(56, 189, 248, 0.15)',
+      bgDark: '#030712',
+      elevatedDark: '#0b1329',
+      surfaceDark: '#111d3d',
+      surface2Dark: '#172752',
+    },
+    {
+      id: 'copper-flame',
+      name: 'Cobre Pentecostal & Âmbar Puro',
+      desc: 'Inspirado na sarça ardente e lâmpadas de bronze do tabernáculo.',
+      primary: '#ea580c',
+      primaryHover: '#c2410c',
+      primaryLight: '#9a3412',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.16)',
+      bgDark: '#140904',
+      elevatedDark: '#221008',
+      surfaceDark: '#2e170c',
+      surface2Dark: '#3f1f11',
+    },
+    {
+      id: 'onyx-pure-gold',
+      name: 'Ônix Soberano & Ouro 24k',
+      desc: 'Preto absoluto OLED de alto contraste com Ouro 24k.',
+      primary: '#d97706',
+      primaryHover: '#b45309',
+      primaryLight: '#92400e',
+      gold: '#fbbf24',
+      goldSoft: 'rgba(251, 191, 36, 0.18)',
+      bgDark: '#040404',
+      elevatedDark: '#0c0c0c',
+      surfaceDark: '#141414',
+      surface2Dark: '#1e1e1e',
+    },
+    {
+      id: 'amethyst-majesty',
+      name: 'Ametista Celestial & Lilás Real',
+      desc: 'Pedra preciosa do peitoral sacerdotal em Violeta e Lilás.',
+      primary: '#a855f7',
+      primaryHover: '#9333ea',
+      primaryLight: '#7e22ce',
+      gold: '#c084fc',
+      goldSoft: 'rgba(192, 132, 252, 0.15)',
+      bgDark: '#0d0617',
+      elevatedDark: '#170b28',
+      surfaceDark: '#201037',
+      surface2Dark: '#2d174d',
+    },
+    {
+      id: 'jerusalem-terracotta',
+      name: 'Terracota Jerusalém & Areia Dourada',
+      desc: 'Pedra de Jerusalém e tons solares do Oriente.',
+      primary: '#b45309',
+      primaryHover: '#92400e',
+      primaryLight: '#78350f',
+      gold: '#f59e0b',
+      goldSoft: 'rgba(245, 158, 11, 0.15)',
+      bgDark: '#130b06',
+      elevatedDark: '#20130b',
+      surfaceDark: '#2b1a10',
+      surface2Dark: '#3a2418',
+    },
+    {
+      id: 'forest-pine',
+      name: 'Monte Carmelo & Esmeralda Pinho',
+      desc: 'Verde pinheiro denso e bíblico com dourado radiante.',
+      primary: '#16a34a',
+      primaryHover: '#15803d',
+      primaryLight: '#166534',
+      gold: '#fbbf24',
+      goldSoft: 'rgba(251, 191, 36, 0.15)',
+      bgDark: '#040f09',
+      elevatedDark: '#091a11',
+      surfaceDark: '#0e2619',
+      surface2Dark: '#143624',
+    },
+    {
+      id: 'cobalt-modern',
+      name: 'Cobalto Ministerial & Platina',
+      desc: 'Azul ultramarino moderno de alta precisão tipográfica.',
+      primary: '#2563eb',
+      primaryHover: '#1d4ed8',
+      primaryLight: '#1e40af',
+      gold: '#60a5fa',
+      goldSoft: 'rgba(96, 165, 250, 0.15)',
+      bgDark: '#060b17',
+      elevatedDark: '#0d172e',
+      surfaceDark: '#13203f',
+      surface2Dark: '#1b2c56',
+    },
   ];
 
   const DEFAULT_SETTINGS = {
@@ -386,8 +619,14 @@
 
   const state = {
     tab: 'dashboard', // dashboard | library | editor | bible | templates | profile | settings
+    settingsSubTab: 'palettes', // 'palettes' | 'users' | 'audit' | 'pulpit'
     profile: { ...DEFAULT_PROFILE },
     adminAuth: { ...DEFAULT_ADMIN_AUTH },
+    users: [],
+    auditLogs: [],
+    userFilterQuery: '',
+    userFilterRole: 'all',
+    auditFilterSeverity: 'all',
     settings: { ...DEFAULT_SETTINGS },
     cloudAuth: null, // { accessToken, refreshToken, userId, email }
     templates: [],
@@ -3948,168 +4187,1088 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     if (state.tab === 'profile' || state.tab === 'settings') renderMain();
   }
 
-  // ---- TELA 7: CONFIGURAÇÕES & PALETA DE CORES EXECUTIVAS ----
+  // =========================================================================
+  // SISTEMA DE AUDITORIA & GESTÃO ENTERPRISE DE USUÁRIOS
+  // =========================================================================
+  function logAuditEvent({
+    action,
+    actionLabel,
+    severity = 'info',
+    target = 'Sistema',
+    details = '',
+    actorEmail = null,
+    actorName = null,
+  } = {}) {
+    const entry = {
+      id: 'aud-' + uuid().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      action: action || 'AUDIT_EVENT',
+      actionLabel: actionLabel || action || 'Operação do Sistema',
+      severity, // 'info' | 'success' | 'warning' | 'danger'
+      actorEmail: actorEmail || state.profile.email || 'carlosluizamaral@gmail.com',
+      actorName: actorName || state.profile.fullName || 'Pr. Carlos Luiz Amaral',
+      target,
+      details,
+    };
+    state.auditLogs = [entry, ...(state.auditLogs || [])].slice(0, 200);
+    writeStore(KEYS.AUDIT_LOGS, state.auditLogs);
+    return entry;
+  }
+
+  function getRoleInfo(roleId) {
+    return (
+      USER_ROLES.find((r) => r.id === roleId) || {
+        id: roleId,
+        name: 'Usuário',
+        badge: (roleId || 'USER').toUpperCase(),
+        icon: '👤',
+        color: '#94a3b8',
+        desc: 'Acesso padrão',
+      }
+    );
+  }
+
+  function openCreateUserModal() {
+    openModal(
+      `
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="modal-header-icon" style="background:rgba(59,130,246,0.15);color:#60a5fa;font-size:20px;padding:8px;border-radius:10px;">👤+</div>
+          <div>
+            <h3 class="modal-title">Cadastrar Novo Usuário</h3>
+            <span class="modal-subtitle">Defina as credenciais, perfil de permissão e dados ministeriais</span>
+          </div>
+        </div>
+        <button class="icon-btn-ghost" data-close-modal>✕</button>
+      </div>
+
+      <div id="cum-err" class="auth-error-box hidden" style="margin:12px 0;"></div>
+
+      <div class="form-grid-2" style="margin-top:14px;">
+        <div>
+          <label class="editor-section-label">Nome Completo *</label>
+          <input id="cum-name" class="input-field" placeholder="Ex: Pr. João da Silva" autofocus>
+        </div>
+        <div>
+          <label class="editor-section-label">E-mail de Acesso *</label>
+          <input id="cum-email" type="email" class="input-field" placeholder="joao@igreja.com">
+        </div>
+      </div>
+
+      <div class="form-grid-2" style="margin-top:12px;">
+        <div>
+          <label class="editor-section-label">Perfil de Acesso & Permissões *</label>
+          <select id="cum-role" class="select-field">
+            ${USER_ROLES.map((r) => `<option value="${r.id}">${r.icon} ${r.name} (${r.badge})</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="editor-section-label">Cargo / Título Ministerial</label>
+          <input id="cum-title" class="input-field" placeholder="Ex: Pastor Titular, Diácono, Pregador">
+        </div>
+      </div>
+
+      <div class="form-grid-2" style="margin-top:12px;">
+        <div>
+          <label class="editor-section-label">Igreja / Congregação</label>
+          <input id="cum-church" class="input-field" placeholder="Ex: Igreja Batista Memorial">
+        </div>
+        <div>
+          <label class="editor-section-label">Senha Inicial de Acesso</label>
+          <div style="display:flex;gap:6px;">
+            <input id="cum-pass" type="text" class="input-field" value="123" style="font-family:monospace;letter-spacing:1px;">
+            <button type="button" class="btn btn-outline" id="cum-gen-pass" title="Gerar Senha Segura">🎲</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:12px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border);">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin:0;">
+          <input id="cum-must-change" type="checkbox" checked style="width:17px;height:17px;accent-color:var(--primary);">
+          <span><strong>Exigir troca obrigatória de senha no primeiro login</strong> (Recomendado para segurança)</span>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn btn-outline" data-close-modal>Cancelar</button>
+        <button class="btn btn-primary" id="cum-submit-btn">💾 Salvar e Criar Usuário</button>
+      </div>
+      `,
+      (sheet) => {
+        sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        const errEl = sheet.querySelector('#cum-err');
+        const nameInp = sheet.querySelector('#cum-name');
+        const emailInp = sheet.querySelector('#cum-email');
+        const roleSel = sheet.querySelector('#cum-role');
+        const titleInp = sheet.querySelector('#cum-title');
+        const churchInp = sheet.querySelector('#cum-church');
+        const passInp = sheet.querySelector('#cum-pass');
+        const mustChBox = sheet.querySelector('#cum-must-change');
+
+        sheet.querySelector('#cum-gen-pass').onclick = () => {
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
+          let gen = '';
+          for (let i = 0; i < 8; i++) gen += chars.charAt(Math.floor(Math.random() * chars.length));
+          passInp.value = gen;
+        };
+
+        sheet.querySelector('#cum-submit-btn').onclick = () => {
+          errEl.classList.add('hidden');
+          const fullName = nameInp.value.trim();
+          const email = emailInp.value.trim().toLowerCase();
+          const role = roleSel.value;
+          const ministryTitle = titleInp.value.trim() || getRoleInfo(role).name;
+          const churchName = churchInp.value.trim() || 'Igreja Local';
+          const password = passInp.value.trim() || '123';
+          const mustChangePassword = mustChBox.checked;
+
+          if (!fullName) {
+            errEl.textContent = 'Informe o nome completo do usuário.';
+            errEl.classList.remove('hidden');
+            nameInp.focus();
+            return;
+          }
+          if (!email || !email.includes('@') || !email.includes('.')) {
+            errEl.textContent = 'Informe um endereço de e-mail válido.';
+            errEl.classList.remove('hidden');
+            emailInp.focus();
+            return;
+          }
+          if (state.users.some((u) => u.email.toLowerCase() === email)) {
+            errEl.textContent = 'Já existe um usuário cadastrado com este e-mail.';
+            errEl.classList.remove('hidden');
+            emailInp.focus();
+            return;
+          }
+
+          const newUser = {
+            id: uuid(),
+            fullName,
+            email,
+            role,
+            ministryTitle,
+            churchName,
+            status: 'active',
+            password,
+            mustChangePassword,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: null,
+            isMaster: false,
+          };
+
+          state.users.unshift(newUser);
+          writeStore(KEYS.USERS, state.users);
+
+          logAuditEvent({
+            action: 'USER_CREATE',
+            actionLabel: 'Criação de Usuário',
+            severity: 'success',
+            target: email,
+            details: `Usuário "${fullName}" cadastrado com perfil ${role.toUpperCase()} e cargo "${ministryTitle}".`,
+          });
+
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
+
+          closeModal();
+          renderMain();
+          showToast(`Usuário "${fullName}" cadastrado com sucesso!`, 'success');
+        };
+      }
+    );
+  }
+
+  function openEditUserModal(userId) {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const isMaster = user.isMaster || user.email === 'carlosluizamaral@gmail.com';
+
+    openModal(
+      `
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="modal-header-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;font-size:20px;padding:8px;border-radius:10px;">✏️</div>
+          <div>
+            <h3 class="modal-title">Editar Usuário</h3>
+            <span class="modal-subtitle">${esc(user.fullName)} • ${esc(user.email)}</span>
+          </div>
+        </div>
+        <button class="icon-btn-ghost" data-close-modal>✕</button>
+      </div>
+
+      <div id="eum-err" class="auth-error-box hidden" style="margin:12px 0;"></div>
+
+      <div class="form-grid-2" style="margin-top:14px;">
+        <div>
+          <label class="editor-section-label">Nome Completo *</label>
+          <input id="eum-name" class="input-field" value="${esc(user.fullName)}">
+        </div>
+        <div>
+          <label class="editor-section-label">E-mail de Acesso ${isMaster ? '(Master Fixo)' : '*'}</label>
+          <input id="eum-email" type="email" class="input-field" value="${esc(user.email)}" ${isMaster ? 'disabled' : ''}>
+        </div>
+      </div>
+
+      <div class="form-grid-2" style="margin-top:12px;">
+        <div>
+          <label class="editor-section-label">Perfil de Acesso *</label>
+          <select id="eum-role" class="select-field" ${isMaster ? 'disabled' : ''}>
+            ${USER_ROLES.map(
+              (r) => `<option value="${r.id}" ${user.role === r.id ? 'selected' : ''}>${r.icon} ${r.name} (${r.badge})</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="editor-section-label">Status da Conta</label>
+          <select id="eum-status" class="select-field" ${isMaster ? 'disabled' : ''}>
+            <option value="active" ${user.status === 'active' ? 'selected' : ''}>🟢 Ativo / Liberado</option>
+            <option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>🔴 Suspenso / Bloqueado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid-2" style="margin-top:12px;">
+        <div>
+          <label class="editor-section-label">Cargo / Título Ministerial</label>
+          <input id="eum-title" class="input-field" value="${esc(user.ministryTitle || '')}">
+        </div>
+        <div>
+          <label class="editor-section-label">Igreja / Congregação</label>
+          <input id="eum-church" class="input-field" value="${esc(user.churchName || '')}">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:12px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border);">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin:0;">
+          <input id="eum-must-change" type="checkbox" ${user.mustChangePassword ? 'checked' : ''} style="width:17px;height:17px;accent-color:var(--primary);">
+          <span>Exigir troca obrigatória de senha no próximo login</span>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn btn-outline" data-close-modal>Cancelar</button>
+        <button class="btn btn-primary" id="eum-submit-btn">💾 Salvar Alterações</button>
+      </div>
+      `,
+      (sheet) => {
+        sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        const errEl = sheet.querySelector('#eum-err');
+        const nameInp = sheet.querySelector('#eum-name');
+        const emailInp = sheet.querySelector('#eum-email');
+        const roleSel = sheet.querySelector('#eum-role');
+        const statusSel = sheet.querySelector('#eum-status');
+        const titleInp = sheet.querySelector('#eum-title');
+        const churchInp = sheet.querySelector('#eum-church');
+        const mustChBox = sheet.querySelector('#eum-must-change');
+
+        sheet.querySelector('#eum-submit-btn').onclick = () => {
+          errEl.classList.add('hidden');
+          const fullName = nameInp.value.trim();
+          const email = isMaster ? user.email : emailInp.value.trim().toLowerCase();
+          const role = isMaster ? 'admin' : roleSel.value;
+          const status = isMaster ? 'active' : statusSel.value;
+          const ministryTitle = titleInp.value.trim() || user.ministryTitle;
+          const churchName = churchInp.value.trim() || user.churchName;
+          const mustChangePassword = mustChBox.checked;
+
+          if (!fullName) {
+            errEl.textContent = 'Informe o nome completo.';
+            errEl.classList.remove('hidden');
+            return;
+          }
+          if (!email || !email.includes('@')) {
+            errEl.textContent = 'Informe um e-mail válido.';
+            errEl.classList.remove('hidden');
+            return;
+          }
+          if (!isMaster && state.users.some((u) => u.id !== user.id && u.email.toLowerCase() === email)) {
+            errEl.textContent = 'Já existe outro usuário com este e-mail.';
+            errEl.classList.remove('hidden');
+            return;
+          }
+
+          user.fullName = fullName;
+          user.email = email;
+          user.role = role;
+          user.status = status;
+          user.ministryTitle = ministryTitle;
+          user.churchName = churchName;
+          user.mustChangePassword = mustChangePassword;
+          user.updatedAt = new Date().toISOString();
+
+          // Se for o master admin, mantém o perfil principal atualizado
+          if (isMaster) {
+            state.profile.fullName = fullName;
+            state.profile.ministryTitle = ministryTitle;
+            state.profile.churchName = churchName;
+            writeStore(KEYS.PROFILE, state.profile);
+          }
+
+          writeStore(KEYS.USERS, state.users);
+
+          logAuditEvent({
+            action: 'USER_UPDATE',
+            actionLabel: 'Edição de Usuário',
+            severity: 'info',
+            target: email,
+            details: `Dados do usuário "${fullName}" atualizados (Perfil: ${role.toUpperCase()}, Status: ${status}).`,
+          });
+
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
+
+          closeModal();
+          renderChrome();
+          renderMain();
+          showToast(`Usuário "${fullName}" atualizado!`, 'success');
+        };
+      }
+    );
+  }
+
+  function openResetUserPasswordModal(userId) {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
+
+    openModal(
+      `
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="modal-header-icon" style="background:rgba(239,68,68,0.15);color:#f87171;font-size:20px;padding:8px;border-radius:10px;">🔑</div>
+          <div>
+            <h3 class="modal-title">Redefinir Senha de Acesso</h3>
+            <span class="modal-subtitle">${esc(user.fullName)} (${esc(user.email)})</span>
+          </div>
+        </div>
+        <button class="icon-btn-ghost" data-close-modal>✕</button>
+      </div>
+
+      <div style="margin:14px 0 16px;font-size:13.5px;color:var(--text-muted);line-height:1.45;">
+        Defina uma nova senha temporária para este usuário. Por padrão, recomendamos definir como <strong>"123"</strong> e marcar a troca obrigatória no próximo acesso.
+      </div>
+
+      <label class="editor-section-label">Nova Senha Temporária</label>
+      <div class="auth-input-wrap" style="margin-bottom:14px;">
+        <input id="rup-pass" type="text" class="input-field" value="123" style="font-family:monospace;letter-spacing:1px;" autofocus>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:20px;">
+        <input id="rup-must-change" type="checkbox" checked style="width:17px;height:17px;accent-color:var(--primary);">
+        <span><strong>Exigir que o usuário altere a senha imediatamente ao entrar</strong></span>
+      </label>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-outline" data-close-modal>Cancelar</button>
+        <button class="btn btn-gold" id="rup-submit-btn">🔐 Gravar Nova Senha</button>
+      </div>
+      `,
+      (sheet) => {
+        sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        sheet.querySelector('#rup-submit-btn').onclick = () => {
+          const newPass = sheet.querySelector('#rup-pass').value.trim();
+          if (!newPass) {
+            showToast('Informe a nova senha.', 'error');
+            return;
+          }
+          const mustChange = sheet.querySelector('#rup-must-change').checked;
+
+          user.password = newPass;
+          user.mustChangePassword = mustChange;
+          user.updatedAt = new Date().toISOString();
+
+          if (user.isMaster || user.email === 'carlosluizamaral@gmail.com') {
+            state.adminAuth.password = newPass;
+            state.adminAuth.mustChangePassword = mustChange;
+            state.adminAuth.updatedAt = new Date().toISOString();
+            writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+          }
+
+          writeStore(KEYS.USERS, state.users);
+
+          logAuditEvent({
+            action: 'USER_PASSWORD_RESET',
+            actionLabel: 'Redefinição de Senha',
+            severity: 'warning',
+            target: user.email,
+            details: `Senha do usuário "${user.fullName}" redefinida. Troca obrigatória: ${mustChange ? 'Sim' : 'Não'}.`,
+          });
+
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
+
+          closeModal();
+          renderMain();
+          showToast(`Senha de "${user.fullName}" redefinida com sucesso!`, 'success');
+        };
+      }
+    );
+  }
+
+  function toggleUserStatus(userId) {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
+    if (user.isMaster || user.email === 'carlosluizamaral@gmail.com') {
+      showToast('O Administrador Master não pode ter sua conta desativada.', 'warning');
+      return;
+    }
+
+    user.status = user.status === 'active' ? 'suspended' : 'active';
+    user.updatedAt = new Date().toISOString();
+    writeStore(KEYS.USERS, state.users);
+
+    const isNowActive = user.status === 'active';
+    logAuditEvent({
+      action: 'USER_STATUS_CHANGE',
+      actionLabel: 'Alteração de Status',
+      severity: isNowActive ? 'success' : 'danger',
+      target: user.email,
+      details: `Conta do usuário "${user.fullName}" alterada para: ${isNowActive ? 'Ativo' : 'Suspenso'}.`,
+    });
+
+    markProfileUpdated();
+    syncCloudNow({ silent: true, pushProfile: true });
+    renderMain();
+    showToast(`Usuário "${user.fullName}" agora está ${isNowActive ? 'ATIVO' : 'SUSPENSO'}!`, 'info');
+  }
+
+  function confirmDeleteUser(userId) {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return;
+    if (user.isMaster || user.email === 'carlosluizamaral@gmail.com') {
+      showToast('O Administrador Master da plataforma não pode ser excluído.', 'error');
+      return;
+    }
+
+    openModal(
+      `
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="modal-header-icon" style="background:rgba(239,68,68,0.15);color:#f87171;font-size:20px;padding:8px;border-radius:10px;">🗑️</div>
+          <div>
+            <h3 class="modal-title">Excluir Usuário</h3>
+            <span class="modal-subtitle">Confirmação de exclusão definitiva</span>
+          </div>
+        </div>
+        <button class="icon-btn-ghost" data-close-modal>✕</button>
+      </div>
+
+      <p style="margin:16px 0;font-size:14px;color:var(--text);line-height:1.5;">
+        Tem certeza que deseja excluir o usuário <strong>"${esc(user.fullName)}"</strong> (<code>${esc(user.email)}</code>)?
+      </p>
+      <div style="padding:12px;background:rgba(239,68,68,0.08);border-left:4px solid #ef4444;border-radius:8px;margin-bottom:18px;font-size:12.5px;color:#fecaca;">
+        ⚠️ Esta ação removerá os acessos do usuário permanentemente. A ação será registrada na trilha de auditoria.
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-outline" data-close-modal>Cancelar</button>
+        <button class="btn btn-danger" id="cdu-confirm-btn">🗑️ Sim, Excluir Definitivamente</button>
+      </div>
+      `,
+      (sheet) => {
+        sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        sheet.querySelector('#cdu-confirm-btn').onclick = () => {
+          state.users = state.users.filter((u) => u.id !== userId);
+          writeStore(KEYS.USERS, state.users);
+
+          logAuditEvent({
+            action: 'USER_DELETE',
+            actionLabel: 'Exclusão de Usuário',
+            severity: 'danger',
+            target: user.email,
+            details: `Usuário "${user.fullName}" (${user.email}) excluído permanentemente da plataforma.`,
+          });
+
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
+
+          closeModal();
+          renderMain();
+          showToast(`Usuário "${user.fullName}" removido!`, 'info');
+        };
+      }
+    );
+  }
+
+  function exportAuditLogs() {
+    try {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(state.auditLogs, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `auditoria_pregador_pro_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Relatório de auditoria exportado em JSON!', 'success');
+    } catch {
+      showToast('Falha ao exportar auditoria.', 'error');
+    }
+  }
+
+  function clearAuditLogs() {
+    if (!confirm('Deseja realmente limpar o histórico de auditoria local? Um evento inicial de limpeza será registrado.')) {
+      return;
+    }
+    state.auditLogs = [];
+    logAuditEvent({
+      action: 'AUDIT_CLEARED',
+      actionLabel: 'Auditoria Reiniciada',
+      severity: 'warning',
+      target: 'Logs de Auditoria',
+      details: 'Histórico de auditoria limpo pelo Administrador.',
+    });
+    renderMain();
+    showToast('Histórico de auditoria limpo com sucesso!', 'info');
+  }
+
+  // ---- TELA 7: CONFIGURAÇÕES, GESTÃO DE USUÁRIOS, AUDITORIA & PALETAS ----
   function renderSettings(root) {
     const curPalette = state.settings.palette || 'royal-gold';
     const isDark = state.settings.theme !== 'light';
+    const subTab = state.settingsSubTab || 'palettes';
+
+    // Contadores para estatísticas
+    const totalUsers = state.users.length;
+    const adminCount = state.users.filter((u) => u.role === 'admin').length;
+    const pastorCount = state.users.filter((u) => u.role === 'pastor').length;
+    const activeCount = state.users.filter((u) => u.status === 'active').length;
+
+    // Filtros de Usuários
+    const uQuery = (state.userFilterQuery || '').toLowerCase();
+    const uRole = state.userFilterRole || 'all';
+    const filteredUsers = state.users.filter((u) => {
+      const matchQuery =
+        !uQuery ||
+        (u.fullName || '').toLowerCase().includes(uQuery) ||
+        (u.email || '').toLowerCase().includes(uQuery) ||
+        (u.churchName || '').toLowerCase().includes(uQuery) ||
+        (u.ministryTitle || '').toLowerCase().includes(uQuery);
+      const matchRole = uRole === 'all' || u.role === uRole;
+      return matchQuery && matchRole;
+    });
+
+    // Filtros de Auditoria
+    const aSev = state.auditFilterSeverity || 'all';
+    const filteredAudit = state.auditLogs.filter((a) => {
+      return aSev === 'all' || a.severity === aSev;
+    });
 
     root.innerHTML = `
       <div class="section-header" style="margin-top:0;">
         <div>
-          <h1 class="section-title" style="font-size:22px;">⚙️ Configurações da Plataforma</h1>
-          <span class="section-subtitle">Personalize paleta de cores, aparência, segurança do perfil Admin e preferências de púlpito</span>
+          <h1 class="section-title" style="font-size:22px;">⚙️ Configurações & Governança</h1>
+          <span class="section-subtitle">Gestão de Usuários, Trilha de Auditoria, 16 Paletas de Cores e Preferências do Púlpito</span>
         </div>
       </div>
 
-      <!-- 1. Paletas de Cores Prontas -->
-      <div class="card" style="margin-bottom:18px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-          <div>
-            <h3 style="margin:0 0 4px;">🎨 Paleta de Cores da Interface (8 Temas Prontos)</h3>
-            <div style="font-size:13px;color:var(--text-muted);">Selecione uma paleta pronta para aplicar instantaneamente em todo o sistema e sincronizar na nuvem.</div>
+      <!-- Barra de Sub-Abas de Navegação -->
+      <div class="settings-subtab-bar">
+        <button class="settings-subtab-btn ${subTab === 'palettes' ? 'active' : ''}" data-subtab="palettes">
+          <span>🎨 Paleta de Cores & Visual</span>
+          <span class="settings-subtab-badge">${COLOR_PALETTES.length}</span>
+        </button>
+        <button class="settings-subtab-btn ${subTab === 'users' ? 'active' : ''}" data-subtab="users">
+          <span>👥 Gestão de Usuários</span>
+          <span class="settings-subtab-badge">${totalUsers}</span>
+        </button>
+        <button class="settings-subtab-btn ${subTab === 'audit' ? 'active' : ''}" data-subtab="audit">
+          <span>📜 Trilha de Auditoria</span>
+          <span class="settings-subtab-badge">${state.auditLogs.length}</span>
+        </button>
+        <button class="settings-subtab-btn ${subTab === 'pulpit' ? 'active' : ''}" data-subtab="pulpit">
+          <span>🛡️ Segurança & Púlpito</span>
+        </button>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- ABA 1: PALETA DE CORES (16 OPÇÕES) & TEMA LUMINOSO                 -->
+      <!-- ================================================================== -->
+      ${
+        subTab === 'palettes'
+          ? `
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <div>
+              <h3 style="margin:0 0 4px;">🎨 Paletas Prontas de Cores da Interface (${COLOR_PALETTES.length} Opções Exclusivas)</h3>
+              <div style="font-size:13px;color:var(--text-muted);">
+                Escolha uma paleta executiva pronta para aplicar instantaneamente na bancada, púlpito e estúdio bíblico.
+              </div>
+            </div>
+            <span class="tag tag-gold">Sincronizado na Nuvem Supabase ✓</span>
           </div>
-          <span class="tag tag-gold">Sincronizado na Nuvem ✓</span>
-        </div>
 
-        <div class="palette-grid">
-          ${COLOR_PALETTES.map((pal) => {
-            const active = pal.id === curPalette;
-            return `
-              <button class="palette-card ${active ? 'active' : ''}" data-pick-palette="${esc(pal.id)}">
-                <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-                  <div class="palette-swatches">
-                    <span class="palette-dot" style="background:${pal.primary};" title="Cor Primária"></span>
-                    <span class="palette-dot" style="background:${pal.gold};" title="Destaque Ministerial"></span>
-                    <span class="palette-dot" style="background:${pal.surfaceDark};" title="Superfície"></span>
+          <div class="palette-grid">
+            ${COLOR_PALETTES.map((pal) => {
+              const active = pal.id === curPalette;
+              return `
+                <button class="palette-card ${active ? 'active' : ''}" data-pick-palette="${esc(pal.id)}">
+                  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                    <div class="palette-swatches">
+                      <span class="palette-dot" style="background:${pal.primary};" title="Cor Primária"></span>
+                      <span class="palette-dot" style="background:${pal.gold};" title="Destaque Ministerial"></span>
+                      <span class="palette-dot" style="background:${pal.surfaceDark};" title="Superfície"></span>
+                    </div>
+                    ${active ? `<span class="tag tag-gold" style="font-size:11px;">✓ Ativa</span>` : ''}
                   </div>
-                  ${active ? `<span class="tag tag-gold" style="font-size:11px;">✓ Ativa</span>` : ''}
-                </div>
-                <div class="palette-name">${esc(pal.name)}</div>
-                <div class="palette-desc">${esc(pal.desc)}</div>
-              </button>
-            `;
-          }).join('')}
+                  <div class="palette-name">${esc(pal.name)}</div>
+                  <div class="palette-desc">${esc(pal.desc)}</div>
+                </button>
+              `;
+            }).join('')}
+          </div>
         </div>
-      </div>
 
-      <!-- 2. Modo de Exibição (Escuro / Claro) -->
-      <div class="card" style="margin-bottom:18px;">
-        <h3 style="margin:0 0 6px;">🌓 Modo de Luminosidade</h3>
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Alterne entre o Modo Escuro Executivo e o Modo Claro Limpo (a paleta escolhida adapta-se automaticamente).</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-          <button class="btn ${isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-dark" style="justify-content:center;">
-            🌙 Modo Escuro Executivo ${isDark ? '✓' : ''}
-          </button>
-          <button class="btn ${!isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-light" style="justify-content:center;">
-            ☀️ Modo Claro Limpo ${!isDark ? '✓' : ''}
-          </button>
+        <div class="card" style="margin-bottom:18px;">
+          <h3 style="margin:0 0 6px;">🌓 Modo de Luminosidade da Aplicação</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">
+            Alterne entre o Modo Escuro Executivo e o Modo Claro Limpo (todas as 16 paletas se adaptam dinamicamente).
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+            <button class="btn ${isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-dark" style="justify-content:center;">
+              🌙 Modo Escuro Executivo ${isDark ? '✓' : ''}
+            </button>
+            <button class="btn ${!isDark ? 'btn-primary' : 'btn-outline'}" id="set-mode-light" style="justify-content:center;">
+              ☀️ Modo Claro Limpo ${!isDark ? '✓' : ''}
+            </button>
+          </div>
         </div>
-      </div>
+        `
+          : ''
+      }
 
-      <!-- 3. Segurança & Credenciais Admin -->
-      <div class="card" style="margin-bottom:18px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
-          <div>
-            <h3 style="margin:0 0 4px;">🔐 Segurança & Credenciais do Administrador</h3>
-            <div style="font-size:13px;color:var(--text-muted);">
-              Conta: <strong>${esc(state.adminAuth.email)}</strong> • Perfil: <span class="gold-pill">ADMIN</span>
-              • Status de Senha: <strong>${state.adminAuth.mustChangePassword ? 'Temporária (Alterar no Próximo Login)' : 'Senha Pessoal Definida'}</strong>
+      <!-- ================================================================== -->
+      <!-- ABA 2: GESTÃO COMPLETA DE USUÁRIOS & PERFIS                        -->
+      <!-- ================================================================== -->
+      ${
+        subTab === 'users'
+          ? `
+        <!-- Mini Stats de Usuários -->
+        <div class="stat-card-grid">
+          <div class="stat-mini-card">
+            <div class="stat-mini-icon">👥</div>
+            <div>
+              <div class="stat-mini-num">${totalUsers}</div>
+              <div class="stat-mini-label">Total de Usuários</div>
+            </div>
+          </div>
+          <div class="stat-mini-card">
+            <div class="stat-mini-icon" style="color:#fbbf24;">🛡️</div>
+            <div>
+              <div class="stat-mini-num">${adminCount}</div>
+              <div class="stat-mini-label">Administradores</div>
+            </div>
+          </div>
+          <div class="stat-mini-card">
+            <div class="stat-mini-icon" style="color:#60a5fa;">📖</div>
+            <div>
+              <div class="stat-mini-num">${pastorCount}</div>
+              <div class="stat-mini-label">Pastores / Ministros</div>
+            </div>
+          </div>
+          <div class="stat-mini-card">
+            <div class="stat-mini-icon" style="color:#34d399;">🟢</div>
+            <div>
+              <div class="stat-mini-num">${activeCount}</div>
+              <div class="stat-mini-label">Usuários Ativos</div>
             </div>
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          <button class="btn btn-sm btn-primary" id="set-change-pass-btn">🔑 Alterar Minha Senha Agora</button>
-          <button class="btn btn-sm btn-outline" id="set-reset-pass-123-btn">↺ Redefinir para Senha "123" (Exigir Troca no Próximo Login)</button>
-          <button class="btn btn-sm btn-danger" id="set-logout-btn">🚪 Fazer Logoff Agora</button>
-        </div>
-      </div>
 
-      <!-- 4. Preferências do Modo Púlpito & IA -->
-      <div class="card">
-        <h3 style="margin:0 0 12px;">🎤 Preferências Padrão do Púlpito & Inteligência Artificial</h3>
-        <div class="form-grid-2" style="margin-bottom:14px;">
-          <div>
-            <label class="editor-section-label">Tema Padrão do Púlpito</label>
-            <select id="set-pulpit-theme" class="select-field">
-              <option value="oled" ${state.settings.pulpitTheme === 'oled' ? 'selected' : ''}>🌙 OLED Alto Contraste</option>
-              <option value="amber" ${state.settings.pulpitTheme === 'amber' ? 'selected' : ''}>📜 Sépia / Âmbar Leitura</option>
-              <option value="light" ${state.settings.pulpitTheme === 'light' ? 'selected' : ''}>☀️ Claro Editorial</option>
-            </select>
+        <div class="card" style="margin-bottom:18px;">
+          <!-- Barra de Ferramentas / Ações -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:280px;flex-wrap:wrap;">
+              <input id="usr-search-input" class="input-field" placeholder="🔍 Buscar por nome, e-mail, igreja ou cargo..." value="${esc(state.userFilterQuery || '')}" style="flex:1;min-width:220px;height:42px;">
+              <select id="usr-role-filter" class="select-field" style="width:auto;min-width:160px;height:42px;">
+                <option value="all" ${uRole === 'all' ? 'selected' : ''}>Todos os Perfis</option>
+                <option value="admin" ${uRole === 'admin' ? 'selected' : ''}>🛡️ Administrador (ADMIN)</option>
+                <option value="pastor" ${uRole === 'pastor' ? 'selected' : ''}>📖 Pastor (PASTOR)</option>
+                <option value="obreiro" ${uRole === 'obreiro' ? 'selected' : ''}>✝️ Obreiro (OBREIRO)</option>
+                <option value="leitor" ${uRole === 'leitor' ? 'selected' : ''}>🎓 Leitor (LEITOR)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="usr-create-btn" style="height:42px;font-weight:800;">
+              ➕ Cadastrar Novo Usuário
+            </button>
           </div>
-          <div>
-            <label class="editor-section-label">Largura Padrão do Púlpito</label>
-            <select id="set-pulpit-width" class="select-field">
-              <option value="fluid" ${state.settings.pulpitWidth === 'fluid' ? 'selected' : ''}>↔ Fluida Adaptativa</option>
-              <option value="focus" ${state.settings.pulpitWidth === 'focus' ? 'selected' : ''}>↔ Foco Centralizado</option>
-              <option value="full" ${state.settings.pulpitWidth === 'full' ? 'selected' : ''}>↔ Tela Cheia (100%)</option>
-            </select>
+
+          <!-- Tabela Responsiva de Usuários -->
+          <div class="users-table-container">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Usuário</th>
+                  <th>Perfil de Acesso</th>
+                  <th>Cargo Ministerial</th>
+                  <th>Igreja / Congregação</th>
+                  <th>Status</th>
+                  <th>Último Acesso</th>
+                  <th style="text-align:right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  filteredUsers.length === 0
+                    ? `
+                  <tr>
+                    <td colspan="7" style="text-align:center;padding:36px;color:var(--text-muted);">
+                      Nenhum usuário encontrado com os filtros atuais.
+                    </td>
+                  </tr>
+                  `
+                    : filteredUsers
+                        .map((u) => {
+                          const rInfo = getRoleInfo(u.role);
+                          const initials = (u.fullName || 'U')
+                            .split(' ')
+                            .map((p) => p[0])
+                            .slice(0, 2)
+                            .join('')
+                            .toUpperCase();
+                          const isMaster = u.isMaster || u.email === 'carlosluizamaral@gmail.com';
+                          const lastLoginFormatted = u.lastLoginAt
+                            ? new Date(u.lastLoginAt).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Nunca acessou';
+
+                          return `
+                        <tr>
+                          <td>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                              <div class="user-avatar-circle">${esc(initials)}</div>
+                              <div>
+                                <div style="font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;">
+                                  ${esc(u.fullName)}
+                                  ${isMaster ? `<span class="tag tag-gold" style="font-size:10px;padding:2px 6px;">MASTER</span>` : ''}
+                                </div>
+                                <div style="font-size:12px;color:var(--text-muted);">${esc(u.email)}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="role-badge ${esc(u.role)}">
+                              <span>${rInfo.icon}</span>
+                              <span>${rInfo.badge}</span>
+                            </span>
+                          </td>
+                          <td style="font-size:13px;font-weight:600;">${esc(u.ministryTitle || 'Membro')}</td>
+                          <td style="font-size:12.5px;color:var(--text-muted);">${esc(u.churchName || 'Igreja Local')}</td>
+                          <td>
+                            <div class="status-pill">
+                              <span class="status-dot ${u.status === 'active' ? (u.mustChangePassword ? 'pending' : 'active') : 'suspended'}"></span>
+                              <span>${u.status === 'active' ? (u.mustChangePassword ? 'Senha Inicial (123)' : 'Ativo') : 'Suspenso'}</span>
+                            </div>
+                          </td>
+                          <td style="font-size:12px;color:var(--text-muted);">${esc(lastLoginFormatted)}</td>
+                          <td style="text-align:right;">
+                            <div style="display:inline-flex;gap:5px;align-items:center;">
+                              <button class="icon-btn-ghost" data-user-edit="${esc(u.id)}" title="Editar dados e perfil">✏️</button>
+                              <button class="icon-btn-ghost" data-user-reset="${esc(u.id)}" title="Redefinir senha">🔑</button>
+                              ${
+                                !isMaster
+                                  ? `
+                                <button class="icon-btn-ghost" data-user-toggle="${esc(u.id)}" title="${u.status === 'active' ? 'Suspender usuário' : 'Ativar usuário'}">
+                                  ${u.status === 'active' ? '🚫' : '✅'}
+                                </button>
+                                <button class="icon-btn-ghost" data-user-delete="${esc(u.id)}" title="Excluir usuário" style="color:#f87171;">🗑️</button>
+                                `
+                                  : ''
+                              }
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                        })
+                        .join('')
+                }
+              </tbody>
+            </table>
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          <button class="btn btn-sm btn-purple" id="set-gemini-btn">✨ Configurar Chave Gemini 2.5 Pro</button>
-          <button class="btn btn-sm btn-gold" id="set-voice-btn">🎙️ Configurar Vozes Bíblicas (RJ)</button>
+        `
+          : ''
+      }
+
+      <!-- ================================================================== -->
+      <!-- ABA 3: TRILHA DE AUDITORIA & REGISTROS DE SEGURANÇA               -->
+      <!-- ================================================================== -->
+      ${
+        subTab === 'audit'
+          ? `
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+            <div>
+              <h3 style="margin:0 0 4px;">📜 Trilha de Auditoria & Segurança Ministerial</h3>
+              <div style="font-size:13px;color:var(--text-muted);">
+                Registro inviolável de login, criação, edição e exclusão de contas e alterações críticas no sistema.
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select id="aud-filter-sev" class="select-field" style="width:auto;height:38px;">
+                <option value="all" ${aSev === 'all' ? 'selected' : ''}>Todas as Severidades</option>
+                <option value="success" ${aSev === 'success' ? 'selected' : ''}>🟢 Sucesso</option>
+                <option value="info" ${aSev === 'info' ? 'selected' : ''}>🔵 Informação</option>
+                <option value="warning" ${aSev === 'warning' ? 'selected' : ''}>🟡 Alerta</option>
+                <option value="danger" ${aSev === 'danger' ? 'selected' : ''}>🔴 Crítico / Perigo</option>
+              </select>
+              <button class="btn btn-sm btn-outline" id="aud-export-btn">📥 Exportar Relatório (JSON)</button>
+              <button class="btn btn-sm btn-outline" id="aud-clear-btn" style="color:#f87171;border-color:rgba(239,68,68,0.4);">🧹 Limpar Histórico</button>
+            </div>
+          </div>
+
+          <div class="audit-list">
+            ${
+              filteredAudit.length === 0
+                ? `
+              <div style="text-align:center;padding:36px;color:var(--text-muted);">
+                Nenhum evento registrado nesta severidade.
+              </div>
+              `
+                : filteredAudit
+                    .map((item) => {
+                      const iconMap = {
+                        success: '✅',
+                        info: 'ℹ️',
+                        warning: '⚠️',
+                        danger: '🚨',
+                      };
+                      const dateObj = new Date(item.timestamp);
+                      const timeStr = dateObj.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      });
+
+                      return `
+                    <div class="audit-card">
+                      <div class="audit-icon-box">
+                        <span>${iconMap[item.severity] || '📌'}</span>
+                      </div>
+                      <div class="audit-content">
+                        <div class="audit-header-row">
+                          <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="audit-title">${esc(item.actionLabel)}</span>
+                            <span class="tag ${item.severity === 'success' ? 'tag-green' : item.severity === 'warning' ? 'tag-gold' : item.severity === 'danger' ? 'tag-danger' : 'tag-muted'}" style="font-size:10.5px;padding:2px 6px;">
+                              ${esc((item.action || '').toUpperCase())}
+                            </span>
+                          </div>
+                          <span class="audit-time">🕒 ${esc(timeStr)}</span>
+                        </div>
+                        <div class="audit-details-text">${esc(item.details || 'Sem detalhes adicionais.')}</div>
+                        <div class="audit-meta-row">
+                          <span>👤 <strong>Operador:</strong> ${esc(item.actorName)} (${esc(item.actorEmail)})</span>
+                          <span>🎯 <strong>Alvo:</strong> ${esc(item.target)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                    })
+                    .join('')
+            }
+          </div>
         </div>
-      </div>
+        `
+          : ''
+      }
+
+      <!-- ================================================================== -->
+      <!-- ABA 4: PREFERÊNCIAS DE PÚLPITO, IA & SEGURANÇA ADMIN              -->
+      <!-- ================================================================== -->
+      ${
+        subTab === 'pulpit'
+          ? `
+        <!-- Segurança & Credenciais Admin -->
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+            <div>
+              <h3 style="margin:0 0 4px;">🔐 Credenciais do Administrador Master</h3>
+              <div style="font-size:13px;color:var(--text-muted);">
+                Conta: <strong>${esc(state.adminAuth.email)}</strong> • Perfil: <span class="gold-pill">ADMIN MASTER</span>
+                • Status: <strong>${state.adminAuth.mustChangePassword ? 'Senha Temporária (123)' : 'Senha Pessoal Definida'}</strong>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <button class="btn btn-sm btn-primary" id="set-change-pass-btn">🔑 Alterar Minha Senha Agora</button>
+            <button class="btn btn-sm btn-outline" id="set-reset-pass-123-btn">↺ Redefinir para Senha "123" (Exigir Troca)</button>
+            <button class="btn btn-sm btn-danger" id="set-logout-btn">🚪 Fazer Logoff Agora</button>
+          </div>
+        </div>
+
+        <!-- Preferências do Modo Púlpito & IA -->
+        <div class="card">
+          <h3 style="margin:0 0 12px;">🎤 Preferências Padrão do Púlpito & Inteligência Artificial</h3>
+          <div class="form-grid-2" style="margin-bottom:14px;">
+            <div>
+              <label class="editor-section-label">Tema Padrão do Púlpito</label>
+              <select id="set-pulpit-theme" class="select-field">
+                <option value="oled" ${state.settings.pulpitTheme === 'oled' ? 'selected' : ''}>🌙 OLED Alto Contraste</option>
+                <option value="amber" ${state.settings.pulpitTheme === 'amber' ? 'selected' : ''}>📜 Sépia / Âmbar Leitura</option>
+                <option value="light" ${state.settings.pulpitTheme === 'light' ? 'selected' : ''}>☀️ Claro Editorial</option>
+              </select>
+            </div>
+            <div>
+              <label class="editor-section-label">Largura Padrão do Púlpito</label>
+              <select id="set-pulpit-width" class="select-field">
+                <option value="fluid" ${state.settings.pulpitWidth === 'fluid' ? 'selected' : ''}>↔ Fluida Adaptativa</option>
+                <option value="focus" ${state.settings.pulpitWidth === 'focus' ? 'selected' : ''}>↔ Foco Centralizado</option>
+                <option value="full" ${state.settings.pulpitWidth === 'full' ? 'selected' : ''}>↔ Tela Cheia (100%)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <button class="btn btn-sm btn-purple" id="set-gemini-btn">✨ Configurar Chave Gemini 2.5 Pro</button>
+            <button class="btn btn-sm btn-gold" id="set-voice-btn">🎙️ Configurar Vozes Bíblicas (RJ)</button>
+          </div>
+        </div>
+        `
+          : ''
+      }
     `;
 
-    root.querySelectorAll('[data-pick-palette]').forEach((btn) => {
+    // Listeners das Sub-Abas
+    root.querySelectorAll('[data-subtab]').forEach((btn) => {
       btn.onclick = () => {
-        state.settings.palette = btn.dataset.pickPalette;
-        applyThemeAndPalette();
-        writeStore(KEYS.SETTINGS, state.settings);
-        markProfileUpdated();
-        syncCloudNow({ silent: true, pushProfile: true });
-        renderChrome();
-        renderMain();
-        const palObj = COLOR_PALETTES.find((p) => p.id === state.settings.palette);
-        showToast(`Paleta "${palObj?.name || 'Nova'}" aplicada!`, 'success');
+        state.settingsSubTab = btn.dataset.subtab;
+        renderSettings(root);
       };
     });
 
-    root.querySelector('#set-mode-dark').onclick = () => {
-      if (state.settings.theme !== 'dark') toggleTheme();
-    };
-    root.querySelector('#set-mode-light').onclick = () => {
-      if (state.settings.theme !== 'light') toggleTheme();
-    };
+    // Listeners da Aba Paletas
+    if (subTab === 'palettes') {
+      root.querySelectorAll('[data-pick-palette]').forEach((btn) => {
+        btn.onclick = () => {
+          const palId = btn.dataset.pickPalette;
+          state.settings.palette = palId;
+          applyThemeAndPalette();
+          writeStore(KEYS.SETTINGS, state.settings);
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
 
-    root.querySelector('#set-change-pass-btn').onclick = () =>
-      openForcePasswordChangeModal({ mandatory: false });
+          const palObj = COLOR_PALETTES.find((p) => p.id === palId);
+          logAuditEvent({
+            action: 'PALETTE_CHANGE',
+            actionLabel: 'Alteração de Paleta de Cores',
+            severity: 'info',
+            target: palObj?.name || palId,
+            details: `Paleta "${palObj?.name || palId}" aplicada na interface e sincronizada com a nuvem.`,
+          });
 
-    root.querySelector('#set-reset-pass-123-btn').onclick = () => {
-      state.adminAuth = {
-        ...DEFAULT_ADMIN_AUTH,
-        password: '123',
-        mustChangePassword: true,
-        updatedAt: new Date().toISOString(),
+          renderChrome();
+          renderMain();
+          showToast(`Paleta "${palObj?.name || 'Nova'}" aplicada!`, 'success');
+        };
+      });
+
+      root.querySelector('#set-mode-dark').onclick = () => {
+        if (state.settings.theme !== 'dark') toggleTheme();
       };
-      writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
-      markProfileUpdated();
-      syncCloudNow({ silent: true, pushProfile: true });
-      renderMain();
-      showToast('Senha redefinida para "123" com troca obrigatória no próximo login!', 'info');
-    };
+      root.querySelector('#set-mode-light').onclick = () => {
+        if (state.settings.theme !== 'light') toggleTheme();
+      };
+    }
 
-    root.querySelector('#set-logout-btn').onclick = performLogout;
+    // Listeners da Aba Usuários
+    if (subTab === 'users') {
+      const searchInp = root.querySelector('#usr-search-input');
+      searchInp.oninput = (e) => {
+        state.userFilterQuery = e.target.value;
+        renderSettings(root);
+        const newInp = root.querySelector('#usr-search-input');
+        if (newInp) {
+          newInp.focus();
+          newInp.selectionStart = newInp.selectionEnd = newInp.value.length;
+        }
+      };
 
-    root.querySelector('#set-pulpit-theme').onchange = (e) => {
-      state.settings.pulpitTheme = e.target.value;
-      writeStore(KEYS.SETTINGS, state.settings);
-      markProfileUpdated();
-      syncCloudNow({ silent: true, pushProfile: true });
-      showToast('Tema padrão do púlpito salvo!', 'success');
-    };
+      root.querySelector('#usr-role-filter').onchange = (e) => {
+        state.userFilterRole = e.target.value;
+        renderSettings(root);
+      };
 
-    root.querySelector('#set-pulpit-width').onchange = (e) => {
-      state.settings.pulpitWidth = e.target.value;
-      writeStore(KEYS.SETTINGS, state.settings);
-      markProfileUpdated();
-      syncCloudNow({ silent: true, pushProfile: true });
-      showToast('Largura padrão do púlpito salva!', 'success');
-    };
+      root.querySelector('#usr-create-btn').onclick = openCreateUserModal;
 
-    root.querySelector('#set-gemini-btn').onclick = () => openGeminiConfigModal(() => renderMain());
-    root.querySelector('#set-voice-btn').onclick = openVoiceStudioModal;
+      root.querySelectorAll('[data-user-edit]').forEach((b) => {
+        b.onclick = () => openEditUserModal(b.dataset.userEdit);
+      });
+      root.querySelectorAll('[data-user-reset]').forEach((b) => {
+        b.onclick = () => openResetUserPasswordModal(b.dataset.userReset);
+      });
+      root.querySelectorAll('[data-user-toggle]').forEach((b) => {
+        b.onclick = () => toggleUserStatus(b.dataset.userToggle);
+      });
+      root.querySelectorAll('[data-user-delete]').forEach((b) => {
+        b.onclick = () => confirmDeleteUser(b.dataset.userDelete);
+      });
+    }
+
+    // Listeners da Aba Auditoria
+    if (subTab === 'audit') {
+      root.querySelector('#aud-filter-sev').onchange = (e) => {
+        state.auditFilterSeverity = e.target.value;
+        renderSettings(root);
+      };
+      root.querySelector('#aud-export-btn').onclick = exportAuditLogs;
+      root.querySelector('#aud-clear-btn').onclick = clearAuditLogs;
+    }
+
+    // Listeners da Aba Púlpito & Segurança
+    if (subTab === 'pulpit') {
+      root.querySelector('#set-change-pass-btn').onclick = () =>
+        openForcePasswordChangeModal({ mandatory: false });
+
+      root.querySelector('#set-reset-pass-123-btn').onclick = () => {
+        state.adminAuth = {
+          ...DEFAULT_ADMIN_AUTH,
+          password: '123',
+          mustChangePassword: true,
+          updatedAt: new Date().toISOString(),
+        };
+        writeStore(KEYS.ADMIN_AUTH, state.adminAuth);
+        markProfileUpdated();
+        syncCloudNow({ silent: true, pushProfile: true });
+
+        logAuditEvent({
+          action: 'MASTER_PASSWORD_RESET',
+          actionLabel: 'Redefinição de Senha Master',
+          severity: 'warning',
+          target: state.adminAuth.email,
+          details: 'Senha do Administrador Master redefinida para "123" com troca obrigatória no próximo login.',
+        });
+
+        renderMain();
+        showToast('Senha redefinida para "123" com troca obrigatória no próximo login!', 'info');
+      };
+
+      root.querySelector('#set-logout-btn').onclick = performLogout;
+
+      root.querySelector('#set-pulpit-theme').onchange = (e) => {
+        state.settings.pulpitTheme = e.target.value;
+        writeStore(KEYS.SETTINGS, state.settings);
+        markProfileUpdated();
+        syncCloudNow({ silent: true, pushProfile: true });
+        showToast('Tema padrão do púlpito salvo!', 'success');
+      };
+
+      root.querySelector('#set-pulpit-width').onchange = (e) => {
+        state.settings.pulpitWidth = e.target.value;
+        writeStore(KEYS.SETTINGS, state.settings);
+        markProfileUpdated();
+        syncCloudNow({ silent: true, pushProfile: true });
+        showToast('Largura padrão do púlpito salva!', 'success');
+      };
+
+      root.querySelector('#set-gemini-btn').onclick = () => openGeminiConfigModal(() => renderMain());
+      root.querySelector('#set-voice-btn').onclick = openVoiceStudioModal;
+    }
   }
 
   function openForcePasswordChangeModal({ mandatory = true } = {}) {
@@ -4470,39 +5629,96 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
         return;
       }
 
+      // 1. Procura se é o Administrador Master ou um usuário gerenciado cadastrado
+      const matchedUser = state.users.find((u) => (u.email || '').trim().toLowerCase() === email);
       const currentAdminPass = state.adminAuth?.password || '123';
       const isMasterAdmin =
         email === 'carlosluizamaral@gmail.com' &&
         (pass === currentAdminPass || (!state.adminAuth?.updatedAt && pass === '123'));
 
-      submitBtn.disabled = true;
+      let isAuthenticated = false;
+      let authenticatedUser = null;
 
-      if (!isMasterAdmin) {
+      if (isMasterAdmin) {
+        isAuthenticated = true;
+        authenticatedUser = {
+          fullName: state.profile.fullName || 'Pr. Carlos Luiz Amaral',
+          email: 'carlosluizamaral@gmail.com',
+          role: 'admin',
+          mustChangePassword: state.adminAuth.mustChangePassword || pass === '123',
+        };
+      } else if (matchedUser) {
+        if (matchedUser.status === 'suspended') {
+          submitBtn.disabled = false;
+          errBox.textContent = 'Esta conta de usuário está temporariamente suspensa/bloqueada. Contate o Administrador.';
+          errBox.classList.remove('hidden');
+          logAuditEvent({
+            action: 'LOGIN_BLOCKED',
+            actionLabel: 'Acesso Bloqueado',
+            severity: 'danger',
+            target: email,
+            details: `Tentativa de login em conta suspensa/inativa: ${matchedUser.fullName}.`,
+            actorEmail: email,
+            actorName: matchedUser.fullName,
+          });
+          return;
+        }
+
+        if (pass === matchedUser.password || (matchedUser.mustChangePassword && pass === '123')) {
+          isAuthenticated = true;
+          authenticatedUser = matchedUser;
+          matchedUser.lastLoginAt = new Date().toISOString();
+          writeStore(KEYS.USERS, state.users);
+        }
+      }
+
+      if (!isAuthenticated) {
         try {
           await signInCloud(email, pass);
+          isAuthenticated = true;
+          authenticatedUser = {
+            fullName: email.split('@')[0],
+            email,
+            role: 'pastor',
+            mustChangePassword: false,
+          };
         } catch (err) {
           submitBtn.disabled = false;
-          errBox.textContent = 'Credenciais inválidas. Verifique seu e-mail e senha.';
+          errBox.textContent = 'Credenciais inválidas. Verifique seu e-mail e senha de acesso.';
           errBox.classList.remove('hidden');
+          logAuditEvent({
+            action: 'LOGIN_FAILED',
+            actionLabel: 'Falha de Autenticação',
+            severity: 'warning',
+            target: email,
+            details: `Tentativa de autenticação com senha incorreta para: ${email}.`,
+            actorEmail: email,
+            actorName: 'Usuário Não Autenticado',
+          });
           return;
         }
       }
+
+      submitBtn.disabled = true;
 
       // Dispara sincronização com Supabase em paralelo ao modal de transição de 3,5 segundos
       if (navigator.onLine) {
         syncCloudNow({ silent: true, pullAll: true });
       }
 
+      const displayUserName = authenticatedUser?.fullName || state.profile.fullName || 'Pr. Carlos Luiz Amaral';
+
       await runAuthTransitionModal({
         mode: 'login',
         durationMs: 3500,
-        userName: state.profile.fullName,
+        userName: displayUserName,
       });
 
       const sessionObj = {
         authenticated: true,
         email,
-        role: 'admin',
+        role: authenticatedUser?.role || 'admin',
+        userName: displayUserName,
         remember,
         loggedAt: new Date().toISOString(),
       };
@@ -4512,6 +5728,16 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
         sessionStorage.setItem(KEYS.SESSION_AUTH, JSON.stringify(sessionObj));
       }
 
+      logAuditEvent({
+        action: 'LOGIN_SUCCESS',
+        actionLabel: 'Autenticação Bem-Sucedida',
+        severity: 'success',
+        target: 'Painel da Plataforma',
+        details: `Sessão iniciada por ${displayUserName} (${sessionObj.role.toUpperCase()}).`,
+        actorEmail: email,
+        actorName: displayUserName,
+      });
+
       authEl.classList.add('hidden');
       authEl.innerHTML = '';
       renderChrome();
@@ -4520,8 +5746,10 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       // Se o usuário logou com a senha temporária (mustChangePassword === true), exige a troca imediata
       if (isMasterAdmin && (state.adminAuth.mustChangePassword || pass === '123')) {
         openForcePasswordChangeModal({ mandatory: true });
+      } else if (authenticatedUser && authenticatedUser.mustChangePassword) {
+        openResetUserPasswordModal(authenticatedUser.id);
       } else {
-        showToast(`Bem-vindo, ${state.profile.fullName}!`, 'success');
+        showToast(`Bem-vindo, ${displayUserName}!`, 'success');
       }
     };
   }
@@ -4532,6 +5760,14 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     if (!document.getElementById('pulpit-overlay').classList.contains('hidden')) {
       closePulpitMode();
     }
+
+    logAuditEvent({
+      action: 'LOGOUT',
+      actionLabel: 'Encerramento de Sessão',
+      severity: 'info',
+      target: 'Sessão da Plataforma',
+      details: `Logoff efetuado por ${state.profile.fullName} (${state.profile.email}).`,
+    });
 
     // Sincroniza alterações pendentes com o banco Supabase durante os 3,5s do modal de logoff
     if (navigator.onLine) {
@@ -4570,6 +5806,38 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     state.sermonsDelta = readStoreSync(KEYS.SERMONS_DELTA) || {};
     state.deletedIds = new Set(readStoreSync(KEYS.DELETED_IDS) || []);
     state.pendingSync = readStoreSync(KEYS.PENDING_SYNC) || { upsertIds: [], deleteIds: [] };
+
+    // Carrega Usuários e Trilha de Auditoria
+    const storedUsers = readStoreSync(KEYS.USERS);
+    if (Array.isArray(storedUsers) && storedUsers.length > 0) {
+      state.users = storedUsers;
+    } else {
+      state.users = JSON.parse(JSON.stringify(DEFAULT_USERS_SEED));
+      writeStore(KEYS.USERS, state.users);
+    }
+
+    const storedAudit = readStoreSync(KEYS.AUDIT_LOGS);
+    if (Array.isArray(storedAudit) && storedAudit.length > 0) {
+      state.auditLogs = storedAudit;
+    } else {
+      state.auditLogs = JSON.parse(JSON.stringify(DEFAULT_AUDIT_SEED));
+      writeStore(KEYS.AUDIT_LOGS, state.auditLogs);
+    }
+
+    // Sincroniza Administrador Master em state.users com state.adminAuth
+    const masterInUsers = state.users.find(
+      (u) => u.email === 'carlosluizamaral@gmail.com' || u.isMaster
+    );
+    if (masterInUsers) {
+      masterInUsers.fullName = state.profile.fullName || masterInUsers.fullName;
+      masterInUsers.ministryTitle = state.profile.ministryTitle || masterInUsers.ministryTitle;
+      masterInUsers.churchName = state.profile.churchName || masterInUsers.churchName;
+      if (state.adminAuth.password) {
+        masterInUsers.password = state.adminAuth.password;
+        masterInUsers.mustChangePassword = state.adminAuth.mustChangePassword;
+      }
+      writeStore(KEYS.USERS, state.users);
+    }
 
     if (!localStorage.getItem(KEYS.ADMIN_AUTH)) {
       const idbAdmin = await readIdbFallback(KEYS.ADMIN_AUTH);
