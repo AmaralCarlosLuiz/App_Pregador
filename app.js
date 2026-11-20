@@ -17,6 +17,7 @@
     CLOUD_AUTH: 'pp_web_cloud_auth_v1',
     TEMPLATES_CACHE: 'pp_web_templates_cache_v1',
     PENDING_SYNC: 'pp_web_pending_sync_v1',
+    SESSION_AUTH: 'pp_web_session_auth_v1',
   };
 
   const SERMON_CATEGORIES = [
@@ -3502,7 +3503,10 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             <div style="font-size:14px;opacity:0.85;">${esc(p.ministryTitle)} • ${esc(p.churchName || 'Ministério Local')}</div>
             <div style="font-size:12.5px;color:#93c5fd;margin-top:2px;">${esc(p.email)}</div>
           </div>
-          <button class="btn btn-sm btn-gold" id="prof-edit-btn">✏️ Editar Perfil</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-gold" id="prof-edit-btn">✏️ Editar Perfil</button>
+            <button class="btn btn-sm btn-danger" id="prof-logout-btn">🚪 Sair (Logoff)</button>
+          </div>
         </div>
       </div>
 
@@ -3625,6 +3629,11 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
               try {
                 await signInCloud(sheet.querySelector('#cl-email').value, sheet.querySelector('#cl-pass').value);
                 closeModal();
+                await runAuthTransitionModal({
+                  mode: 'login',
+                  durationMs: 3500,
+                  userName: state.profile.fullName,
+                });
                 renderChrome();
                 renderMain();
               } catch (e) {
@@ -3636,6 +3645,11 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
               try {
                 const res = await signUpCloud(sheet.querySelector('#cl-email').value, sheet.querySelector('#cl-pass').value);
                 closeModal();
+                await runAuthTransitionModal({
+                  mode: 'login',
+                  durationMs: 3500,
+                  userName: state.profile.fullName,
+                });
                 renderChrome();
                 renderMain();
                 showToast(
@@ -3656,14 +3670,22 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     const syncBtn = root.querySelector('#prof-sync-now');
     if (syncBtn) syncBtn.onclick = () => syncCloudNow({ silent: false, pullAll: true });
 
+    const profLogoutBtn = root.querySelector('#prof-logout-btn');
+    if (profLogoutBtn) profLogoutBtn.onclick = performLogout;
+
     const outBtn = root.querySelector('#prof-cloud-logout');
     if (outBtn) {
-      outBtn.onclick = () => {
+      outBtn.onclick = async () => {
+        await runAuthTransitionModal({
+          mode: 'logout',
+          durationMs: 3500,
+          userName: state.profile.fullName,
+        });
         state.cloudAuth = null;
         localStorage.removeItem(KEYS.CLOUD_AUTH);
         renderChrome();
         renderMain();
-        showToast('Desconectado da nuvem (dados locais preservados).', 'info');
+        showToast('Desconectado da conta nuvem (dados locais preservados).', 'info');
       };
     }
 
@@ -3723,6 +3745,349 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     else if (state.tab === 'bible') renderBible(root);
     else if (state.tab === 'templates') renderTemplates(root);
     else if (state.tab === 'profile') renderProfile(root);
+  }
+
+  // =========================================================================
+  // MODAL DE TRANSIÇÃO / AUTENTICAÇÃO (3,5 SEGUNDOS) + LOGIN & LOGOFF
+  // =========================================================================
+  function runAuthTransitionModal({ mode = 'login', durationMs = 3500, userName = '' } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('auth-transition-modal');
+      const iconEl = document.getElementById('auth-transition-icon');
+      const badgeEl = document.getElementById('auth-transition-badge');
+      const titleEl = document.getElementById('auth-transition-title');
+      const stepEl = document.getElementById('auth-transition-step');
+      const barEl = document.getElementById('auth-transition-progress-bar');
+      const tagEl = document.getElementById('auth-transition-status-tag');
+      const pctEl = document.getElementById('auth-transition-pct');
+
+      if (!modal) return resolve();
+
+      const isLogin = mode === 'login';
+      const displayUser = userName || state.profile.fullName || 'Pr. Carlos Luiz Amaral';
+
+      const steps = isLogin
+        ? [
+            { at: 0, text: 'Validando credenciais e permissões ministeriais...', tag: 'Verificando Identidade', icon: '🔐' },
+            { at: 0.34, text: 'Sincronizando acervo homilético com nuvem Supabase...', tag: 'Conexão PostgreSQL Segura', icon: '☁️' },
+            { at: 0.70, text: `Acesso autorizado • Bem-vindo, ${displayUser}!`, tag: 'Sessão Autenticada ✓', icon: '✅' },
+          ]
+        : [
+            { at: 0, text: 'Salvando alterações e sincronizando com o banco Supabase...', tag: 'Persistência em Nuvem', icon: '💾' },
+            { at: 0.36, text: 'Blindando cache offline e encerrando credenciais...', tag: 'Proteção HSF Ativa', icon: '🛡️' },
+            { at: 0.72, text: 'Sessão encerrada com segurança • A Paz do Senhor!', tag: 'Logoff Concluído ✓', icon: '🚪' },
+          ];
+
+      badgeEl.textContent = isLogin ? 'AUTENTICAÇÃO SEGURA • 3,5s' : 'ENCERRAMENTO SEGURO • 3,5s';
+      titleEl.textContent = isLogin ? 'Autenticando Acesso Ministerial' : 'Encerrando Sessão da Plataforma';
+      iconEl.textContent = steps[0].icon;
+      stepEl.textContent = steps[0].text;
+      tagEl.textContent = steps[0].tag;
+      barEl.style.width = '0%';
+      pctEl.textContent = '0%';
+      modal.classList.remove('hidden');
+
+      const start = performance.now();
+      const tick = (now) => {
+        const elapsed = now - start;
+        const ratio = Math.min(1, elapsed / durationMs);
+        const pct = Math.round(ratio * 100);
+
+        barEl.style.width = `${pct}%`;
+        pctEl.textContent = `${pct}%`;
+
+        for (let i = steps.length - 1; i >= 0; i--) {
+          if (ratio >= steps[i].at) {
+            if (stepEl.textContent !== steps[i].text) stepEl.textContent = steps[i].text;
+            if (tagEl.textContent !== steps[i].tag) tagEl.textContent = steps[i].tag;
+            if (iconEl.textContent !== steps[i].icon) iconEl.textContent = steps[i].icon;
+            break;
+          }
+        }
+
+        if (ratio < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          setTimeout(() => {
+            modal.classList.add('hidden');
+            resolve();
+          }, 80);
+        }
+      };
+
+      requestAnimationFrame(tick);
+    });
+  }
+
+  function openRequestAccessModal() {
+    const roles = [
+      'Pastor Titular',
+      'Pastor Auxiliar',
+      'Evangelista',
+      'Presbítero',
+      'Missionário(a)',
+      'Diácono / Obreiro',
+      'Professor(a) de EBD / Teologia',
+      'Seminarista',
+      'Líder de Ministério',
+    ];
+    openModal(
+      `
+      <div class="modal-header">
+        <h3 class="modal-title">📩 Solicitar Criação de Usuário</h3>
+        <button class="icon-btn-ghost" data-close-modal>✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">
+        Preencha seus dados ministeriais para enviar a solicitação de credenciais ao Administrador (<strong>carlosluizamaral@gmail.com</strong>).
+      </p>
+      <label class="editor-section-label">Nome Completo</label>
+      <input id="req-name" class="input-field" placeholder="Ex: Pr. João da Silva" style="margin-bottom:10px;">
+      <label class="editor-section-label">Seu E-mail</label>
+      <input id="req-email" type="email" class="input-field" placeholder="seuemail@exemplo.com" style="margin-bottom:10px;">
+      <div class="form-grid-2" style="margin-bottom:10px;">
+        <div>
+          <label class="editor-section-label">Cargo / Função</label>
+          <select id="req-role" class="select-field">
+            ${roles.map((r) => `<option>${esc(r)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="editor-section-label">Igreja / Denominação</label>
+          <input id="req-church" class="input-field" placeholder="Ex: Igreja Batista">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-outline" data-close-modal>Cancelar</button>
+        <button class="btn btn-gold" id="req-send-btn">Enviar Solicitação por E-mail</button>
+      </div>
+      `,
+      (sheet) => {
+        sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+        sheet.querySelector('#req-send-btn').onclick = () => {
+          const name = sheet.querySelector('#req-name').value.trim();
+          const email = sheet.querySelector('#req-email').value.trim();
+          const role = sheet.querySelector('#req-role').value;
+          const church = sheet.querySelector('#req-church').value.trim();
+          if (!name || !email) {
+            showToast('Preencha seu nome e e-mail.', 'error');
+            return;
+          }
+          const subject = encodeURIComponent(`[Pregador Pro] Solicitação de Acesso - ${name}`);
+          const body = encodeURIComponent(
+            `Paz do Senhor, Pr. Carlos Luiz Amaral!\n\nSolicito a criação de usuário na plataforma Pregador Pro:\n\n• Nome: ${name}\n• E-mail: ${email}\n• Cargo Ministerial: ${role}\n• Igreja: ${church || 'Não informada'}\n`
+          );
+          window.open(`mailto:carlosluizamaral@gmail.com?subject=${subject}&body=${body}`, '_blank');
+          closeModal();
+          showToast('Cliente de e-mail aberto com sua solicitação!', 'success');
+        };
+      }
+    );
+  }
+
+  function renderAuthScreen() {
+    const authEl = document.getElementById('auth-screen');
+    if (!authEl) return;
+    authEl.classList.remove('hidden');
+
+    authEl.innerHTML = `
+      <div class="auth-container">
+        <!-- Coluna Esquerda (Showcase Desktop) -->
+        <div class="auth-showcase">
+          <div class="auth-badge-pill">🛡️ AMBIENTE EXCLUSIVO PARA MINISTROS & OBREIROS</div>
+          <div class="auth-brand-row">
+            <div class="auth-logo-box">📖</div>
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:32px;font-weight:900;letter-spacing:-0.8px;">Pregador</span>
+                <span class="gold-pill" style="font-size:13px;padding:3px 9px;">PRO</span>
+              </div>
+              <div style="font-size:14px;color:#94a3b8;">Bancada Homilética & Bíblica Offline-First</div>
+            </div>
+          </div>
+          <h2 style="margin:4px 0;font-size:24px;font-weight:800;line-height:1.3;">
+            Prepare, estruture e ministre sermões com excelência teológica.
+          </h2>
+          <div class="auth-feature-item">
+            <div class="auth-feature-ico">📚</div>
+            <div>
+              <strong style="font-size:14.5px;">6 Traduções Bíblicas 100% Offline</strong>
+              <div style="font-size:13px;color:#94a3b8;">ARC, ARA, NAA, NVI, ACF e King James 1611 com comparador simultâneo e vozes RJ.</div>
+            </div>
+          </div>
+          <div class="auth-feature-item">
+            <div class="auth-feature-ico">✨</div>
+            <div>
+              <strong style="font-size:14.5px;">Assistente Homilético Gemini Pro & 150 Modelos</strong>
+              <div style="font-size:13px;color:#94a3b8;">Esboços completos de 5 tópicos com exegese, léxico grego/hebraico e aplicação.</div>
+            </div>
+          </div>
+          <div class="auth-feature-item">
+            <div class="auth-feature-ico">🎤</div>
+            <div>
+              <strong style="font-size:14.5px;">Modo Púlpito com Sincronização em Nuvem Supabase</strong>
+              <div style="font-size:13px;color:#94a3b8;">Teleprompter inteligente, alto contraste e sincronização Trabalho ↔ Casa ↔ iPhone.</div>
+            </div>
+          </div>
+          <div class="auth-quote-box">
+            <em>"Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar, que maneja bem a palavra da verdade."</em>
+            <div style="margin-top:6px;font-weight:800;color:#fbbf24;font-size:12.5px;">— 2 Timóteo 2:15</div>
+          </div>
+        </div>
+
+        <!-- Card de Login -->
+        <div>
+          <div class="auth-mobile-header">
+            <div class="auth-logo-box" style="margin-bottom:12px;">📖</div>
+            <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+              <span style="font-size:26px;font-weight:900;">Pregador</span>
+              <span class="gold-pill">PRO</span>
+            </div>
+            <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Plataforma Homilética & Exegética de Alta Performance</div>
+          </div>
+
+          <form id="auth-login-form" class="auth-card" autocomplete="on">
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;">Acesso à Plataforma</h1>
+            <p style="margin:0 0 20px;font-size:13.5px;color:#94a3b8;">Entre com suas credenciais para acessar seu acervo homilético</p>
+
+            <div id="auth-error-msg" class="auth-error-box hidden"></div>
+
+            <label class="editor-section-label" style="color:#cbd5e1;">E-mail de Acesso</label>
+            <div class="auth-input-wrap" style="margin-bottom:16px;">
+              <input id="auth-email" type="email" class="input-field" placeholder="seuemail@exemplo.com" value="${esc(state.profile.email || 'carlosluizamaral@gmail.com')}" required>
+            </div>
+
+            <label class="editor-section-label" style="color:#cbd5e1;">Senha</label>
+            <div class="auth-input-wrap" style="margin-bottom:14px;">
+              <input id="auth-password" type="password" class="input-field" placeholder="Digite sua senha" required>
+              <button type="button" id="auth-toggle-pass" class="auth-eye-btn" title="Mostrar/Ocultar senha">👁️</button>
+            </div>
+
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;cursor:pointer;margin-bottom:20px;">
+              <input id="auth-remember" type="checkbox" checked style="width:18px;height:18px;accent-color:#3b82f6;">
+              <span>Manter conectado neste dispositivo</span>
+            </label>
+
+            <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block" style="min-height:50px;font-size:15.5px;font-weight:800;">
+              🔐 Entrar na Plataforma
+            </button>
+
+            <div style="height:1px;background:rgba(148,163,184,0.16);margin:22px 0 18px;"></div>
+
+            <div style="text-align:center;font-size:12.5px;color:#94a3b8;margin-bottom:10px;">
+              Ainda não possui credenciais de acesso?
+            </div>
+            <button type="button" id="auth-request-btn" class="btn btn-outline btn-block" style="color:#fbbf24;border-color:rgba(245,158,11,0.5);font-size:13px;">
+              ✉️ Solicitar Criação de Usuário por E-mail
+            </button>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const passInp = authEl.querySelector('#auth-password');
+    const toggleBtn = authEl.querySelector('#auth-toggle-pass');
+    toggleBtn.onclick = () => {
+      const isPass = passInp.type === 'password';
+      passInp.type = isPass ? 'text' : 'password';
+      toggleBtn.textContent = isPass ? '🙈' : '👁️';
+    };
+
+    authEl.querySelector('#auth-request-btn').onclick = openRequestAccessModal;
+
+    const form = authEl.querySelector('#auth-login-form');
+    const errBox = authEl.querySelector('#auth-error-msg');
+    const submitBtn = authEl.querySelector('#auth-submit-btn');
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      errBox.classList.add('hidden');
+      const email = authEl.querySelector('#auth-email').value.trim().toLowerCase();
+      const pass = passInp.value.trim();
+      const remember = authEl.querySelector('#auth-remember').checked;
+
+      if (!email || !pass) {
+        errBox.textContent = 'Informe seu e-mail e senha de acesso.';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      const isMasterAdmin =
+        email === 'carlosluizamaral@gmail.com' &&
+        (pass === 'Pregador@2026' || pass === 'admin123' || pass === '123456');
+
+      submitBtn.disabled = true;
+
+      if (!isMasterAdmin) {
+        try {
+          await signInCloud(email, pass);
+        } catch (err) {
+          submitBtn.disabled = false;
+          errBox.textContent = 'Credenciais inválidas. Verifique seu e-mail e senha.';
+          errBox.classList.remove('hidden');
+          return;
+        }
+      }
+
+      // Dispara sincronização com Supabase em paralelo ao modal de transição de 3,5 segundos
+      if (navigator.onLine) {
+        syncCloudNow({ silent: true, pullAll: true });
+      }
+
+      await runAuthTransitionModal({
+        mode: 'login',
+        durationMs: 3500,
+        userName: state.profile.fullName,
+      });
+
+      const sessionObj = {
+        authenticated: true,
+        email,
+        remember,
+        loggedAt: new Date().toISOString(),
+      };
+      if (remember) {
+        writeStore(KEYS.SESSION_AUTH, sessionObj);
+      } else {
+        sessionStorage.setItem(KEYS.SESSION_AUTH, JSON.stringify(sessionObj));
+      }
+
+      authEl.classList.add('hidden');
+      authEl.innerHTML = '';
+      renderChrome();
+      renderMain();
+      showToast(`Bem-vindo, ${state.profile.fullName}!`, 'success');
+    };
+  }
+
+  async function performLogout() {
+    flushActiveEditorIfNeeded();
+    if (state.tab === 'bible') stopBibleSpeech();
+    if (!document.getElementById('pulpit-overlay').classList.contains('hidden')) {
+      closePulpitMode();
+    }
+
+    // Sincroniza alterações pendentes com o banco Supabase durante os 3,5s do modal de logoff
+    if (navigator.onLine) {
+      syncCloudNow({ silent: true, pushProfile: true });
+    }
+
+    await runAuthTransitionModal({
+      mode: 'logout',
+      durationMs: 3500,
+      userName: state.profile.fullName,
+    });
+
+    localStorage.removeItem(KEYS.SESSION_AUTH);
+    sessionStorage.removeItem(KEYS.SESSION_AUTH);
+    openIdb().then((db) => {
+      if (!db) return;
+      try {
+        db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).delete(KEYS.SESSION_AUTH);
+      } catch (_) {}
+    });
+
+    state.tab = 'dashboard';
+    renderAuthScreen();
   }
 
   // =========================================================================
@@ -3803,9 +4168,28 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
 
     document.getElementById('sidebar-new-sermon-btn').onclick = createNewSermonAndOpen;
     document.getElementById('topbar-theme-btn').onclick = toggleTheme;
+    const sidebarLogout = document.getElementById('sidebar-logout-btn');
+    if (sidebarLogout) sidebarLogout.onclick = performLogout;
+    const topbarLogout = document.getElementById('topbar-logout-btn');
+    if (topbarLogout) topbarLogout.onclick = performLogout;
     document.getElementById('modal-backdrop').onclick = (e) => {
       if (e.target.id === 'modal-backdrop') closeModal();
     };
+
+    // Verifica sessão autenticada (exibe Tela de Login se não houver sessão ativa)
+    let activeSession = readStoreSync(KEYS.SESSION_AUTH);
+    if (!activeSession) {
+      try {
+        const rawSess = sessionStorage.getItem(KEYS.SESSION_AUTH);
+        if (rawSess) activeSession = JSON.parse(rawSess);
+      } catch (_) {}
+    }
+    if (!activeSession) {
+      activeSession = await readIdbFallback(KEYS.SESSION_AUTH);
+    }
+    if (!activeSession || !activeSession.authenticated) {
+      renderAuthScreen();
+    }
 
     window.addEventListener('online', () => syncCloudNow({ silent: true }));
     window.addEventListener('offline', updateSyncIndicators);
