@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pregador-pro-web-v20261119_5';
+const CACHE_NAME = 'pregador-pro-web-v20261120_1';
 
 const SHELL_ASSETS = [
   './',
@@ -29,7 +29,7 @@ self.addEventListener('install', (event) => {
         SHELL_ASSETS.map((url) =>
           fetch(url, { cache: 'reload' }).then((res) => {
             if (res && res.ok) return cache.put(url, res);
-          }).catch(() => {})
+          }).catch(() => { })
         )
       );
       // Pre-cache das 6 traducoes da Biblia sem travar a instalacao
@@ -37,7 +37,7 @@ self.addEventListener('install', (event) => {
         BIBLE_ASSETS.map((url) =>
           fetch(url).then((res) => {
             if (res && res.ok) return cache.put(url, res);
-          }).catch(() => {})
+          }).catch(() => { })
         )
       );
     })
@@ -76,7 +76,7 @@ self.addEventListener('fetch', (event) => {
             .then((res) => {
               if (res && res.ok) return cache.put(req, res.clone());
             })
-            .catch(() => {})
+            .catch(() => { })
         );
         return cached;
       }
