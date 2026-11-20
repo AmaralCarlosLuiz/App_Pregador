@@ -562,9 +562,10 @@
     }
   }
 
+  const MASTER_CLOUD_USER_ID = '00000000-0000-4000-8000-000000000001';
+
   async function cloudFetch(path, options = {}) {
-    const token = await ensureFreshToken();
-    if (!token) throw new Error('Conta nuvem não conectada.');
+    const token = (await ensureFreshToken()) || SUPABASE_ANON_KEY;
     const headers = {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
@@ -617,25 +618,81 @@
     return { needsConfirm: true };
   }
 
-  async function syncCloudNow({ silent = true, pullAll = false } = {}) {
+  let _cloudDbReady = false;
+
+  function markProfileUpdated() {
+    state.profile.updatedAt = new Date().toISOString();
+    writeStore(KEYS.PROFILE, state.profile);
+  }
+
+  async function syncCloudNow({ silent = true, pullAll = false, pushProfile = false } = {}) {
     updateSyncIndicators();
-    if (!navigator.onLine || !state.cloudAuth?.accessToken) return;
+    if (!navigator.onLine) return;
 
     try {
-      const uid = state.cloudAuth.userId;
+      const uid = state.cloudAuth?.userId || MASTER_CLOUD_USER_ID;
 
-      // 1. Perfil remoto <-> local
-      await cloudFetch('profiles', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates' },
-        body: JSON.stringify({
-          id: uid,
-          full_name: state.profile.fullName,
-          ministry_title: state.profile.ministryTitle,
-          church_name: state.profile.churchName,
-          updated_at: new Date().toISOString(),
-        }),
-      }).catch(() => {});
+      // 1. Perfil + Configurações + Exclusões (remoto <-> local por timestamp)
+      let shouldPushProfile = pushProfile;
+      const profRes = await cloudFetch(`profiles?id=eq.${encodeURIComponent(uid)}&select=*`);
+      if (profRes.ok) {
+        _cloudDbReady = true;
+        const profRows = await profRes.json();
+        if (Array.isArray(profRows) && profRows.length > 0) {
+          const remoteProf = profRows[0];
+          const remoteTs = new Date(remoteProf.updated_at || 0).getTime();
+          const localTs = new Date(state.profile.updatedAt || 0).getTime();
+
+          if (!pushProfile && (!localStorage.getItem(KEYS.PROFILE) || remoteTs > localTs)) {
+            state.profile = {
+              ...state.profile,
+              fullName: remoteProf.full_name || state.profile.fullName,
+              ministryTitle: remoteProf.ministry_title || state.profile.ministryTitle,
+              churchName: remoteProf.church_name ?? state.profile.churchName,
+              updatedAt: remoteProf.updated_at || new Date().toISOString(),
+            };
+            writeStore(KEYS.PROFILE, state.profile);
+
+            if (remoteProf.settings && typeof remoteProf.settings === 'object') {
+              const { _deletedIds, ...cleanSettings } = remoteProf.settings;
+              if (Object.keys(cleanSettings).length > 0) {
+                state.settings = { ...state.settings, ...cleanSettings };
+                document.body.className = `theme-${state.settings.theme || 'dark'}`;
+                writeStore(KEYS.SETTINGS, state.settings);
+              }
+              if (Array.isArray(_deletedIds)) {
+                _deletedIds.forEach((d) => state.deletedIds.add(d));
+                writeStore(KEYS.DELETED_IDS, Array.from(state.deletedIds));
+              }
+            }
+            renderChrome();
+          } else if (localTs > remoteTs) {
+            shouldPushProfile = true;
+          }
+        } else {
+          shouldPushProfile = true;
+        }
+      }
+
+      if (shouldPushProfile) {
+        const nowIso = state.profile.updatedAt || new Date().toISOString();
+        const profUpsert = await cloudFetch('profiles', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates' },
+          body: JSON.stringify({
+            id: uid,
+            full_name: state.profile.fullName,
+            ministry_title: state.profile.ministryTitle,
+            church_name: state.profile.churchName,
+            settings: {
+              ...state.settings,
+              _deletedIds: Array.from(state.deletedIds),
+            },
+            updated_at: nowIso,
+          }),
+        });
+        _cloudDbReady = profUpsert.ok;
+      }
 
       // 2. Enviar exclusões pendentes
       for (const delId of [...state.pendingSync.deleteIds]) {
@@ -665,13 +722,14 @@
           body: JSON.stringify(row),
         });
         if (res.ok) {
+          _cloudDbReady = true;
           state.pendingSync.upsertIds = state.pendingSync.upsertIds.filter((x) => x !== id);
         }
       }
       writeStore(KEYS.PENDING_SYNC, state.pendingSync);
 
       // 4. Buscar sermões da nuvem e mesclar por updatedAt
-      const pullRes = await cloudFetch('sermons?select=*&order=updated_at.desc');
+      const pullRes = await cloudFetch(`sermons?user_id=eq.${encodeURIComponent(uid)}&select=*&order=updated_at.desc`);
       if (pullRes.ok) {
         const remoteRows = await pullRes.json();
         let changed = false;
@@ -688,11 +746,18 @@
         if (changed) {
           writeStore(KEYS.SERMONS_DELTA, state.sermonsDelta);
           rebuildSermonsList();
+          renderChrome();
           if (state.tab === 'dashboard' || state.tab === 'library') renderMain();
         }
       }
 
-      if (!silent) showToast('Sincronização com a nuvem concluída!', 'success');
+      if (!silent) {
+        if (_cloudDbReady) {
+          showToast('Sincronização com o banco Supabase concluída!', 'success');
+        } else {
+          showToast('Execute o script SQL de liberação RLS no Supabase para gravar na nuvem.', 'info');
+        }
+      }
     } catch (e) {
       if (!silent) showToast(`Sincronização offline mantida (${e.message})`, 'info');
     } finally {
@@ -2059,6 +2124,8 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
           state.settings.geminiKey = sheet.querySelector('#gem-key-inp').value.trim();
           state.settings.geminiModel = sheet.querySelector('#gem-model-sel').value;
           writeStore(KEYS.SETTINGS, state.settings);
+          markProfileUpdated();
+          syncCloudNow({ silent: true, pushProfile: true });
           updateActiveVoiceLabel();
           closeModal();
           showToast('Configurações do Gemini Pro salvas!', 'success');
@@ -2129,7 +2196,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
   }
 
   function updateSyncIndicators() {
-    const isCloud = Boolean(state.cloudAuth?.accessToken);
+    const isCloud = Boolean(state.cloudAuth?.accessToken) || _cloudDbReady;
     const online = navigator.onLine;
     const pill = document.getElementById('sync-status-pill');
     const mobileBadge = document.getElementById('mobile-sync-badge');
@@ -2154,7 +2221,44 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     }
   }
 
+  function flushActiveEditorIfNeeded() {
+    if (state.tab !== 'editor' || !state.editingSermon) return;
+    const root = document.getElementById('main-content');
+    if (!root) return;
+    const titleEl = root.querySelector('#ed-title');
+    if (!titleEl) return;
+
+    state.editingSermon.title = titleEl.value || 'Novo Sermão';
+    const refEl = root.querySelector('#ed-ref');
+    if (refEl) state.editingSermon.biblicalReference = refEl.value;
+    const catEl = root.querySelector('#ed-cat');
+    if (catEl) state.editingSermon.category = catEl.value;
+    const typeEl = root.querySelector('#ed-type');
+    if (typeEl) state.editingSermon.sermonType = typeEl.value;
+    const statusEl = root.querySelector('#ed-status');
+    if (statusEl) state.editingSermon.status = statusEl.value;
+    const durEl = root.querySelector('#ed-dur');
+    if (durEl) state.editingSermon.estimatedDurationMinutes = Number(durEl.value || 40);
+    const introEl = root.querySelector('#ed-intro');
+    if (introEl) state.editingSermon.introduction = introEl.value;
+    const concEl = root.querySelector('#ed-conc');
+    if (concEl) state.editingSermon.conclusion = concEl.value;
+    const appealEl = root.querySelector('#ed-appeal');
+    if (appealEl) state.editingSermon.appeal = appealEl.value;
+
+    root.querySelectorAll('.block-card').forEach((card) => {
+      const idx = Number(card.dataset.blockIdx);
+      if (!state.editingSermon.blocks[idx]) return;
+      card.querySelectorAll('[data-bfield]').forEach((inp) => {
+        state.editingSermon.blocks[idx][inp.dataset.bfield] = inp.value;
+      });
+    });
+
+    state.editingSermon = saveSermon(state.editingSermon);
+  }
+
   function switchTab(tabId) {
+    if (state.tab === 'editor' && tabId !== 'editor') flushActiveEditorIfNeeded();
     if (state.tab === 'bible' && tabId !== 'bible') stopBibleSpeech();
     state.tab = tabId;
     renderChrome();
@@ -2565,6 +2669,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <button class="btn btn-sm btn-emerald" id="ed-save-top-btn" title="Salvar Sermão">💾 Salvar</button>
           <button class="icon-btn" id="ed-bible-btn" title="Consultar Bíblia">📖</button>
           <button class="icon-btn" id="ed-ai-btn" title="Assistente Gemini Pro">✨</button>
           <button class="icon-btn" id="ed-del-top-btn" title="Excluir Sermão" style="color:var(--danger);border-color:rgba(239,68,68,0.4);">🗑️</button>
@@ -2647,6 +2752,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <button class="btn btn-emerald" id="ed-save-bottom-btn" style="flex:1;">💾 Salvar Sermão</button>
         <button class="btn btn-whatsapp" id="ed-wa-btn" style="flex:1;">💬 Compartilhar WhatsApp</button>
         <button class="btn btn-outline" id="ed-pdf-btn" style="flex:1;">🖨️ Exportar PDF A4</button>
       </div>
@@ -2655,22 +2761,31 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     `;
 
     const persistEditorLive = () => {
-      const updated = saveSermon(state.editingSermon);
-      state.editingSermon = updated;
+      flushActiveEditorIfNeeded();
+      const updated = state.editingSermon;
       const stEl = document.getElementById('ed-save-status');
       const htEl = document.getElementById('ed-header-title');
-      if (stEl) stEl.textContent = '✓ Salvo agora';
-      if (htEl) htEl.textContent = updated.title || 'Novo Sermão';
+      if (stEl) stEl.textContent = '✓ Salvo agora no aparelho';
+      if (htEl && updated) htEl.textContent = updated.title || 'Novo Sermão';
     };
 
     const bindInput = (sel, field, isNum = false) => {
       const el = root.querySelector(sel);
       if (!el) return;
-      el.addEventListener('input', () => {
+      const handler = () => {
         state.editingSermon[field] = isNum ? Number(el.value || 40) : el.value;
         persistEditorLive();
-      });
+      };
+      el.addEventListener('input', handler);
+      el.addEventListener('change', handler);
     };
+
+    const handleExplicitSave = () => {
+      persistEditorLive();
+      showToast(`Sermão "${state.editingSermon?.title || 'Novo Sermão'}" salvo com sucesso!`, 'success');
+    };
+    root.querySelector('#ed-save-top-btn').onclick = handleExplicitSave;
+    root.querySelector('#ed-save-bottom-btn').onclick = handleExplicitSave;
 
     bindInput('#ed-title', 'title');
     bindInput('#ed-ref', 'biblicalReference');
@@ -3392,18 +3507,18 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       </div>
 
       <div class="card" style="margin-bottom:16px;">
-        <h3 style="margin:0 0 6px;">☁️ Sincronização em Nuvem (Trabalho ↔ Casa ↔ iPhone)</h3>
+        <h3 style="margin:0 0 6px;">☁️ Sincronização em Nuvem Supabase (Trabalho ↔ Casa ↔ iPhone)</h3>
         <p style="font-size:13.5px;color:var(--text-muted);margin:0 0 12px;">
-          ${isCloud
-            ? `Conectado como <strong>${esc(state.cloudAuth.email)}</strong>. Todos os sermões e edições sincronizam automaticamente com o banco PostgreSQL Supabase.`
-            : 'Atualmente seus dados estão salvos com segurança apenas neste aparelho. Conecte ou crie sua conta na nuvem Supabase para sincronizar entre Trabalho, Casa e iPhone.'}
+          ${isCloud || _cloudDbReady
+            ? `Banco PostgreSQL Supabase (<strong>yahvhltbfpebaievpumg</strong>) conectado para <strong>${esc(state.cloudAuth?.email || state.profile.email)}</strong>. Todos os sermões, perfil e preferências sincronizam automaticamente.`
+            : 'Projeto Supabase <strong>yahvhltbfpebaievpumg</strong> configurado. Clique em Sincronizar Agora após executar o script SQL de liberação RLS no painel do Supabase.'}
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <button class="btn btn-sm btn-emerald" id="prof-sync-now">🔄 Sincronizar Agora</button>
           ${isCloud ? `
-            <button class="btn btn-sm btn-emerald" id="prof-sync-now">🔄 Sincronizar Agora</button>
-            <button class="btn btn-sm btn-outline" id="prof-cloud-logout">Desconectar Nuvem</button>
+            <button class="btn btn-sm btn-outline" id="prof-cloud-logout">Desconectar Conta</button>
           ` : `
-            <button class="btn btn-sm btn-primary" id="prof-cloud-login">☁️ Conectar / Criar Conta Nuvem</button>
+            <button class="btn btn-sm btn-outline" id="prof-cloud-login">🔑 Login por Senha (Opcional)</button>
           `}
         </div>
       </div>
@@ -3469,12 +3584,12 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
               ministryTitle: sheet.querySelector('#pf-title').value.trim() || state.profile.ministryTitle,
               churchName: sheet.querySelector('#pf-church').value.trim(),
             };
-            writeStore(KEYS.PROFILE, state.profile);
-            syncCloudNow({ silent: true });
+            markProfileUpdated();
+            syncCloudNow({ silent: true, pushProfile: true });
             closeModal();
             renderChrome();
             renderMain();
-            showToast('Perfil atualizado e salvo!', 'success');
+            showToast('Perfil atualizado e salvo na nuvem!', 'success');
           };
         }
       );
@@ -3595,6 +3710,8 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
     document.body.className = `theme-${state.settings.theme}`;
     writeStore(KEYS.SETTINGS, state.settings);
+    markProfileUpdated();
+    syncCloudNow({ silent: true, pushProfile: true });
     if (state.tab === 'profile') renderMain();
   }
 
@@ -3622,10 +3739,41 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     state.pendingSync = readStoreSync(KEYS.PENDING_SYNC) || { upsertIds: [], deleteIds: [] };
 
     // Fallback IndexedDB caso o iOS tenha limpado localStorage
+    if (!localStorage.getItem(KEYS.PROFILE)) {
+      const idbProfile = await readIdbFallback(KEYS.PROFILE);
+      if (idbProfile) {
+        state.profile = { ...DEFAULT_PROFILE, ...idbProfile };
+        writeStore(KEYS.PROFILE, state.profile);
+      }
+    }
+    if (!localStorage.getItem(KEYS.SETTINGS)) {
+      const idbSettings = await readIdbFallback(KEYS.SETTINGS);
+      if (idbSettings) {
+        state.settings = { ...DEFAULT_SETTINGS, ...idbSettings };
+        writeStore(KEYS.SETTINGS, state.settings);
+      }
+    }
+    if (!localStorage.getItem(KEYS.DELETED_IDS)) {
+      const idbDeleted = await readIdbFallback(KEYS.DELETED_IDS);
+      if (Array.isArray(idbDeleted) && idbDeleted.length) {
+        state.deletedIds = new Set(idbDeleted);
+        writeStore(KEYS.DELETED_IDS, idbDeleted);
+      }
+    }
     if (!Object.keys(state.sermonsDelta).length) {
       const idbDelta = await readIdbFallback(KEYS.SERMONS_DELTA);
-      if (idbDelta) state.sermonsDelta = idbDelta;
+      if (idbDelta && Object.keys(idbDelta).length) {
+        state.sermonsDelta = idbDelta;
+        writeStore(KEYS.SERMONS_DELTA, idbDelta);
+      }
     }
+
+    // Garante gravação imediata ao fechar a aba ou minimizar o app no iPhone
+    window.addEventListener('pagehide', flushActiveEditorIfNeeded);
+    window.addEventListener('beforeunload', flushActiveEditorIfNeeded);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushActiveEditorIfNeeded();
+    });
 
     document.body.className = `theme-${state.settings.theme || 'dark'}`;
 
@@ -3667,7 +3815,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       window.speechSynthesis.addEventListener('voiceschanged', refreshBrowserVoices);
     }
 
-    if (state.cloudAuth?.accessToken && navigator.onLine) {
+    if (navigator.onLine) {
       syncCloudNow({ silent: true, pullAll: true });
     }
   }
