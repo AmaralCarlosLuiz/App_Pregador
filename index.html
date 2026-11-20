@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20261120_2">
+  <link rel="stylesheet" href="styles.css?v=20261120_3">
 </head>
 <body class="theme-dark">
   <!-- Tela de Login Executiva -->
@@ -62,14 +62,10 @@
       <nav class="sidebar-nav" id="sidebar-nav"></nav>
 
       <div class="sidebar-footer">
-        <div id="sync-status-pill" class="sync-pill">
-          <span class="sync-dot"></span>
-          <span class="sync-label">Offline-First Ativo</span>
+        <div class="sidebar-user-wrap">
+          <div id="sidebar-user-menu" class="sidebar-user-menu hidden" role="menu" aria-label="Menu do Usuário"></div>
+          <div class="sidebar-user" id="sidebar-user-card" role="button" tabindex="0" aria-haspopup="true" title="Clique para opções da conta e Logoff"></div>
         </div>
-        <div class="sidebar-user" id="sidebar-user-card"></div>
-        <button id="sidebar-logout-btn" class="btn btn-sm btn-outline btn-logout-sidebar" title="Encerrar Sessão (Logoff)">
-          <span>🚪</span> Sair da Conta
-        </button>
       </div>
     </aside>
 
@@ -118,14 +114,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js?v=20261120_2').then(function (reg) {
+        navigator.serviceWorker.register('sw.js?v=20261120_3').then(function (reg) {
           try { reg.update(); } catch (_) {}
         }).catch(function () {});
       });
     }
   </script>
-  <script src="sourceProtection.js?v=20261120_2" defer></script>
-  <script src="app.js?v=20261120_2" defer></script>
+  <script src="sourceProtection.js?v=20261120_3" defer></script>
+  <script src="app.js?v=20261120_3" defer></script>
 </body>
 </html>
 
