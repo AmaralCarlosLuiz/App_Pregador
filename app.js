@@ -5927,6 +5927,41 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     renderChrome();
     renderMain();
 
+    function toggleSidebar(forceState = null) {
+      const sidebar = document.getElementById('sidebar');
+      const expandBtn = document.getElementById('desktop-sidebar-expand-btn');
+      if (!sidebar) return;
+
+      const shouldCollapse = forceState !== null ? forceState : !sidebar.classList.contains('collapsed');
+      if (shouldCollapse) {
+        sidebar.classList.add('collapsed');
+        if (expandBtn) expandBtn.classList.remove('hidden');
+      } else {
+        sidebar.classList.remove('collapsed');
+        if (expandBtn) expandBtn.classList.add('hidden');
+      }
+
+      state.settings.sidebarCollapsed = shouldCollapse;
+      writeStore(KEYS.SETTINGS, state.settings);
+    }
+
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+    if (sidebarToggleBtn) sidebarToggleBtn.onclick = () => toggleSidebar(true);
+
+    const desktopExpandBtn = document.getElementById('desktop-sidebar-expand-btn');
+    if (desktopExpandBtn) desktopExpandBtn.onclick = () => toggleSidebar(false);
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && !e.altKey) {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    });
+
+    if (state.settings.sidebarCollapsed && window.innerWidth >= 860) {
+      toggleSidebar(true);
+    }
+
     document.getElementById('sidebar-new-sermon-btn').onclick = createNewSermonAndOpen;
     document.getElementById('topbar-theme-btn').onclick = toggleTheme;
     const topbarLogout = document.getElementById('topbar-logout-btn');
