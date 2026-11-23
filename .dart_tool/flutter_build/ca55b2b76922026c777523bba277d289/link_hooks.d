@@ -1,0 +1,1 @@
+ C:\\Users\\clamaral\\Desktop\\Desktop\\Projetos\ TI\\Projetos\ DEV\ TI\ HSF\\Projeto\ Pregador\ App\\App_Pregador\\.dart_tool\\flutter_build\\ca55b2b76922026c777523bba277d289\\link_hooks_result.json: 
