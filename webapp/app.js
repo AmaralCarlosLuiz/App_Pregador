@@ -1535,23 +1535,35 @@
     return { ...OFFICIAL_DEFAULT_MODELS };
   }
 
-  async function fetchGeminiWithRetry(url, fetchOptions, maxRetries = 2) {
+  async function fetchGeminiWithRetry(url, fetchOptions, maxRetries = 1, timeoutMs = 12000) {
     let lastError = null;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await fetch(url, fetchOptions);
+        const mergedOptions = {
+          ...fetchOptions,
+          signal: controller.signal,
+        };
+        const res = await fetch(url, mergedOptions);
+        clearTimeout(timeoutId);
         // Códigos transitórios da Google Cloud: 503 (High Demand), 429 (Rate Limit), 502/504 (Gateway)
         if ((res.status === 503 || res.status === 429 || res.status === 502 || res.status === 504) && attempt < maxRetries) {
-          const backoff = (attempt + 1) * 1100 + Math.floor(Math.random() * 400);
+          const backoff = (attempt + 1) * 500 + Math.floor(Math.random() * 200);
           console.warn(`[Gemini Resiliência] HTTP ${res.status} (Carga alta no Google). Tentativa ${attempt + 1}/${maxRetries} em ${backoff}ms...`);
           await sleepMs(backoff);
           continue;
         }
         return res;
       } catch (err) {
+        clearTimeout(timeoutId);
         lastError = err;
+        if (err.name === 'AbortError') {
+          console.warn(`[Gemini Resiliência] Timeout de ${timeoutMs}ms atingido para requisição.`);
+          throw new Error(`Tempo limite de ${timeoutMs / 1000}s esgotado no modelo.`);
+        }
         if (attempt < maxRetries) {
-          const backoff = (attempt + 1) * 1000 + Math.floor(Math.random() * 300);
+          const backoff = 500 + Math.floor(Math.random() * 200);
           await sleepMs(backoff);
           continue;
         }
@@ -1665,14 +1677,17 @@
       cleanPref = 'gemini-1.5-flash';
     }
 
-    // Pool prioritário: modelos de alta estabilidade garantem resposta instantânea
-    const basePriority = ['gemini-1.5-flash', 'gemini-3.1-pro-preview', 'gemini-1.5-pro', 'gemini-3.8-flash', 'gemini-2.5-flash'];
-    const pool = [cleanPref, ...basePriority, ...Object.keys(avail)];
+    // Fila enxuta de alta velocidade: máximo 3 modelos de topo (sem loops extensos)
+    // 1º O preferido do usuário / chave ativa
+    // 2º gemini-1.5-flash (O mais rápido e estável da Google Cloud)
+    // 3º gemini-1.5-pro (Homilética e raciocínio teológico profundo)
+    const basePriority = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-3.1-pro-preview'];
+    const pool = [cleanPref, ...basePriority];
 
     const candidateSet = new Set();
     const uniqueCandidates = [];
     pool.forEach((m) => {
-      if (m && !isGeminiModelBlacklisted(m) && !candidateSet.has(m)) {
+      if (m && !isGeminiModelBlacklisted(m) && !candidateSet.has(m) && uniqueCandidates.length < 3) {
         candidateSet.add(m);
         uniqueCandidates.push(m);
       }
@@ -1697,7 +1712,8 @@
               },
             }),
           },
-          1 // 1 retry por modelo antes de avançar para o próximo na cascata
+          0, // 0 retries na esteira interativa: falha em um modelo -> salta IMEDIATAMENTE para o próximo
+          12000 // Timeout rigoroso de 12 segundos por modelo
         );
 
         if (res.ok) {
@@ -1705,35 +1721,27 @@
           let txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
           txt = txt.trim().replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
           if (txt) {
-            const parsed = JSON.parse(txt);
-            // Se foi necessário alternar para um modelo mais estável, salva silenciosamente
-            if (state.settings.geminiModel !== model) {
-              state.settings.geminiModel = model;
-              writeStore(KEYS.SETTINGS, state.settings);
+            try {
+              const parsed = JSON.parse(txt);
+              if (parsed && typeof parsed === 'object') {
+                if (state.settings.geminiModel !== model) {
+                  state.settings.geminiModel = model;
+                  writeStore(KEYS.SETTINGS, state.settings);
+                }
+                return { success: true, data: parsed, usedModel: model };
+              }
+            } catch (pErr) {
+              console.warn(`[Gemini Cascade] JSON inválido de ${model}:`, pErr);
             }
-            return { success: true, data: parsed, usedModel: model };
           }
         } else {
           const errData = await res.json().catch(() => ({}));
           lastErrorMsg = errData?.error?.message || `HTTP ${res.status}`;
           console.warn(`[Gemini Cascade] ${model} retornou ${res.status}: ${lastErrorMsg}`);
-
-          // Se a resposta sugerir um novo modelo oficial (ex: gemini-3.1-pro-preview), insere na fila
-          const match = lastErrorMsg.match(/(?:use|to)\s+models\/([a-zA-Z0-9_.-]+)/i);
-          if (match && match[1] && !candidateSet.has(match[1]) && !isGeminiModelBlacklisted(match[1])) {
-            candidateSet.add(match[1]);
-            uniqueCandidates.splice(i + 1, 0, match[1]);
-          }
-
-          // Se for 503 (alta demanda), 404 (depreciado) ou 429 (quota), continua na cascata
-          if (i < uniqueCandidates.length - 1) {
-            continue;
-          }
         }
       } catch (err) {
         lastErrorMsg = err.message || String(err);
         console.warn(`[Gemini Cascade] Falha no modelo ${model}:`, err);
-        if (i < uniqueCandidates.length - 1) continue;
       }
     }
 
@@ -2537,9 +2545,17 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             </div>
           </div>
           <button id="ai-generate-btn" class="btn btn-purple btn-block" ${state.ai.isLoading ? 'disabled' : ''}>
-            ${state.ai.isLoading ? '⏳ Gemini Construindo Esboço Exegético (5 Tópicos)...' : '✨ Gerar Esboço com Gemini Pro (5 Tópicos)'}
+            ${state.ai.isLoading ? '⏳ Elaborando Esboço com IA (Aguarde alguns segundos)...' : '✨ Gerar Esboço com Gemini Pro (5 Tópicos)'}
           </button>
-          ${outline ? `
+          ${state.ai.isLoading ? `
+            <div style="background:rgba(139,92,246,0.08);border:1px dashed var(--primary);border-radius:12px;padding:26px 16px;text-align:center;margin-top:16px;">
+              <div class="spinner" style="margin:0 auto 12px;width:32px;height:32px;border-width:3px;border-top-color:var(--primary);"></div>
+              <strong style="color:var(--primary);font-size:15px;display:block;">Elaborando Esboço com IA Google em Tempo Real...</strong>
+              <span style="font-size:12.5px;color:var(--text-muted);margin-top:6px;display:block;">
+                Construindo exegese histórica, 5 tópicos bíblicos detalhados, ilustrações e apelo pastoral.
+              </span>
+            </div>
+          ` : outline ? `
             <div class="card" style="margin-top:16px;border-color:rgba(139,92,246,0.4);">
               ${!outline.isCloud ? `
                 <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);padding:10px 14px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -2635,9 +2651,12 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             state.ai.ref = sheet.querySelector('#ai-ref-input').value;
             state.ai.sermonType = sheet.querySelector('#ai-type-select').value;
             state.ai.isLoading = true;
+            state.ai.outline = null; // Limpa para exibir o feedback visual imediato de carregamento
             openAiModal(onApplyToEditor);
             try {
               state.ai.outline = await generateOutlineWithAi(state.ai.theme, state.ai.ref, state.ai.sermonType);
+            } catch (err) {
+              console.error('[IA Homilética] Erro ao gerar esboço:', err);
             } finally {
               state.ai.isLoading = false;
               openAiModal(onApplyToEditor);
