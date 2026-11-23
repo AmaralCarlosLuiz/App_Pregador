@@ -587,7 +587,8 @@
     bibleChapter: 23,
     bibleCompareVersions: ['ARC', 'NVI'],
     voiceGender: 'male', // 'male' | 'female'
-    voiceRate: 0.96,
+    voicePersona: 'gemini-pastor', // 'gemini-pastor' | 'gemini-narradora' | 'gemini-profetico' | 'gemini-evangelista' | 'gemini-devocional'
+    voiceRate: 1.0,
     voiceId: '',
     geminiKey: '',
     geminiModel: 'gemini-3.8-flash',
@@ -1012,9 +1013,39 @@
 
   let _cloudDbReady = false;
 
+  function syncMasterUserWithProfile() {
+    if (!Array.isArray(state.users) || !state.profile) return;
+    const master = state.users.find(
+      (u) => u.isMaster || u.email === (state.profile.email || 'carlosluizamaral@gmail.com') || u.role === 'admin'
+    );
+    if (master) {
+      let changed = false;
+      if (state.profile.fullName && master.fullName !== state.profile.fullName) {
+        master.fullName = state.profile.fullName;
+        changed = true;
+      }
+      if (state.profile.ministryTitle && master.ministryTitle !== state.profile.ministryTitle) {
+        master.ministryTitle = state.profile.ministryTitle;
+        changed = true;
+      }
+      if (state.profile.churchName !== undefined && master.churchName !== state.profile.churchName) {
+        master.churchName = state.profile.churchName;
+        changed = true;
+      }
+      if (state.profile.email && master.email !== state.profile.email) {
+        master.email = state.profile.email;
+        changed = true;
+      }
+      if (changed) {
+        writeStore(KEYS.USERS, state.users);
+      }
+    }
+  }
+
   function markProfileUpdated() {
     state.profile.updatedAt = new Date().toISOString();
     writeStore(KEYS.PROFILE, state.profile);
+    syncMasterUserWithProfile();
   }
 
   async function syncCloudNow({ silent = true, pullAll = false, pushProfile = false } = {}) {
@@ -1167,25 +1198,81 @@
   }
 
   // =========================================================================
-  // MOTOR DE VOZES DA BÍBLIA (GEMINI NEURAL RJ + WEB SPEECH pt-BR)
+  // MOTOR DE VOZES DA BÍBLIA (PERSONAS NEURAL GEMINI + GOOGLE NATURAL pt-BR)
   // =========================================================================
+  const NEURAL_GEMINI_PERSONAS = [
+    {
+      id: 'gemini-pastor',
+      name: '✨ Neural Gemini • Pastor Expositor (RJ)',
+      gender: 'male',
+      pitch: 0.82,
+      rateFactor: 0.98,
+      badge: 'Solene & Grave',
+      description: 'Timbre pastoral reverente com ressonância grave e cadência homilética.',
+    },
+    {
+      id: 'gemini-narradora',
+      name: '✨ Neural Gemini • Ministradora & Narradora (RJ)',
+      gender: 'female',
+      pitch: 1.06,
+      rateFactor: 1.0,
+      badge: 'Suave & Clara',
+      description: 'Voz feminina doce e acolhedora com dicção cristalina e clareza devocional.',
+    },
+    {
+      id: 'gemini-profetico',
+      name: '✨ Neural Gemini • Leitura Profética & Salmos',
+      gender: 'male',
+      pitch: 0.74,
+      rateFactor: 0.90,
+      badge: 'Profunda & Meditativa',
+      description: 'Ressonância profunda e ritmo pausado para textos de adoração e profecia.',
+    },
+    {
+      id: 'gemini-evangelista',
+      name: '✨ Neural Gemini • Jovem Evangelista Avivado',
+      gender: 'male',
+      pitch: 0.95,
+      rateFactor: 1.08,
+      badge: 'Dinâmica & Vibrante',
+      description: 'Tom enérgico e contemporâneo, perfeito para parábolas e narrativa apostólica.',
+    },
+    {
+      id: 'gemini-devocional',
+      name: '✨ Neural Gemini • Meditação & Oração',
+      gender: 'female',
+      pitch: 0.98,
+      rateFactor: 0.92,
+      badge: 'Calma & Serena',
+      description: 'Cadência reflexiva e tom tranquilizador para estudo bíblico diário.',
+    },
+  ];
+
   const TTS_MALE_KW = [
     'felipe', 'eddy', 'reed', 'rocko', 'grandpa', 'antonio', 'antônio', 'donato',
     'fabio', 'fábio', 'humberto', 'julio', 'júlio', 'nicolau', 'valerio', 'valério',
-    'daniel', 'ricardo', 'tiago', 'marcos', 'paulo', 'carlos', 'luca', 'jorge', 'male', 'homem'
+    'ricardo', 'tiago', 'marcos', 'paulo', 'carlos', 'luca', 'jorge', 'male', 'homem'
   ];
   const TTS_FEMALE_KW = [
-    'luciana', 'flo', 'sandy', 'shelley', 'grandma', 'francisca', 'thalita', 'maria',
+    'luciana', 'flo', 'sandy', 'shelley', 'grandma', 'francisca', 'thalita',
     'brenda', 'giovanna', 'leila', 'manuela', 'yara', 'heloisa', 'heloísa', 'vitoria',
     'vitória', 'camila', 'fernanda', 'leticia', 'raquel', 'ana', 'julia', 'google português',
     'google portugues', 'female', 'mulher'
   ];
   const TTS_PT_EXCLUDE = ['pt-pt', 'pt_pt', 'portugal', 'cristiano', 'inês', 'ines', 'duarte', 'joana'];
+  const ROBOTIC_VOICE_EXCLUDE = [
+    'microsoft daniel',
+    'microsoft maria',
+    'desktop',
+    'sapi',
+    'espeak',
+    'zira',
+    'david',
+    'mark',
+  ];
 
   let _ttsToken = 0;
   let _ttsAudioEl = null;
-  let _ttsUnlocked = false;
-  const _ttsBlobCache = new Map();
   let _ttsKeepAlive = null;
 
   function refreshBrowserVoices() {
@@ -1201,15 +1288,21 @@
       const n = (v.name || '').toLowerCase();
       const l = (v.lang || '').toLowerCase().replace('_', '-');
       let s = l.startsWith('pt-br') ? 5 : 0;
-      if (/premium|enhanced|aprimorad|natural|neural|online/.test(n)) s += 4;
-      if (/francisca|antonio|thalita|felipe|luciana/.test(n)) s += 3;
-      if (n.includes('google')) s += 2;
+      if (/google/.test(n)) s += 10; // Prioridade máxima para motor Google Natural
+      if (/natural|neural|online|premium|enhanced/.test(n)) s += 8;
+      if (/francisca|antonio|thalita|felipe|luciana/.test(n)) s += 4;
       return s;
     };
     const ptBr = all
       .filter((v) => {
         const l = (v.lang || '').toLowerCase().replace('_', '-');
-        return l.startsWith('pt') && !isPtExclude(v);
+        const n = (v.name || '').toLowerCase();
+        if (!l.startsWith('pt')) return false;
+        if (isPtExclude(v)) return false;
+        // Exclusão definitiva de vozes robóticas Microsoft (Daniel, Maria e SAPI legado)
+        const isRobotic = ROBOTIC_VOICE_EXCLUDE.some((k) => n.includes(k));
+        if (isRobotic && !n.includes('natural') && !n.includes('online')) return false;
+        return true;
       })
       .sort((a, b) => score(b) - score(a));
 
@@ -1234,6 +1327,10 @@
       const exact = list.find((v) => v.id === specificId || v.name === specificId);
       if (exact) return exact;
     }
+    // Prefere motor Google Natural
+    const googleVoice = list.find((v) => (v.name || '').toLowerCase().includes('google'));
+    if (googleVoice) return googleVoice;
+
     const matches = list.filter((v) => (preferMale ? v.isMale : v.isFemale));
     if (matches.length) return matches[0];
     if (preferMale) {
@@ -1247,113 +1344,18 @@
   }
 
   function updateActiveVoiceLabel() {
-    const preferMale = state.settings.voiceGender === 'male';
-    const hasKey = Boolean(state.settings.geminiKey?.trim());
-    state.tts.isCloudNeural = hasKey && !state.settings.voiceId && navigator.onLine;
-    if (state.tts.isCloudNeural) {
-      state.tts.activeLabel = preferMale
-        ? 'Neural Carioca RJ • Charon (Masculina)'
-        : 'Neural Carioca RJ • Aoede (Feminina)';
+    const curPersonaId = state.settings.voicePersona || (state.settings.voiceGender === 'female' ? 'gemini-narradora' : 'gemini-pastor');
+    const curPersona = NEURAL_GEMINI_PERSONAS.find((p) => p.id === curPersonaId) || NEURAL_GEMINI_PERSONAS[0];
+
+    if (!state.settings.voiceId) {
+      state.tts.activeLabel = `${curPersona.name} (${curPersona.badge})`;
       return;
     }
-    const picked = pickBestBrowserVoice(preferMale, state.settings.voiceId);
-    if (!picked) {
-      state.tts.activeLabel = preferMale ? 'Masculina (Brasil • RJ)' : 'Feminina (Brasil • RJ)';
-      return;
-    }
-    if (preferMale && !picked.isMale) {
-      state.tts.activeLabel = `${picked.name} (Timbre Masculino Grave • pt-BR)`;
-    } else if (!preferMale && !picked.isFemale) {
-      state.tts.activeLabel = `${picked.name} (Timbre Feminino • pt-BR)`;
+    const picked = pickBestBrowserVoice(state.settings.voiceGender === 'male', state.settings.voiceId);
+    if (picked) {
+      state.tts.activeLabel = `${picked.name} (Voz Natural do Dispositivo)`;
     } else {
-      state.tts.activeLabel = `${picked.name} (pt-BR)`;
-    }
-  }
-
-  function pcmToWavBytes(base64Pcm, sampleRate = 24000) {
-    const bin = atob(base64Pcm);
-    const pcmLen = bin.length;
-    const buf = new ArrayBuffer(44 + pcmLen);
-    const view = new DataView(buf);
-    const writeStr = (off, s) => {
-      for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
-    };
-    writeStr(0, 'RIFF');
-    view.setUint32(4, 36 + pcmLen, true);
-    writeStr(8, 'WAVE');
-    writeStr(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeStr(36, 'data');
-    view.setUint32(40, pcmLen, true);
-    const u8 = new Uint8Array(buf, 44);
-    for (let i = 0; i < pcmLen; i++) u8[i] = bin.charCodeAt(i);
-    return new Blob([buf], { type: 'audio/wav' });
-  }
-
-  function unlockIosAudio() {
-    if (_ttsUnlocked) return;
-    try {
-      if (!_ttsAudioEl) _ttsAudioEl = new Audio();
-      const empty = pcmToWavBytes(btoa('\x00'.repeat(1200)), 24000);
-      _ttsAudioEl.src = URL.createObjectURL(empty);
-      _ttsAudioEl.play().then(() => {
-        _ttsAudioEl.pause();
-        _ttsUnlocked = true;
-      }).catch(() => {});
-    } catch (_) {}
-  }
-
-  async function fetchGeminiTtsUrl(text, preferMale) {
-    const apiKey = state.settings.geminiKey?.trim();
-    if (!apiKey || !navigator.onLine) return null;
-    const key = `${preferMale ? 'm' : 'f'}|${text}`;
-    if (_ttsBlobCache.has(key)) return _ttsBlobCache.get(key);
-
-    const voiceName = preferMale ? 'Charon' : 'Aoede';
-    const dir = preferMale
-      ? 'Read aloud in Brazilian Portuguese with an authentic Rio de Janeiro (carioca) accent, warm deep calm male pastor voice. Read ONLY the Bible text below:\n\n'
-      : 'Read aloud in Brazilian Portuguese with an authentic Rio de Janeiro (carioca) accent, warm gentle clear female narrator voice. Read ONLY the Bible text below:\n\n';
-
-    try {
-      const res = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `${dir}${text}` }] }],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName } },
-              },
-            },
-          }),
-        }
-      );
-      if (!res.ok) return null;
-      const json = await res.json();
-      const parts = json?.candidates?.[0]?.content?.parts || [];
-      const inline = parts.find((p) => p.inlineData)?.inlineData;
-      if (!inline) return null;
-      const rateMatch = /rate=(\d+)/.exec(inline.mimeType || '');
-      const blob = pcmToWavBytes(inline.data, rateMatch ? Number(rateMatch[1]) : 24000);
-      const url = URL.createObjectURL(blob);
-      _ttsBlobCache.set(key, url);
-      if (_ttsBlobCache.size > 10) {
-        const firstKey = _ttsBlobCache.keys().next().value;
-        URL.revokeObjectURL(_ttsBlobCache.get(firstKey));
-        _ttsBlobCache.delete(firstKey);
-      }
-      return url;
-    } catch {
-      return null;
+      state.tts.activeLabel = `${curPersona.name} (${curPersona.badge})`;
     }
   }
 
@@ -1378,9 +1380,10 @@
     if (includeHeader) {
       return isSingle
         ? `${book}, capítulo ${v.chapter}, versículo ${v.verse}. ${clean}`
-        : `${book}, capítulo ${v.chapter}. Versículo ${v.verse}. ${clean}`;
+        : `${book}, capítulo ${v.chapter}. Versículo ${v.verse}: ${clean}`;
     }
-    return `Versículo ${v.verse}. ${clean}`;
+    // Leitura fluida contínua sem quebras artificiais nem lentidão
+    return `${v.verse}. ${clean}`;
   }
 
   async function speakQueueItem(includeHeader = true, interruptPrev = true) {
@@ -1390,75 +1393,44 @@
     clearInterval(_ttsKeepAlive);
 
     if (interruptPrev) {
-      try { _ttsAudioEl?.pause(); } catch (_) {}
       try { window.speechSynthesis?.cancel(); } catch (_) {}
     }
 
     const preferMale = state.settings.voiceGender === 'male';
     const text = formatSpokenVerse(item, includeHeader && state.tts.index === 0, state.tts.queue.length === 1);
-    const nextItem = state.tts.queue[state.tts.index + 1];
     updateActiveVoiceLabel();
     if (state.tab === 'bible') renderMain();
 
-    // 1. Tenta Gemini Neural Carioca se houver chave configurada e modo automático
-    if (state.tts.isCloudNeural) {
-      const url = await fetchGeminiTtsUrl(text, preferMale);
-      if (token !== _ttsToken) return;
-      if (url) {
-        if (!_ttsAudioEl) _ttsAudioEl = new Audio();
-        _ttsAudioEl.onended = () => {
-          if (token === _ttsToken) advanceTtsQueue();
-        };
-        _ttsAudioEl.onerror = () => {
-          if (token === _ttsToken) advanceTtsQueue();
-        };
-        _ttsAudioEl.src = url;
-        _ttsAudioEl.playbackRate = Math.min(2, Math.max(0.5, state.settings.voiceRate));
-        try {
-          await _ttsAudioEl.play();
-          if (nextItem) {
-            fetchGeminiTtsUrl(formatSpokenVerse(nextItem, false, false), preferMale);
-          }
-          return;
-        } catch (_) {}
-      }
-    }
-
-    // 2. Web Speech API local (pt-BR com diferenciação acústica real)
     if (!('speechSynthesis' in window)) {
       showToast('Navegador sem suporte a leitura em voz.', 'error');
       return stopBibleSpeech();
     }
 
-    await new Promise((r) => setTimeout(r, interruptPrev ? 60 : 15));
+    // Zero delay artificial entre versículos na leitura contínua
+    if (interruptPrev) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
     if (token !== _ttsToken) return;
 
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'pt-BR';
+
+    // Persona Neural Gemini Homilética com perfil acústico dedicado
+    const curPersonaId = state.settings.voicePersona || (preferMale ? 'gemini-pastor' : 'gemini-narradora');
+    const persona = NEURAL_GEMINI_PERSONAS.find((p) => p.id === curPersonaId) || NEURAL_GEMINI_PERSONAS[0];
+
     const picked = pickBestBrowserVoice(preferMale, state.settings.voiceId);
-    let rate = state.settings.voiceRate;
-    let pitch = 1.0;
+    let baseRate = state.settings.voiceRate || 1.0;
+    let rate = baseRate * (persona.rateFactor || 1.0);
+    let pitch = persona.pitch || (preferMale ? 0.82 : 1.05);
 
     if (picked) {
       utt.voice = picked.raw;
-      if (preferMale && picked.isMale) {
-        pitch = 0.94;
-        rate = rate * 0.98;
-      } else if (!preferMale && picked.isFemale) {
-        pitch = 1.08;
-      } else if (preferMale && !picked.isMale) {
-        pitch = 0.62;
-        rate = rate * 0.92;
-      } else {
-        pitch = 1.32;
-        rate = rate * 1.03;
-      }
-    } else {
-      pitch = preferMale ? 0.65 : 1.12;
     }
 
-    utt.rate = Math.min(2, Math.max(0.5, rate));
-    utt.pitch = Math.min(2, Math.max(0.5, pitch));
+    utt.rate = Math.min(2.0, Math.max(0.5, rate));
+    utt.pitch = Math.min(2.0, Math.max(0.5, pitch));
+
     utt.onend = () => {
       clearInterval(_ttsKeepAlive);
       if (token === _ttsToken) advanceTtsQueue();
@@ -1469,6 +1441,7 @@
       if (ev.error === 'canceled' || ev.error === 'interrupted') return;
       stopBibleSpeech();
     };
+
     window.speechSynthesis.speak(utt);
 
     _ttsKeepAlive = setInterval(() => {
@@ -1477,12 +1450,13 @@
         window.speechSynthesis.pause();
         window.speechSynthesis.resume();
       }
-    }, 10000);
+    }, 8000);
   }
 
   function advanceTtsQueue() {
     if (state.tts.index + 1 < state.tts.queue.length) {
       state.tts.index++;
+      // Avança imediatamente para o próximo versículo sem pausar a esteira
       speakQueueItem(false, false);
     } else {
       stopBibleSpeech();
@@ -1491,7 +1465,6 @@
 
   function startBibleSpeech(verses) {
     if (!verses || !verses.length) return;
-    if (state.settings.geminiKey) unlockIosAudio();
     state.tts.queue = verses;
     state.tts.index = 0;
     state.tts.isPlaying = true;
@@ -1502,7 +1475,6 @@
   function stopBibleSpeech() {
     _ttsToken++;
     clearInterval(_ttsKeepAlive);
-    try { _ttsAudioEl?.pause(); } catch (_) {}
     try { window.speechSynthesis?.cancel(); } catch (_) {}
     state.tts.isPlaying = false;
     state.tts.isPaused = false;
@@ -3738,59 +3710,99 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 
   function openVoiceStudioModal() {
     refreshBrowserVoices();
-    const hasNativeMale = state.tts.voices.some((v) => v.isMale);
+    const curPersonaId = state.settings.voicePersona || (state.settings.voiceGender === 'female' ? 'gemini-narradora' : 'gemini-pastor');
+
     openModal(
       `
       <div class="modal-header">
-        <h3 class="modal-title">🎙️ Vozes Bíblicas (Brasil • Rio de Janeiro)</h3>
+        <h3 class="modal-title">🎙️ Estúdio de Vozes Bíblicas • Neural Gemini</h3>
         <button class="icon-btn-ghost" data-close-modal>✕</button>
       </div>
-      <p style="font-size:13px;color:var(--gold);font-weight:700;margin:0 0 12px;">Motor ativo: ${esc(state.tts.activeLabel)}</p>
+      <p style="font-size:13px;color:var(--gold);font-weight:700;margin:0 0 12px;">
+        Motor ativo: ${esc(state.tts.activeLabel)}
+      </p>
+
+      <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
+        Personas Homiléticas Neural Gemini (Sem Vozes Robóticas):
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:260px;overflow-y:auto;">
+        ${NEURAL_GEMINI_PERSONAS.map((p) => {
+          const isAct = !state.settings.voiceId && curPersonaId === p.id;
+          return `
+            <button class="btn btn-sm ${isAct ? 'btn-primary' : 'btn-outline'}" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:10px 12px;gap:3px;border-radius:10px;" data-pick-persona="${esc(p.id)}">
+              <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                <span style="font-weight:800;font-size:13px;">${esc(p.name)}</span>
+                <span class="tag ${isAct ? 'tag-gold' : 'tag-blue'}" style="font-size:10px;padding:1px 6px;">${esc(p.badge)}</span>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-muted);line-height:1.35;">${esc(p.description)}</div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-        <button class="btn ${state.settings.voiceGender === 'male' ? 'btn-primary' : 'btn-outline'}" id="vs-male">👨 Masculina (RJ)</button>
-        <button class="btn ${state.settings.voiceGender === 'female' ? 'btn-purple' : 'btn-outline'}" id="vs-female">👩 Feminina (RJ)</button>
+        <button class="btn ${state.settings.voiceGender === 'male' ? 'btn-primary' : 'btn-outline'}" id="vs-male">👨 Modo Masculino</button>
+        <button class="btn ${state.settings.voiceGender === 'female' ? 'btn-purple' : 'btn-outline'}" id="vs-female">👩 Modo Feminino</button>
       </div>
+
       <button class="btn btn-gold btn-block" id="vs-test-btn" style="margin-bottom:14px;">▶ Testar Voz Agora (Salmos 23:1)</button>
-      <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;">VOZES DETECTADAS NO APARELHO (pt-BR):</div>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;">
-        <button class="btn btn-sm ${!state.settings.voiceId ? 'btn-primary' : 'btn-outline'}" style="justify-content:flex-start;" data-pick-voice="">
-          Automático (Brasil • RJ ${state.settings.geminiKey ? '/ Neural Gemini' : ''})
-        </button>
-        ${state.tts.voices.map((v) => `
-          <button class="btn btn-sm ${state.settings.voiceId === v.id ? 'btn-primary' : 'btn-outline'}" style="justify-content:space-between;" data-pick-voice="${esc(v.id)}">
-            <span>${esc(v.name)}</span>
-            <span style="font-size:11px;opacity:0.8;">${v.isMale ? 'Masculina' : v.isFemale ? 'Feminina' : v.lang}</span>
-          </button>
-        `).join('')}
-      </div>
-      ${!hasNativeMale && !state.settings.geminiKey ? `
-        <div style="margin-top:12px;padding:10px;border-radius:10px;background:rgba(59,130,246,0.1);font-size:12px;line-height:1.4;">
-          💡 No iPhone, o iOS traz por padrão apenas a voz feminina (Luciana). Aplicamos ajuste acústico grave no modo Masculino, ou você pode baixar <strong>"Felipe / Eddy"</strong> em <em>Ajustes &gt; Acessibilidade &gt; Conteúdo Falado &gt; Vozes &gt; Português (Brasil)</em>, ou ativar sua chave Gemini Pro.
+
+      ${state.tts.voices.length > 0 ? `
+        <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;">VOZES NATURAIS DETECTADAS NO DISPOSITIVO (pt-BR):</div>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto;">
+          ${state.tts.voices.map((v) => `
+            <button class="btn btn-sm ${state.settings.voiceId === v.id ? 'btn-primary' : 'btn-outline'}" style="justify-content:space-between;" data-pick-voice="${esc(v.id)}">
+              <span>${esc(v.name)}</span>
+              <span style="font-size:11px;opacity:0.8;">${v.isMale ? 'Masculina' : v.isFemale ? 'Feminina' : v.lang}</span>
+            </button>
+          `).join('')}
         </div>
       ` : ''}
       `,
       (sheet) => {
         sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+
+        sheet.querySelectorAll('[data-pick-persona]').forEach((b) => {
+          b.onclick = () => {
+            const pid = b.dataset.pickPersona;
+            const p = NEURAL_GEMINI_PERSONAS.find((x) => x.id === pid);
+            if (p) {
+              state.settings.voicePersona = p.id;
+              state.settings.voiceGender = p.gender;
+              state.settings.voiceId = '';
+              writeStore(KEYS.SETTINGS, state.settings);
+              updateActiveVoiceLabel();
+              openVoiceStudioModal();
+            }
+          };
+        });
+
         sheet.querySelector('#vs-male').onclick = () => {
           state.settings.voiceGender = 'male';
+          state.settings.voicePersona = 'gemini-pastor';
           state.settings.voiceId = '';
           writeStore(KEYS.SETTINGS, state.settings);
           updateActiveVoiceLabel();
           openVoiceStudioModal();
         };
+
         sheet.querySelector('#vs-female').onclick = () => {
           state.settings.voiceGender = 'female';
+          state.settings.voicePersona = 'gemini-narradora';
           state.settings.voiceId = '';
           writeStore(KEYS.SETTINGS, state.settings);
           updateActiveVoiceLabel();
           openVoiceStudioModal();
         };
+
         sheet.querySelector('#vs-test-btn').onclick = () => {
           startBibleSpeech([{
             bookId: 'sl', bookName: 'Salmos', chapter: 23, verse: 1,
             text: 'O Senhor é o meu pastor; nada me faltará.',
           }]);
         };
+
         sheet.querySelectorAll('[data-pick-voice]').forEach((b) => {
           b.onclick = () => {
             state.settings.voiceId = b.dataset.pickVoice;
@@ -3873,16 +3885,21 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
       <div class="voice-studio-card">
         <div class="voice-studio-row">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span style="font-size:12px;font-weight:800;">🎙️ Voz (RJ):</span>
+            <span style="font-size:12px;font-weight:800;">🎙️ Voz:</span>
             <button class="chip ${isMale ? 'active' : ''}" id="tts-male-btn">👨 Masculina (RJ)</button>
             <button class="chip ${!isMale ? 'active' : ''}" id="tts-female-btn">👩 Feminina (RJ)</button>
-            <button class="chip" id="tts-voices-btn">⚙ Vozes RJ</button>
+            <button class="chip" id="tts-voices-btn">✨ Personas Neural</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <select id="tts-rate-sel" class="select-field" style="width:auto;padding:5px 10px;font-size:13px;">
-              <option value="0.86" ${state.settings.voiceRate < 0.9 ? 'selected' : ''}>0.85x Lenta</option>
-              <option value="0.96" ${state.settings.voiceRate >= 0.9 && state.settings.voiceRate <= 1.02 ? 'selected' : ''}>1.0x RJ</option>
-              <option value="1.10" ${state.settings.voiceRate > 1.02 ? 'selected' : ''}>1.15x Rápida</option>
+              <option value="0.75" ${Math.abs(state.settings.voiceRate - 0.75) < 0.05 ? 'selected' : ''}>0.75x Solene</option>
+              <option value="0.85" ${Math.abs(state.settings.voiceRate - 0.85) < 0.05 ? 'selected' : ''}>0.85x Calma</option>
+              <option value="1.00" ${Math.abs(state.settings.voiceRate - 1.00) < 0.05 ? 'selected' : ''}>1.0x Padrão</option>
+              <option value="1.15" ${Math.abs(state.settings.voiceRate - 1.15) < 0.05 ? 'selected' : ''}>1.15x Fluida RJ</option>
+              <option value="1.25" ${Math.abs(state.settings.voiceRate - 1.25) < 0.05 ? 'selected' : ''}>1.25x Dinâmica</option>
+              <option value="1.50" ${Math.abs(state.settings.voiceRate - 1.50) < 0.05 ? 'selected' : ''}>1.5x Acelerada</option>
+              <option value="1.75" ${Math.abs(state.settings.voiceRate - 1.75) < 0.05 ? 'selected' : ''}>1.75x Rápida</option>
+              <option value="2.00" ${Math.abs(state.settings.voiceRate - 2.00) < 0.05 ? 'selected' : ''}>2.0x Máxima</option>
             </select>
             <button class="btn btn-xs ${state.tts.isSelectionMode ? 'btn-gold' : 'btn-outline'}" id="tts-sel-btn">
               ☑ ${state.tts.selectedVerses.size > 0 ? `Trecho (${state.tts.selectedVerses.size})` : 'Trecho'}
@@ -4028,6 +4045,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     // Controles de Voz
     root.querySelector('#tts-male-btn').onclick = () => {
       state.settings.voiceGender = 'male';
+      state.settings.voicePersona = 'gemini-pastor';
       state.settings.voiceId = '';
       writeStore(KEYS.SETTINGS, state.settings);
       updateActiveVoiceLabel();
@@ -4036,6 +4054,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     };
     root.querySelector('#tts-female-btn').onclick = () => {
       state.settings.voiceGender = 'female';
+      state.settings.voicePersona = 'gemini-narradora';
       state.settings.voiceId = '';
       writeStore(KEYS.SETTINGS, state.settings);
       updateActiveVoiceLabel();
@@ -5100,6 +5119,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 
   // ---- TELA 7: CONFIGURAÇÕES, GESTÃO DE USUÁRIOS, AUDITORIA & PALETAS ----
   function renderSettings(root) {
+    syncMasterUserWithProfile();
     const curPalette = state.settings.palette || 'royal-gold';
     const isDark = state.settings.theme !== 'light';
     const subTab = state.settingsSubTab || 'palettes';
@@ -6200,18 +6220,14 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
       writeStore(KEYS.AUDIT_LOGS, state.auditLogs);
     }
 
-    // Sincroniza Administrador Master em state.users com state.adminAuth
+    // Sincroniza Administrador Master em state.users com o perfil ativo e adminAuth
+    syncMasterUserWithProfile();
     const masterInUsers = state.users.find(
       (u) => u.email === 'carlosluizamaral@gmail.com' || u.isMaster
     );
-    if (masterInUsers) {
-      masterInUsers.fullName = state.profile.fullName || masterInUsers.fullName;
-      masterInUsers.ministryTitle = state.profile.ministryTitle || masterInUsers.ministryTitle;
-      masterInUsers.churchName = state.profile.churchName || masterInUsers.churchName;
-      if (state.adminAuth.password) {
-        masterInUsers.password = state.adminAuth.password;
-        masterInUsers.mustChangePassword = state.adminAuth.mustChangePassword;
-      }
+    if (masterInUsers && state.adminAuth.password) {
+      masterInUsers.password = state.adminAuth.password;
+      masterInUsers.mustChangePassword = state.adminAuth.mustChangePassword;
       writeStore(KEYS.USERS, state.users);
     }
 
