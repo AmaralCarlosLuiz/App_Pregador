@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pregador-pro-web-v20261123_8';
+const CACHE_NAME = 'pregador-pro-web-v20261123_9';
 
 const SHELL_ASSETS = [
   './',
