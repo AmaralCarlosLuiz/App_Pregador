@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pregador-pro-web-v20261123_4';
+const CACHE_NAME = 'pregador-pro-web-v20261123_5';
 
 const SHELL_ASSETS = [
   './',
@@ -67,17 +67,43 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-First para arquivos de código da aplicação (Garante que updates entrem na hora)
+  const isCodeAsset =
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('/App_Pregador/') ||
+    req.mode === 'navigate';
+
+  if (isCodeAsset) {
+    event.respondWith(
+      fetch(req)
+        .then((netRes) => {
+          if (netRes && netRes.ok) {
+            const clone = netRes.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return netRes;
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(req, { ignoreSearch: true });
+          if (cached) return cached;
+          if (req.mode === 'navigate') {
+            return cache.match('index.html', { ignoreSearch: true });
+          }
+          return new Response('Offline', { status: 503 });
+        })
+    );
+    return;
+  }
+
+  // Cache-First para arquivos estáticos pesados (Bíblia, Ícones, Templates)
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: true });
       if (cached) {
-        event.waitUntil(
-          fetch(req)
-            .then((res) => {
-              if (res && res.ok) return cache.put(req, res.clone());
-            })
-            .catch(() => { })
-        );
         return cached;
       }
 
@@ -88,10 +114,6 @@ self.addEventListener('fetch', (event) => {
         }
         return netRes;
       } catch (_) {
-        if (req.mode === 'navigate') {
-          const fallback = await cache.match('index.html', { ignoreSearch: true });
-          if (fallback) return fallback;
-        }
         return new Response('Offline', { status: 503 });
       }
     })
