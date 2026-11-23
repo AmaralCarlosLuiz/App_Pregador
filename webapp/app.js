@@ -587,11 +587,10 @@
     bibleChapter: 23,
     bibleCompareVersions: ['ARC', 'NVI'],
     voiceGender: 'male', // 'male' | 'female'
-    voicePersona: 'gemini-pastor', // 'gemini-pastor' | 'gemini-narradora' | 'gemini-profetico' | 'gemini-evangelista' | 'gemini-devocional'
     voiceRate: 1.0,
     voiceId: '',
     geminiKey: '',
-    geminiModel: 'gemini-3.8-flash',
+    geminiModel: 'gemini-1.5-flash',
     geminiDiscoveredModels: {},
     geminiLastModelSync: null,
   };
@@ -1198,78 +1197,22 @@
   }
 
   // =========================================================================
-  // MOTOR DE VOZES DA BÍBLIA (PERSONAS NEURAL GEMINI + GOOGLE NATURAL pt-BR)
+  // MOTOR DE VOZES DA BÍBLIA (CLASSIFICAÇÃO REAL PT-BR • SEM PRESETS ARTIFICIAIS)
   // =========================================================================
-  const NEURAL_GEMINI_PERSONAS = [
-    {
-      id: 'gemini-pastor',
-      name: '✨ Neural Gemini • Pastor Expositor (RJ)',
-      gender: 'male',
-      pitch: 0.82,
-      rateFactor: 0.98,
-      badge: 'Solene & Grave',
-      description: 'Timbre pastoral reverente com ressonância grave e cadência homilética.',
-    },
-    {
-      id: 'gemini-narradora',
-      name: '✨ Neural Gemini • Ministradora & Narradora (RJ)',
-      gender: 'female',
-      pitch: 1.06,
-      rateFactor: 1.0,
-      badge: 'Suave & Clara',
-      description: 'Voz feminina doce e acolhedora com dicção cristalina e clareza devocional.',
-    },
-    {
-      id: 'gemini-profetico',
-      name: '✨ Neural Gemini • Leitura Profética & Salmos',
-      gender: 'male',
-      pitch: 0.74,
-      rateFactor: 0.90,
-      badge: 'Profunda & Meditativa',
-      description: 'Ressonância profunda e ritmo pausado para textos de adoração e profecia.',
-    },
-    {
-      id: 'gemini-evangelista',
-      name: '✨ Neural Gemini • Jovem Evangelista Avivado',
-      gender: 'male',
-      pitch: 0.95,
-      rateFactor: 1.08,
-      badge: 'Dinâmica & Vibrante',
-      description: 'Tom enérgico e contemporâneo, perfeito para parábolas e narrativa apostólica.',
-    },
-    {
-      id: 'gemini-devocional',
-      name: '✨ Neural Gemini • Meditação & Oração',
-      gender: 'female',
-      pitch: 0.98,
-      rateFactor: 0.92,
-      badge: 'Calma & Serena',
-      description: 'Cadência reflexiva e tom tranquilizador para estudo bíblico diário.',
-    },
-  ];
-
   const TTS_MALE_KW = [
-    'felipe', 'eddy', 'reed', 'rocko', 'grandpa', 'antonio', 'antônio', 'donato',
-    'fabio', 'fábio', 'humberto', 'julio', 'júlio', 'nicolau', 'valerio', 'valério',
-    'ricardo', 'tiago', 'marcos', 'paulo', 'carlos', 'luca', 'jorge', 'male', 'homem'
+    'daniel', 'antonio', 'antônio', 'felipe', 'fabio', 'fábio', 'ricardo',
+    'tiago', 'marcos', 'paulo', 'carlos', 'humberto', 'julio', 'júlio',
+    'valerio', 'valério', 'nicolau', 'eddy', 'reed', 'rocko', 'grandpa',
+    'donato', 'luca', 'jorge', 'male', 'homem', 'pt-br-x-yfd', 'pt-br-x-afs'
   ];
   const TTS_FEMALE_KW = [
-    'luciana', 'flo', 'sandy', 'shelley', 'grandma', 'francisca', 'thalita',
-    'brenda', 'giovanna', 'leila', 'manuela', 'yara', 'heloisa', 'heloísa', 'vitoria',
-    'vitória', 'camila', 'fernanda', 'leticia', 'raquel', 'ana', 'julia', 'google português',
-    'google portugues', 'female', 'mulher'
+    'maria', 'luciana', 'francisca', 'thalita', 'leticia', 'letícia', 'heloisa',
+    'heloísa', 'camila', 'fernanda', 'yara', 'vitoria', 'vitória', 'brenda',
+    'giovanna', 'leila', 'manuela', 'raquel', 'ana', 'julia', 'júlia', 'flo',
+    'sandy', 'shelley', 'grandma', 'google português', 'google portugues',
+    'female', 'mulher', 'pt-br-x-sfg', 'pt-br-x-jfc'
   ];
   const TTS_PT_EXCLUDE = ['pt-pt', 'pt_pt', 'portugal', 'cristiano', 'inês', 'ines', 'duarte', 'joana'];
-  const ROBOTIC_VOICE_EXCLUDE = [
-    'microsoft daniel',
-    'microsoft maria',
-    'desktop',
-    'sapi',
-    'espeak',
-    'zira',
-    'david',
-    'mark',
-  ];
 
   let _ttsToken = 0;
   let _ttsAudioEl = null;
@@ -1288,33 +1231,49 @@
       const n = (v.name || '').toLowerCase();
       const l = (v.lang || '').toLowerCase().replace('_', '-');
       let s = l.startsWith('pt-br') ? 5 : 0;
-      if (/google/.test(n)) s += 10; // Prioridade máxima para motor Google Natural
-      if (/natural|neural|online|premium|enhanced/.test(n)) s += 8;
-      if (/francisca|antonio|thalita|felipe|luciana/.test(n)) s += 4;
+      if (/natural|neural|online|premium|enhanced/.test(n)) s += 20; // Alta fidelidade online/neural
+      if (/google/.test(n)) s += 15; // Google TTS natural
+      if (/antonio|francisca|thalita|felipe|luciana/.test(n)) s += 10;
+      if (/daniel|maria/.test(n)) s += 5; // Vozes padrão do Windows
       return s;
     };
+
     const ptBr = all
       .filter((v) => {
         const l = (v.lang || '').toLowerCase().replace('_', '-');
         const n = (v.name || '').toLowerCase();
         if (!l.startsWith('pt')) return false;
         if (isPtExclude(v)) return false;
-        // Exclusão definitiva de vozes robóticas Microsoft (Daniel, Maria e SAPI legado)
-        const isRobotic = ROBOTIC_VOICE_EXCLUDE.some((k) => n.includes(k));
-        if (isRobotic && !n.includes('natural') && !n.includes('online')) return false;
+        // Exclusão apenas de sintetizadores emuladores antigos (espeak, zira em inglês, etc.)
+        if (/espeak|desktop sapi/i.test(n)) return false;
         return true;
       })
       .sort((a, b) => score(b) - score(a));
 
     state.tts.voices = ptBr.map((v) => {
       const lower = (v.name || '').toLowerCase();
+      const isM = TTS_MALE_KW.some((k) => lower.includes(k));
+      const isF = TTS_FEMALE_KW.some((k) => lower.includes(k));
+      const isNat = /natural|neural|online|premium|enhanced/i.test(lower);
+      const isGoo = /google/i.test(lower);
+
+      // Determinação de gênero rigorosa
+      let gender = 'neutral';
+      if (isM && !isF) gender = 'male';
+      else if (isF && !isM) gender = 'female';
+      else if (isGoo) gender = 'female'; // Google português do Brasil é feminina
+      else if (/daniel/i.test(lower)) gender = 'male';
+      else if (/maria/i.test(lower)) gender = 'female';
+
       return {
         raw: v,
         id: v.voiceURI || v.name,
         name: v.name || 'Voz Brasil',
         lang: v.lang || 'pt-BR',
-        isMale: TTS_MALE_KW.some((k) => lower.includes(k)),
-        isFemale: TTS_FEMALE_KW.some((k) => lower.includes(k)),
+        isMale: gender === 'male',
+        isFemale: gender === 'female',
+        isNatural: isNat,
+        isGoogle: isGoo,
       };
     });
     updateActiveVoiceLabel();
@@ -1323,40 +1282,63 @@
   function pickBestBrowserVoice(preferMale, specificId) {
     const list = state.tts.voices;
     if (!list.length) return null;
+
+    // 1. Se o usuário fixou uma voz específica na lista do aparelho
     if (specificId) {
       const exact = list.find((v) => v.id === specificId || v.name === specificId);
       if (exact) return exact;
     }
-    // Prefere motor Google Natural
-    const googleVoice = list.find((v) => (v.name || '').toLowerCase().includes('google'));
-    if (googleVoice) return googleVoice;
 
-    const matches = list.filter((v) => (preferMale ? v.isMale : v.isFemale));
-    if (matches.length) return matches[0];
+    // 2. Busca estrita por gênero (GARANTE que Masculino nunca toque feminino e vice-versa)
+    const genderMatches = list.filter((v) => (preferMale ? v.isMale : v.isFemale));
+
+    if (genderMatches.length > 0) {
+      // Prioridade: voz Natural / Neural
+      const natural = genderMatches.find((v) => v.isNatural);
+      if (natural) return natural;
+
+      // Se for feminino e tiver Google Português
+      if (!preferMale) {
+        const google = genderMatches.find((v) => v.isGoogle);
+        if (google) return google;
+      }
+
+      return genderMatches[0];
+    }
+
+    // 3. Fallback inteligente sem inversão de gênero:
     if (preferMale) {
       const nonFemale = list.filter((v) => !v.isFemale);
-      if (nonFemale.length) return nonFemale[0];
+      if (nonFemale.length > 0) return nonFemale[0];
     } else {
       const nonMale = list.filter((v) => !v.isMale);
-      if (nonMale.length) return nonMale[0];
+      if (nonMale.length > 0) return nonMale[0];
     }
+
     return list[0];
   }
 
   function updateActiveVoiceLabel() {
-    const curPersonaId = state.settings.voicePersona || (state.settings.voiceGender === 'female' ? 'gemini-narradora' : 'gemini-pastor');
-    const curPersona = NEURAL_GEMINI_PERSONAS.find((p) => p.id === curPersonaId) || NEURAL_GEMINI_PERSONAS[0];
-
-    if (!state.settings.voiceId) {
-      state.tts.activeLabel = `${curPersona.name} (${curPersona.badge})`;
-      return;
-    }
-    const picked = pickBestBrowserVoice(state.settings.voiceGender === 'male', state.settings.voiceId);
+    const isMale = state.settings.voiceGender === 'male';
+    const picked = pickBestBrowserVoice(isMale, state.settings.voiceId);
     if (picked) {
-      state.tts.activeLabel = `${picked.name} (Voz Natural do Dispositivo)`;
+      const genderTxt = picked.isMale ? 'Masculina' : picked.isFemale ? 'Feminina' : (isMale ? 'Masculina' : 'Feminina');
+      state.tts.activeLabel = `Voz ${genderTxt} (${picked.name})`;
     } else {
-      state.tts.activeLabel = `${curPersona.name} (${curPersona.badge})`;
+      state.tts.activeLabel = isMale ? 'Voz Masculina (Padrão pt-BR)' : 'Voz Feminina (Padrão pt-BR)';
     }
+  }
+
+  function sampleVoice(voiceId) {
+    if (!('speechSynthesis' in window)) return;
+    try { window.speechSynthesis.cancel(); } catch (_) {}
+    const v = state.tts.voices.find((x) => x.id === voiceId || x.name === voiceId);
+    const utt = new SpeechSynthesisUtterance('O Senhor é o meu pastor; nada me faltará.');
+    utt.lang = 'pt-BR';
+    if (v) utt.voice = v.raw;
+    utt.rate = state.settings.voiceRate || 1.0;
+    utt.pitch = 1.0;
+    window.speechSynthesis.speak(utt);
   }
 
   function formatSpokenVerse(v, includeHeader, isSingle) {
@@ -1406,7 +1388,7 @@
       return stopBibleSpeech();
     }
 
-    // Zero delay artificial entre versículos na leitura contínua
+    // Leitura contínua fluida sem lentidão
     if (interruptPrev) {
       await new Promise((r) => setTimeout(r, 20));
     }
@@ -1415,21 +1397,15 @@
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'pt-BR';
 
-    // Persona Neural Gemini Homilética com perfil acústico dedicado
-    const curPersonaId = state.settings.voicePersona || (preferMale ? 'gemini-pastor' : 'gemini-narradora');
-    const persona = NEURAL_GEMINI_PERSONAS.find((p) => p.id === curPersonaId) || NEURAL_GEMINI_PERSONAS[0];
-
     const picked = pickBestBrowserVoice(preferMale, state.settings.voiceId);
     let baseRate = state.settings.voiceRate || 1.0;
-    let rate = baseRate * (persona.rateFactor || 1.0);
-    let pitch = persona.pitch || (preferMale ? 0.82 : 1.05);
 
     if (picked) {
       utt.voice = picked.raw;
     }
 
-    utt.rate = Math.min(2.0, Math.max(0.5, rate));
-    utt.pitch = Math.min(2.0, Math.max(0.5, pitch));
+    utt.rate = Math.min(2.0, Math.max(0.5, baseRate));
+    utt.pitch = 1.0; // Timbre natural 100% autêntico da gravação
 
     utt.onend = () => {
       clearInterval(_ttsKeepAlive);
@@ -1460,6 +1436,7 @@
       speakQueueItem(false, false);
     } else {
       stopBibleSpeech();
+      showToast('Leitura bíblica concluída.', 'success');
     }
   }
 
@@ -3778,77 +3755,74 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 
   function openVoiceStudioModal() {
     refreshBrowserVoices();
-    const curPersonaId = state.settings.voicePersona || (state.settings.voiceGender === 'female' ? 'gemini-narradora' : 'gemini-pastor');
+    const isMale = state.settings.voiceGender === 'male';
 
     openModal(
       `
       <div class="modal-header">
-        <h3 class="modal-title">🎙️ Estúdio de Vozes Bíblicas • Neural Gemini</h3>
+        <h3 class="modal-title">🎙️ Configuração de Voz da Bíblia (pt-BR)</h3>
         <button class="icon-btn-ghost" data-close-modal>✕</button>
       </div>
-      <p style="font-size:13px;color:var(--gold);font-weight:700;margin:0 0 12px;">
-        Motor ativo: ${esc(state.tts.activeLabel)}
-      </p>
+      <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Voz Selecionada no Momento:</div>
+        <div style="font-size:14px;font-weight:800;color:var(--primary);display:flex;align-items:center;gap:6px;">
+          <span>${isMale ? '👨' : '👩'}</span>
+          <span>${esc(state.tts.activeLabel)}</span>
+        </div>
+      </div>
 
       <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
-        Personas Homiléticas Neural Gemini (Sem Vozes Robóticas):
+        Escolha o Gênero da Leitura:
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <button class="btn ${isMale && !state.settings.voiceId ? 'btn-primary' : 'btn-outline'}" id="vs-male" style="padding:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
+          👨 Voz Masculina
+        </button>
+        <button class="btn ${!isMale && !state.settings.voiceId ? 'btn-purple' : 'btn-outline'}" id="vs-female" style="padding:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
+          👩 Voz Feminina
+        </button>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:260px;overflow-y:auto;">
-        ${NEURAL_GEMINI_PERSONAS.map((p) => {
-          const isAct = !state.settings.voiceId && curPersonaId === p.id;
-          return `
-            <button class="btn btn-sm ${isAct ? 'btn-primary' : 'btn-outline'}" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:10px 12px;gap:3px;border-radius:10px;" data-pick-persona="${esc(p.id)}">
-              <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-                <span style="font-weight:800;font-size:13px;">${esc(p.name)}</span>
-                <span class="tag ${isAct ? 'tag-gold' : 'tag-blue'}" style="font-size:10px;padding:1px 6px;">${esc(p.badge)}</span>
-              </div>
-              <div style="font-size:11.5px;color:var(--text-muted);line-height:1.35;">${esc(p.description)}</div>
-            </button>
-          `;
-        }).join('')}
+      <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
+        Vozes Reais Detectadas no Aparelho (${state.tts.voices.length}):
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-        <button class="btn ${state.settings.voiceGender === 'male' ? 'btn-primary' : 'btn-outline'}" id="vs-male">👨 Modo Masculino</button>
-        <button class="btn ${state.settings.voiceGender === 'female' ? 'btn-purple' : 'btn-outline'}" id="vs-female">👩 Modo Feminino</button>
-      </div>
-
-      <button class="btn btn-gold btn-block" id="vs-test-btn" style="margin-bottom:14px;">▶ Testar Voz Agora (Salmos 23:1)</button>
-
       ${state.tts.voices.length > 0 ? `
-        <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;">VOZES NATURAIS DETECTADAS NO DISPOSITIVO (pt-BR):</div>
-        <div style="display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto;">
-          ${state.tts.voices.map((v) => `
-            <button class="btn btn-sm ${state.settings.voiceId === v.id ? 'btn-primary' : 'btn-outline'}" style="justify-content:space-between;" data-pick-voice="${esc(v.id)}">
-              <span>${esc(v.name)}</span>
-              <span style="font-size:11px;opacity:0.8;">${v.isMale ? 'Masculina' : v.isFemale ? 'Feminina' : v.lang}</span>
-            </button>
-          `).join('')}
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:16px;">
+          ${state.tts.voices.map((v) => {
+            const isCur = state.settings.voiceId === v.id || (!state.settings.voiceId && ((isMale && v.isMale) || (!isMale && v.isFemale)));
+            return `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--card-bg);border:1px solid ${isCur ? 'var(--primary)' : 'var(--border)'};gap:8px;">
+                <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <strong style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v.name)}</strong>
+                    <span class="tag ${v.isMale ? 'tag-blue' : 'tag-pink'}" style="font-size:10px;padding:1px 6px;">${v.isMale ? 'Masculina' : v.isFemale ? 'Feminina' : 'Neutra'}</span>
+                    ${v.isNatural ? `<span class="tag tag-gold" style="font-size:10px;padding:1px 6px;">Natural</span>` : ''}
+                  </div>
+                  <span style="font-size:11px;color:var(--text-muted);">${esc(v.lang)}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button class="btn btn-xs btn-outline" data-sample-voice="${esc(v.id)}" title="Ouvir amostra desta voz">▶ Ouvir</button>
+                  <button class="btn btn-xs ${isCur ? 'btn-primary' : 'btn-outline'}" data-pick-voice="${esc(v.id)}" title="Definir esta voz para leitura">
+                    ${isCur ? '✓ Ativa' : 'Selecionar'}
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
-      ` : ''}
+      ` : `
+        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Nenhuma voz pt-BR adicional detectada no navegador; usando síntese padrão do sistema.</p>
+      `}
+
+      <button class="btn btn-gold btn-block" id="vs-test-btn" style="padding:12px;font-weight:800;">
+        ▶ Testar Leitura Bíblica Agora (Salmos 23:1)
+      </button>
       `,
       (sheet) => {
         sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
 
-        sheet.querySelectorAll('[data-pick-persona]').forEach((b) => {
-          b.onclick = () => {
-            const pid = b.dataset.pickPersona;
-            const p = NEURAL_GEMINI_PERSONAS.find((x) => x.id === pid);
-            if (p) {
-              state.settings.voicePersona = p.id;
-              state.settings.voiceGender = p.gender;
-              state.settings.voiceId = '';
-              writeStore(KEYS.SETTINGS, state.settings);
-              updateActiveVoiceLabel();
-              openVoiceStudioModal();
-            }
-          };
-        });
-
         sheet.querySelector('#vs-male').onclick = () => {
           state.settings.voiceGender = 'male';
-          state.settings.voicePersona = 'gemini-pastor';
           state.settings.voiceId = '';
           writeStore(KEYS.SETTINGS, state.settings);
           updateActiveVoiceLabel();
@@ -3857,12 +3831,31 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 
         sheet.querySelector('#vs-female').onclick = () => {
           state.settings.voiceGender = 'female';
-          state.settings.voicePersona = 'gemini-narradora';
           state.settings.voiceId = '';
           writeStore(KEYS.SETTINGS, state.settings);
           updateActiveVoiceLabel();
           openVoiceStudioModal();
         };
+
+        sheet.querySelectorAll('[data-sample-voice]').forEach((b) => {
+          b.onclick = () => {
+            sampleVoice(b.dataset.sampleVoice);
+          };
+        });
+
+        sheet.querySelectorAll('[data-pick-voice]').forEach((b) => {
+          b.onclick = () => {
+            const vId = b.dataset.pickVoice;
+            const found = state.tts.voices.find((x) => x.id === vId);
+            state.settings.voiceId = vId;
+            if (found) {
+              state.settings.voiceGender = found.isMale ? 'male' : 'female';
+            }
+            writeStore(KEYS.SETTINGS, state.settings);
+            updateActiveVoiceLabel();
+            openVoiceStudioModal();
+          };
+        });
 
         sheet.querySelector('#vs-test-btn').onclick = () => {
           startBibleSpeech([{
@@ -3870,15 +3863,6 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             text: 'O Senhor é o meu pastor; nada me faltará.',
           }]);
         };
-
-        sheet.querySelectorAll('[data-pick-voice]').forEach((b) => {
-          b.onclick = () => {
-            state.settings.voiceId = b.dataset.pickVoice;
-            writeStore(KEYS.SETTINGS, state.settings);
-            updateActiveVoiceLabel();
-            openVoiceStudioModal();
-          };
-        });
       }
     );
   }
@@ -3954,9 +3938,9 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         <div class="voice-studio-row">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:800;">🎙️ Voz:</span>
-            <button class="chip ${isMale ? 'active' : ''}" id="tts-male-btn">👨 Masculina (RJ)</button>
-            <button class="chip ${!isMale ? 'active' : ''}" id="tts-female-btn">👩 Feminina (RJ)</button>
-            <button class="chip" id="tts-voices-btn">✨ Personas Neural</button>
+            <button class="chip ${isMale ? 'active' : ''}" id="tts-male-btn">👨 Masculina</button>
+            <button class="chip ${!isMale ? 'active' : ''}" id="tts-female-btn">👩 Feminina</button>
+            <button class="chip" id="tts-voices-btn">⚙️ Vozes do Aparelho</button>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <select id="tts-rate-sel" class="select-field" style="width:auto;padding:5px 10px;font-size:13px;">
@@ -4113,7 +4097,6 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     // Controles de Voz
     root.querySelector('#tts-male-btn').onclick = () => {
       state.settings.voiceGender = 'male';
-      state.settings.voicePersona = 'gemini-pastor';
       state.settings.voiceId = '';
       writeStore(KEYS.SETTINGS, state.settings);
       updateActiveVoiceLabel();
@@ -4122,7 +4105,6 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     };
     root.querySelector('#tts-female-btn').onclick = () => {
       state.settings.voiceGender = 'female';
-      state.settings.voicePersona = 'gemini-narradora';
       state.settings.voiceId = '';
       writeStore(KEYS.SETTINGS, state.settings);
       updateActiveVoiceLabel();
