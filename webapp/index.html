@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#070B14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pregador Pro">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="Pregador Pro — Bancada Homilética, Bíblia Sagrada e Modo Púlpito com Sincronização Real.">
+
+  <title>Pregador Pro</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css?v=20261123_6">
+</head>
+<body class="theme-dark">
+  <!-- Tela de Login Executiva -->
+  <div id="auth-screen" class="auth-screen hidden" role="dialog" aria-modal="true" aria-label="Acesso à Plataforma"></div>
+
+  <!-- Modal de Transição / Autenticação (3,5 segundos) para Login e Logoff -->
+  <div id="auth-transition-modal" class="auth-transition-backdrop hidden" role="alertdialog" aria-modal="true" aria-live="assertive">
+    <div class="auth-transition-card">
+      <div class="auth-transition-ring-wrap">
+        <div class="auth-transition-ring"></div>
+        <div class="auth-transition-ring-inner"></div>
+        <div id="auth-transition-icon" class="auth-transition-icon">🔐</div>
+      </div>
+      <div id="auth-transition-badge" class="auth-transition-badge">AUTENTICAÇÃO SEGURA • HSF</div>
+      <h2 id="auth-transition-title" class="auth-transition-title">Autenticando Acesso Ministerial</h2>
+      <p id="auth-transition-step" class="auth-transition-step">Validando credenciais e permissões ministeriais...</p>
+      <div class="auth-transition-progress-track">
+        <div id="auth-transition-progress-bar" class="auth-transition-progress-bar" style="width: 0%"></div>
+      </div>
+      <div class="auth-transition-meta">
+        <span id="auth-transition-status-tag">Criptografia Ativa</span>
+        <span id="auth-transition-pct" class="auth-transition-pct">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Shell: Renderização instantânea (< 50ms) -->
+  <div id="app" class="app-shell">
+    <!-- Sidebar Desktop / iPad Landscape -->
+    <aside id="sidebar" class="sidebar" aria-label="Navegação Principal">
+      <div class="sidebar-brand">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+          <div class="brand-badge">
+            <span class="brand-icon" aria-hidden="true">📖</span>
+            <div>
+              <div class="brand-title">Pregador <span class="gold-pill">PRO</span></div>
+              <div class="brand-sub">Bancada Homilética</div>
+            </div>
+          </div>
+          <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="Ocultar Barra Lateral (Ctrl + B)" aria-label="Ocultar Barra Lateral">
+            ◀
+          </button>
+        </div>
+        <button id="sidebar-new-sermon-btn" class="btn btn-primary btn-block">
+          <span>＋</span> Novo Sermão
+        </button>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user-wrap">
+          <div id="sidebar-user-menu" class="sidebar-user-menu hidden" role="menu" aria-label="Menu do Usuário"></div>
+          <div class="sidebar-user" id="sidebar-user-card" role="button" tabindex="0" aria-haspopup="true" title="Clique para opções da conta e Logoff"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <div class="main-column">
+      <!-- Botão Flutuante Desktop para Reabrir Barra Lateral quando Oculta -->
+      <button id="desktop-sidebar-expand-btn" class="desktop-sidebar-expand-btn hidden" title="Exibir Barra Lateral (Ctrl + B)" aria-label="Exibir Barra Lateral">
+        <span>📖</span>
+        <span style="font-size:12.5px;font-weight:700;">Menu</span>
+        <span style="font-size:11px;">▶</span>
+      </button>
+
+      <!-- Mobile Top Bar -->
+      <header id="mobile-topbar" class="mobile-topbar">
+        <div class="topbar-left">
+          <span class="topbar-logo">📖</span>
+          <span class="topbar-title" id="topbar-title">Pregador Pro</span>
+        </div>
+        <div class="topbar-actions">
+          <span id="mobile-sync-badge" class="mini-badge">Pronto</span>
+          <button id="topbar-theme-btn" class="icon-btn" title="Alternar Tema" aria-label="Alternar Tema">🌓</button>
+          <button id="topbar-logout-btn" class="icon-btn" title="Sair da Conta (Logoff)" aria-label="Sair da Conta" style="color:var(--danger);border-color:rgba(239,68,68,0.35);">🚪</button>
+        </div>
+      </header>
+
+      <!-- Dynamic Screen Container -->
+      <main id="main-content" class="main-content" role="main">
+        <div class="boot-skeleton">
+          <div class="spinner"></div>
+          <p>Carregando seu acervo...</p>
+        </div>
+      </main>
+    </div>
+
+    <!-- Bottom Tab Bar Mobile (Estilo iOS 18 Glass) -->
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Menu Mobile"></nav>
+  </div>
+
+  <!-- Fullscreen Pulpit Mode Overlay -->
+  <div id="pulpit-overlay" class="pulpit-overlay hidden" role="dialog" aria-modal="true"></div>
+
+  <!-- Reusable Bottom Sheet / Modal Layer -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="modal-sheet" class="modal-sheet" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <!-- Toast / Undo Snackbar Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Printable A4 Sermon Container -->
+  <div id="print-area" class="print-area"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!window._swReloading) {
+          window._swReloading = true;
+          window.location.reload();
+        }
+      });
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js?v=20261123_6').then(function (reg) {
+          try { reg.update(); } catch (_) {}
+        }).catch(function () {});
+      });
+    }
+  </script>
+  <script src="sourceProtection.js?v=20261123_6" defer></script>
+  <script src="app.js?v=20261123_6" defer></script>
+</body>
+</html>
+
