@@ -2729,7 +2729,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             </div>
           </div>
           <button id="ai-generate-btn" class="btn btn-purple btn-block" ${state.ai.isLoading ? 'disabled' : ''}>
-            ${state.ai.isLoading ? '⏳ Elaborando Esboço com IA (Aguarde alguns segundos)...' : '✨ Gerar Esboço com Gemini Pro (5 Tópicos)'}
+            ${state.ai.isLoading ? '⏳ Conectando à Nuvem Google AI e Gerando Esboço...' : `✨ Gerar Esboço com ${esc(modelName)} (5 Tópicos)`}
           </button>
           ${state.ai.isLoading ? `
             <div style="background:rgba(139,92,246,0.08);border:1px dashed var(--primary);border-radius:12px;padding:26px 16px;text-align:center;margin-top:16px;">
