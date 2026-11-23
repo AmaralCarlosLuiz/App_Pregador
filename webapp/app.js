@@ -589,6 +589,7 @@
     voiceGender: 'male', // 'male' | 'female'
     voiceRate: 1.0,
     voiceId: '',
+    useNeuralAudio: true, // Voz Neural Gemini HD com timbre humano real
     geminiKey: '',
     geminiModel: 'gemini-1.5-flash',
     geminiDiscoveredModels: {},
@@ -1279,6 +1280,110 @@
     updateActiveVoiceLabel();
   }
 
+  // =========================================================================
+  // MOTOR DE ÁUDIO BÍBLICO DUPLO: NEURAL GEMINI HD (ESTÚDIO) + FALLBACK NATIVO
+  // =========================================================================
+  const _neuralAudioCache = new Map();
+
+  function pcmToWavBlob(pcmData, sampleRate = 24000) {
+    const pcmBytes = typeof pcmData === 'string'
+      ? Uint8Array.from(atob(pcmData), (c) => c.charCodeAt(0))
+      : pcmData;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+    const blockAlign = (numChannels * bitsPerSample) / 8;
+    const wavHeader = new ArrayBuffer(44);
+    const view = new DataView(wavHeader);
+
+    // "RIFF"
+    view.setUint8(0, 0x52); view.setUint8(1, 0x49); view.setUint8(2, 0x46); view.setUint8(3, 0x46);
+    view.setUint32(4, 36 + pcmBytes.byteLength, true);
+    // "WAVE"
+    view.setUint8(8, 0x57); view.setUint8(9, 0x41); view.setUint8(10, 0x56); view.setUint8(11, 0x45);
+    // "fmt "
+    view.setUint8(12, 0x66); view.setUint8(13, 0x6d); view.setUint8(14, 0x74); view.setUint8(15, 0x20);
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    // "data"
+    view.setUint8(36, 0x64); view.setUint8(37, 0x61); view.setUint8(38, 0x74); view.setUint8(39, 0x61);
+    view.setUint32(40, pcmBytes.byteLength, true);
+
+    return new Blob([wavHeader, pcmBytes], { type: 'audio/wav' });
+  }
+
+  async function fetchGeminiNeuralAudio(text, preferMale, apiKey) {
+    if (!apiKey) return null;
+    const cacheKey = `${preferMale ? 'm' : 'f'}|${text}`;
+    if (_neuralAudioCache.has(cacheKey)) {
+      return _neuralAudioCache.get(cacheKey);
+    }
+
+    const voiceName = preferMale ? 'Charon' : 'Aoede';
+    const direction = preferMale
+      ? 'Leia em voz alta em Português do Brasil com dicção bíblica solene, voz masculina grave, calorosa e calma de pastor, ritmo devocional sereno. Leia apenas o texto bíblico sem comentários:\n\n'
+      : 'Leia em voz alta em Português do Brasil com dicção bíblica suave, voz feminina doce, clara e acolhedora de narradora, ritmo devocional sereno. Leia apenas o texto bíblico sem comentários:\n\n';
+
+    const ttsModels = ['gemini-2.5-flash-preview-tts', 'gemini-2.0-flash'];
+
+    for (const model of ttsModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetchGeminiWithRetry(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${direction}${text}` }] }],
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: voiceName,
+                    },
+                  },
+                },
+              },
+            }),
+          },
+          0,
+          10000
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const parts = data?.candidates?.[0]?.content?.parts || [];
+          let inline = null;
+          for (const p of parts) {
+            if (p.inlineData && p.inlineData.data) {
+              inline = p.inlineData;
+              break;
+            }
+          }
+          if (inline) {
+            const mime = inline.mimeType || '';
+            const rateMatch = mime.match(/rate=(\d+)/);
+            const rate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+            const blob = pcmToWavBlob(inline.data, rate);
+            const audioUrl = URL.createObjectURL(blob);
+            _neuralAudioCache.set(cacheKey, audioUrl);
+            return audioUrl;
+          }
+        }
+      } catch (err) {
+        console.warn(`[Gemini Neural TTS] Falha no modelo ${model}:`, err);
+      }
+    }
+    return null;
+  }
+
   function pickBestBrowserVoice(preferMale, specificId) {
     const list = state.tts.voices;
     if (!list.length) return null;
@@ -1293,7 +1398,7 @@
     const genderMatches = list.filter((v) => (preferMale ? v.isMale : v.isFemale));
 
     if (genderMatches.length > 0) {
-      // Prioridade: voz Natural / Neural
+      // Prioridade: voz Natural / Neural (ex: Antonio Natural / Francisca Natural do Edge)
       const natural = genderMatches.find((v) => v.isNatural);
       if (natural) return natural;
 
@@ -1320,6 +1425,16 @@
 
   function updateActiveVoiceLabel() {
     const isMale = state.settings.voiceGender === 'male';
+    const apiKey = state.settings.geminiKey?.trim();
+    const useNeural = state.settings.useNeuralAudio !== false && apiKey;
+
+    if (useNeural) {
+      state.tts.activeLabel = isMale
+        ? '✨ Voz Neural Gemini HD • Charon (Púlpito Masculino)'
+        : '✨ Voz Neural Gemini HD • Aoede (Narradora Feminina)';
+      return;
+    }
+
     const picked = pickBestBrowserVoice(isMale, state.settings.voiceId);
     if (picked) {
       const genderTxt = picked.isMale ? 'Masculina' : picked.isFemale ? 'Feminina' : (isMale ? 'Masculina' : 'Feminina');
@@ -1329,7 +1444,23 @@
     }
   }
 
-  function sampleVoice(voiceId) {
+  async function sampleVoice(voiceId) {
+    const isMale = state.settings.voiceGender === 'male';
+    const apiKey = state.settings.geminiKey?.trim();
+    const useNeural = state.settings.useNeuralAudio !== false && apiKey && !voiceId;
+
+    if (useNeural) {
+      showToast('Gerando amostra da Voz Neural Gemini HD...', 'info');
+      const audioUrl = await fetchGeminiNeuralAudio('O Senhor é o meu pastor; nada me faltará.', isMale, apiKey);
+      if (audioUrl) {
+        if (!_ttsAudioEl) _ttsAudioEl = new Audio();
+        _ttsAudioEl.src = audioUrl;
+        _ttsAudioEl.playbackRate = state.settings.voiceRate || 1.0;
+        _ttsAudioEl.play().catch(() => {});
+        return;
+      }
+    }
+
     if (!('speechSynthesis' in window)) return;
     try { window.speechSynthesis.cancel(); } catch (_) {}
     const v = state.tts.voices.find((x) => x.id === voiceId || x.name === voiceId);
@@ -1368,44 +1499,17 @@
     return `${v.verse}. ${clean}`;
   }
 
-  async function speakQueueItem(includeHeader = true, interruptPrev = true) {
-    const item = state.tts.queue[state.tts.index];
-    if (!item) return stopBibleSpeech();
-    const token = ++_ttsToken;
-    clearInterval(_ttsKeepAlive);
-
-    if (interruptPrev) {
-      try { window.speechSynthesis?.cancel(); } catch (_) {}
-    }
-
-    const preferMale = state.settings.voiceGender === 'male';
-    const text = formatSpokenVerse(item, includeHeader && state.tts.index === 0, state.tts.queue.length === 1);
-    updateActiveVoiceLabel();
-    if (state.tab === 'bible') renderMain();
-
+  function fallbackToBrowserSpeech(text, preferMale, token) {
     if (!('speechSynthesis' in window)) {
       showToast('Navegador sem suporte a leitura em voz.', 'error');
       return stopBibleSpeech();
     }
-
-    // Leitura contínua fluida sem lentidão
-    if (interruptPrev) {
-      await new Promise((r) => setTimeout(r, 20));
-    }
-    if (token !== _ttsToken) return;
-
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'pt-BR';
-
     const picked = pickBestBrowserVoice(preferMale, state.settings.voiceId);
-    let baseRate = state.settings.voiceRate || 1.0;
-
-    if (picked) {
-      utt.voice = picked.raw;
-    }
-
-    utt.rate = Math.min(2.0, Math.max(0.5, baseRate));
-    utt.pitch = 1.0; // Timbre natural 100% autêntico da gravação
+    if (picked) utt.voice = picked.raw;
+    utt.rate = Math.min(2.0, Math.max(0.5, state.settings.voiceRate || 1.0));
+    utt.pitch = 1.0;
 
     utt.onend = () => {
       clearInterval(_ttsKeepAlive);
@@ -1417,7 +1521,6 @@
       if (ev.error === 'canceled' || ev.error === 'interrupted') return;
       stopBibleSpeech();
     };
-
     window.speechSynthesis.speak(utt);
 
     _ttsKeepAlive = setInterval(() => {
@@ -1427,6 +1530,65 @@
         window.speechSynthesis.resume();
       }
     }, 8000);
+  }
+
+  async function speakQueueItem(includeHeader = true, interruptPrev = true) {
+    const item = state.tts.queue[state.tts.index];
+    if (!item) return stopBibleSpeech();
+    const token = ++_ttsToken;
+    clearInterval(_ttsKeepAlive);
+
+    if (interruptPrev) {
+      try { window.speechSynthesis?.cancel(); } catch (_) {}
+      if (_ttsAudioEl) {
+        try { _ttsAudioEl.pause(); } catch (_) {}
+      }
+    }
+
+    const preferMale = state.settings.voiceGender === 'male';
+    const text = formatSpokenVerse(item, includeHeader && state.tts.index === 0, state.tts.queue.length === 1);
+    updateActiveVoiceLabel();
+    if (state.tab === 'bible') renderMain();
+
+    const apiKey = state.settings.geminiKey?.trim();
+    const useNeural = state.settings.useNeuralAudio !== false && Boolean(apiKey) && navigator.onLine && !state.settings.voiceId;
+
+    if (useNeural) {
+      try {
+        const audioUrl = await fetchGeminiNeuralAudio(text, preferMale, apiKey);
+        if (token !== _ttsToken) return;
+        if (audioUrl) {
+          if (!_ttsAudioEl) _ttsAudioEl = new Audio();
+          _ttsAudioEl.src = audioUrl;
+          _ttsAudioEl.playbackRate = Math.min(2.0, Math.max(0.5, state.settings.voiceRate || 1.0));
+          _ttsAudioEl.onended = () => {
+            if (token === _ttsToken) advanceTtsQueue();
+          };
+          _ttsAudioEl.onerror = () => {
+            console.warn('[Audio Player] Erro no player neural; alternando para sintetizador nativo.');
+            fallbackToBrowserSpeech(text, preferMale, token);
+          };
+          await _ttsAudioEl.play();
+
+          // Pré-busca do próximo versículo em segundo plano para eliminar latência
+          if (state.tts.index + 1 < state.tts.queue.length) {
+            const nextItem = state.tts.queue[state.tts.index + 1];
+            const nextText = formatSpokenVerse(nextItem, false, false);
+            fetchGeminiNeuralAudio(nextText, preferMale, apiKey).catch(() => {});
+          }
+          return;
+        }
+      } catch (neuralErr) {
+        console.warn('[Gemini Neural TTS] Recorrendo ao sintetizador local do aparelho:', neuralErr);
+      }
+    }
+
+    // Fallback para o sintetizador do aparelho
+    if (interruptPrev) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    if (token !== _ttsToken) return;
+    fallbackToBrowserSpeech(text, preferMale, token);
   }
 
   function advanceTtsQueue() {
@@ -1453,6 +1615,12 @@
     _ttsToken++;
     clearInterval(_ttsKeepAlive);
     try { window.speechSynthesis?.cancel(); } catch (_) {}
+    if (_ttsAudioEl) {
+      try {
+        _ttsAudioEl.pause();
+        _ttsAudioEl.currentTime = 0;
+      } catch (_) {}
+    }
     state.tts.isPlaying = false;
     state.tts.isPaused = false;
     state.tts.queue = [];
@@ -3775,25 +3943,45 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
   function openVoiceStudioModal() {
     refreshBrowserVoices();
     const isMale = state.settings.voiceGender === 'male';
+    const hasKey = Boolean(state.settings.geminiKey?.trim());
+    const useNeural = state.settings.useNeuralAudio !== false && hasKey;
 
     openModal(
       `
       <div class="modal-header">
-        <h3 class="modal-title">🎙️ Configuração de Voz da Bíblia (pt-BR)</h3>
+        <h3 class="modal-title">🎙️ Configuração de Áudio Bíblico (pt-BR)</h3>
         <button class="icon-btn-ghost" data-close-modal>✕</button>
       </div>
-      <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Voz Selecionada no Momento:</div>
+
+      <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.25);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Motor de Áudio Ativo no Momento:</div>
         <div style="font-size:14px;font-weight:800;color:var(--primary);display:flex;align-items:center;gap:6px;">
           <span>${isMale ? '👨' : '👩'}</span>
           <span>${esc(state.tts.activeLabel)}</span>
         </div>
       </div>
 
+      <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.3);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div>
+            <strong style="font-size:13px;display:flex;align-items:center;gap:5px;">
+              <span>💎</span> Voz Neural Gemini HD (Qualidade de Estúdio)
+            </strong>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">
+              ${hasKey ? 'Chave Pro ativa. Áudio humano real com dicção solene de púlpito (Charon / Aoede).' : 'Configure uma Chave Pro para desbloquear voz humana de estúdio.'}
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:700;">
+            <input type="checkbox" id="vs-neural-toggle" ${useNeural ? 'checked' : ''} ${!hasKey ? 'disabled' : ''} style="width:18px;height:18px;">
+            Ativada
+          </label>
+        </div>
+      </div>
+
       <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
         Escolha o Gênero da Leitura:
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <button class="btn ${isMale && !state.settings.voiceId ? 'btn-primary' : 'btn-outline'}" id="vs-male" style="padding:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
           👨 Voz Masculina
         </button>
@@ -3802,26 +3990,34 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         </button>
       </div>
 
+      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.45;color:var(--text);">
+        <strong>💡 Por que o som do Google Chrome parece mecânico/robótico?</strong><br>
+        O Chrome no Windows só acessa os sintetizadores de 2006 do sistema (<em>Microsoft Daniel e Maria</em>).<br>
+        <strong>Como ter áudio 100% humano:</strong><br>
+        1. <strong>Opção 1 (Grátis sem IA)</strong>: Abra o Pregador Pro no <strong>Microsoft Edge</strong>. O Edge já inclui de fábrica as vozes neurais de rádio <em>Antonio Natural</em> e <em>Francisca Natural</em>.<br>
+        2. <strong>Opção 2</strong>: Mantenha ativada a <strong>Voz Neural Gemini HD</strong> acima.
+      </div>
+
       <div style="font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
-        Vozes Reais Detectadas no Aparelho (${state.tts.voices.length}):
+        Sintetizadores Instalados no seu Dispositivo (${state.tts.voices.length}):
       </div>
       ${state.tts.voices.length > 0 ? `
-        <div style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:16px;">
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:160px;overflow-y:auto;margin-bottom:14px;">
           ${state.tts.voices.map((v) => {
-            const isCur = state.settings.voiceId === v.id || (!state.settings.voiceId && ((isMale && v.isMale) || (!isMale && v.isFemale)));
+            const isCur = state.settings.voiceId === v.id;
             return `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:var(--card-bg);border:1px solid ${isCur ? 'var(--primary)' : 'var(--border)'};gap:8px;">
-                <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:8px;background:var(--card-bg);border:1px solid ${isCur ? 'var(--primary)' : 'var(--border)'};gap:8px;">
+                <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                    <strong style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v.name)}</strong>
+                    <strong style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(v.name)}</strong>
                     <span class="tag ${v.isMale ? 'tag-blue' : 'tag-pink'}" style="font-size:10px;padding:1px 6px;">${v.isMale ? 'Masculina' : v.isFemale ? 'Feminina' : 'Neutra'}</span>
-                    ${v.isNatural ? `<span class="tag tag-gold" style="font-size:10px;padding:1px 6px;">Natural</span>` : ''}
+                    ${v.isNatural ? `<span class="tag tag-gold" style="font-size:10px;padding:1px 6px;">Natural HD</span>` : ''}
                   </div>
                   <span style="font-size:11px;color:var(--text-muted);">${esc(v.lang)}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <button class="btn btn-xs btn-outline" data-sample-voice="${esc(v.id)}" title="Ouvir amostra desta voz">▶ Ouvir</button>
-                  <button class="btn btn-xs ${isCur ? 'btn-primary' : 'btn-outline'}" data-pick-voice="${esc(v.id)}" title="Definir esta voz para leitura">
+                  <button class="btn btn-xs btn-outline" data-sample-voice="${esc(v.id)}" title="Ouvir amostra">▶ Ouvir</button>
+                  <button class="btn btn-xs ${isCur ? 'btn-primary' : 'btn-outline'}" data-pick-voice="${esc(v.id)}" title="Selecionar">
                     ${isCur ? '✓ Ativa' : 'Selecionar'}
                   </button>
                 </div>
@@ -3830,15 +4026,26 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
           }).join('')}
         </div>
       ` : `
-        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Nenhuma voz pt-BR adicional detectada no navegador; usando síntese padrão do sistema.</p>
+        <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Nenhum sintetizador adicional detectado.</p>
       `}
 
       <button class="btn btn-gold btn-block" id="vs-test-btn" style="padding:12px;font-weight:800;">
-        ▶ Testar Leitura Bíblica Agora (Salmos 23:1)
+        ▶ Testar Áudio Bíblico Agora (Salmos 23:1)
       </button>
       `,
       (sheet) => {
         sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+
+        const neuralTgl = sheet.querySelector('#vs-neural-toggle');
+        if (neuralTgl) {
+          neuralTgl.onchange = (e) => {
+            state.settings.useNeuralAudio = e.target.checked;
+            if (e.target.checked) state.settings.voiceId = '';
+            writeStore(KEYS.SETTINGS, state.settings);
+            updateActiveVoiceLabel();
+            openVoiceStudioModal();
+          };
+        }
 
         sheet.querySelector('#vs-male').onclick = () => {
           state.settings.voiceGender = 'male';
@@ -3867,6 +4074,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             const vId = b.dataset.pickVoice;
             const found = state.tts.voices.find((x) => x.id === vId);
             state.settings.voiceId = vId;
+            state.settings.useNeuralAudio = false; // Desativa neural se o usuário escolher explicitamente uma voz do aparelho
             if (found) {
               state.settings.voiceGender = found.isMale ? 'male' : 'female';
             }
