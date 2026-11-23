@@ -1488,11 +1488,30 @@
   // MOTOR DE IA GEMINI PRO • RESILIÊNCIA ENTERPRISE & ALTA DISPONIBILIDADE
   // =========================================================================
   const OFFICIAL_DEFAULT_MODELS = {
-    'gemini-3.8-flash': 'Gemini 3.8 Flash (Padrão Oficial • Recomendado Google)',
+    'gemini-1.5-flash': 'Gemini 1.5 Flash (Oficial Google • Alta Disponibilidade & Sem Erro 503)',
+    'gemini-3.1-pro-preview': 'Gemini 3.1 Pro Preview (Recomendado Oficial Google AI)',
+    'gemini-1.5-pro': 'Gemini 1.5 Pro (Exegese Bíblica Profunda & Raciocínio)',
+    'gemini-3.8-flash': 'Gemini 3.8 Flash (Nova Geração Google)',
     'gemini-2.5-flash': 'Gemini 2.5 Flash (Ultra-Rápido & Estável)',
-    'gemini-1.5-pro': 'Gemini 1.5 Pro (Homilética Profunda & Exegese)',
-    'gemini-1.5-flash': 'Gemini 1.5 Flash (Alta Disponibilidade)',
   };
+
+  // Modelos descontinuados ou com quota zero no Free Tier que devem ser expurgados
+  const BLACKLISTED_GEMINI_PATTERNS = [
+    /omni/i,           // Quota zero no tier gratuito (Erro 429 quota limit 0)
+    /2\.0-flash/i,     // Descontinuado pelo Google (Erro 404)
+    /2\.5-pro/i,       // Descontinuado pelo Google (Erro 404)
+    /vision/i,         // Modelos legados de visão sem chat estruturado
+    /embedding/i,      // Apenas vetores
+    /aqa/i,            // Atribuição de perguntas
+    /realtime/i,       // WebRTC streaming
+    /tts/i,            // Áudio puro
+    /imagen/i,         // Geração de imagem
+  ];
+
+  function isGeminiModelBlacklisted(modelName) {
+    if (!modelName) return true;
+    return BLACKLISTED_GEMINI_PATTERNS.some((pattern) => pattern.test(modelName));
+  }
 
   function sleepMs(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1501,24 +1520,40 @@
   function scoreGeminiModel(cleanId) {
     let score = 0;
     const lower = (cleanId || '').toLowerCase();
-    if (lower.includes('3.8')) score += 1000;
-    else if (lower.includes('3.6')) score += 900;
-    else if (lower.includes('3.')) score += 800;
-    else if (lower.includes('2.5')) score += 700;
-    else if (lower.includes('2.0')) score += 600;
-    else if (lower.includes('1.5')) score += 500;
+
+    // Modelos banidos recebem pontuação negativa extrema
+    if (isGeminiModelBlacklisted(lower)) return -999999;
+
+    // Modelos de produção com alta disponibilidade e sem erro 503
+    if (lower === 'gemini-1.5-flash') score += 2000; // O cavalo de batalha com maior quota e estabilidade
+    else if (lower === 'gemini-3.1-pro-preview') score += 1900; // Recomendação explícita do Google
+    else if (lower === 'gemini-1.5-pro') score += 1800; // Excelente exegese bíblica
+    else if (lower === 'gemini-3.8-flash') score += 1600; // Novo, porém sujeito a picos de demanda
+    else if (lower === 'gemini-2.5-flash') score += 1500;
+    else if (lower.includes('3.8')) score += 1200;
+    else if (lower.includes('3.1')) score += 1100;
+    else if (lower.includes('1.5')) score += 1000;
+    else if (lower.includes('2.5')) score += 800;
     else score += 100;
 
-    if (lower.includes('flash')) score += 60;
-    if (lower.includes('pro')) score += 40;
-    if (lower.includes('exp') || lower.includes('preview')) score -= 250;
+    if (lower.includes('flash')) score += 50;
+    if (lower.includes('pro')) score += 30;
     return score;
   }
 
   function getAvailableGeminiModels() {
     const custom = state.settings.geminiDiscoveredModels;
     if (custom && Object.keys(custom).length > 0) {
-      return custom;
+      // Filtra dinamicamente para garantir que nenhum modelo banido permaneça
+      const cleanCustom = {};
+      Object.entries(custom).forEach(([k, v]) => {
+        if (!isGeminiModelBlacklisted(k)) {
+          cleanCustom[k] = v;
+        }
+      });
+      if (Object.keys(cleanCustom).length > 0) {
+        return cleanCustom;
+      }
     }
     return { ...OFFICIAL_DEFAULT_MODELS };
   }
@@ -1576,9 +1611,7 @@
         return (
           methods.includes('generateContent') &&
           name.includes('gemini') &&
-          !name.includes('vision') &&
-          !name.includes('embedding') &&
-          !name.includes('aqa')
+          !isGeminiModelBlacklisted(name)
         );
       });
 
@@ -1587,7 +1620,7 @@
         return { success: true, count: 0, newModels: [] };
       }
 
-      // Ordena por pontuação de estabilidade e modernidade (3.8 > 2.5 > 1.5, estáveis antes de previews)
+      // Ordena por pontuação de estabilidade e disponibilidade
       generationModels.sort((a, b) => {
         const idA = (a.name || '').replace(/^models\//, '');
         const idB = (b.name || '').replace(/^models\//, '');
@@ -1599,25 +1632,39 @@
 
       generationModels.forEach((m) => {
         const cleanId = (m.name || '').replace(/^models\//, '');
-        const label = m.displayName
+        let label = m.displayName
           ? `${m.displayName} (${cleanId})`
           : `${cleanId} (Google AI Oficial)`;
+        if (cleanId === 'gemini-1.5-flash') {
+          label = 'Gemini 1.5 Flash (Oficial Google • Alta Disponibilidade)';
+        } else if (cleanId === 'gemini-3.1-pro-preview') {
+          label = 'Gemini 3.1 Pro Preview (Recomendado Oficial Google AI)';
+        } else if (cleanId === 'gemini-1.5-pro') {
+          label = 'Gemini 1.5 Pro (Exegese Bíblica Profunda)';
+        } else if (cleanId === 'gemini-3.8-flash') {
+          label = 'Gemini 3.8 Flash (Nova Geração Google)';
+        }
+
         if (!state.settings.geminiDiscoveredModels?.[cleanId]) {
           newModels.push(cleanId);
         }
         currentGoogleModels[cleanId] = label;
       });
 
+      // Garante que os modelos âncora essenciais estejam presentes
+      Object.entries(OFFICIAL_DEFAULT_MODELS).forEach(([k, v]) => {
+        if (!currentGoogleModels[k] && !isGeminiModelBlacklisted(k)) {
+          currentGoogleModels[k] = v;
+        }
+      });
+
       state.settings.geminiDiscoveredModels = currentGoogleModels;
       state.settings.geminiLastModelSync = new Date().toISOString();
 
-      // Se o modelo ativo não estiver na lista ou for vazio, adota o modelo de maior pontuação
-      if (!currentGoogleModels[state.settings.geminiModel]) {
-        const sortedIds = Object.keys(currentGoogleModels);
-        const preferred = currentGoogleModels['gemini-3.8-flash']
-          ? 'gemini-3.8-flash'
-          : sortedIds[0];
-        state.settings.geminiModel = preferred;
+      // Sanitiza modelo ativo caso seja nulo, banido ou descontinuado
+      const curMod = (state.settings.geminiModel || '').replace(/^models\//, '');
+      if (!currentGoogleModels[curMod] || isGeminiModelBlacklisted(curMod)) {
+        state.settings.geminiModel = 'gemini-1.5-flash';
       }
       writeStore(KEYS.SETTINGS, state.settings);
 
@@ -1626,7 +1673,7 @@
       } else if (!silent) {
         showToast(`✓ Catálogo atualizado: ${Object.keys(currentGoogleModels).length} modelos ativos operacionais para sua chave.`, 'success');
       }
-      return { success: true, count: generationModels.length, newModels };
+      return { success: true, count: Object.keys(currentGoogleModels).length, newModels };
     } catch (e) {
       if (!silent) showToast(`Erro ao sincronizar modelos: ${e.message}`, 'error');
       return { success: false, reason: e.message };
@@ -1636,17 +1683,24 @@
   // Cascata Resiliente de Chamadas JSON ao Gemini
   async function callGeminiJsonWithCascade(prompt, preferredModel, apiKey) {
     const avail = getAvailableGeminiModels();
-    const cleanPref = (preferredModel || 'gemini-3.8-flash').replace(/^models\//, '');
+    let cleanPref = (preferredModel || 'gemini-1.5-flash').replace(/^models\//, '');
+    if (isGeminiModelBlacklisted(cleanPref)) {
+      cleanPref = 'gemini-1.5-flash';
+    }
 
-    // Constrói a fila de modelos ordenados por resiliência
-    const pool = [cleanPref, 'gemini-3.8-flash', ...Object.keys(avail)];
-    pool.sort((a, b) => {
-      if (a === cleanPref) return -1;
-      if (b === cleanPref) return 1;
-      return scoreGeminiModel(b) - scoreGeminiModel(a);
+    // Pool prioritário: modelos de alta estabilidade garantem resposta instantânea
+    const basePriority = ['gemini-1.5-flash', 'gemini-3.1-pro-preview', 'gemini-1.5-pro', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+    const pool = [cleanPref, ...basePriority, ...Object.keys(avail)];
+
+    const candidateSet = new Set();
+    const uniqueCandidates = [];
+    pool.forEach((m) => {
+      if (m && !isGeminiModelBlacklisted(m) && !candidateSet.has(m)) {
+        candidateSet.add(m);
+        uniqueCandidates.push(m);
+      }
     });
 
-    const uniqueCandidates = Array.from(new Set(pool.filter(Boolean)));
     let lastErrorMsg = '';
 
     for (let i = 0; i < uniqueCandidates.length; i++) {
@@ -1666,7 +1720,7 @@
               },
             }),
           },
-          2 // 2 retries automáticos com backoff
+          1 // 1 retry por modelo antes de avançar para o próximo na cascata
         );
 
         if (res.ok) {
@@ -1687,13 +1741,14 @@
           lastErrorMsg = errData?.error?.message || `HTTP ${res.status}`;
           console.warn(`[Gemini Cascade] ${model} retornou ${res.status}: ${lastErrorMsg}`);
 
-          // Auto-healing se a mensagem sugerir um modelo novo
+          // Se a resposta sugerir um novo modelo oficial (ex: gemini-3.1-pro-preview), insere na fila
           const match = lastErrorMsg.match(/(?:use|to)\s+models\/([a-zA-Z0-9_.-]+)/i);
-          if (match && match[1] && !uniqueCandidates.includes(match[1])) {
+          if (match && match[1] && !candidateSet.has(match[1]) && !isGeminiModelBlacklisted(match[1])) {
+            candidateSet.add(match[1]);
             uniqueCandidates.splice(i + 1, 0, match[1]);
           }
 
-          // Se for 503 (alta demanda) ou 404 (depreciado), avança na esteira
+          // Se for 503 (alta demanda), 404 (depreciado) ou 429 (quota), continua na cascata
           if (i < uniqueCandidates.length - 1) {
             continue;
           }
@@ -1720,7 +1775,8 @@
     const cleanRef = ref.trim() || 'Salmos 22 / Mateus 27:35-50';
     const cleanType = sermonType || 'Expositivo';
     const apiKey = state.settings.geminiKey?.trim();
-    let chosenModel = (state.settings.geminiModel || 'gemini-3.8-flash').replace(/^models\//, '');
+    let chosenModel = (state.settings.geminiModel || 'gemini-1.5-flash').replace(/^models\//, '');
+    let lastApiError = '';
 
     // Sanitiza apenas se o modelo for expressamente o já depreciado pelo Google
     if (chosenModel === 'gemini-2.0-flash') {
@@ -1794,6 +1850,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         };
       }
       if (!cascadeRes.success && cascadeRes.error) {
+        lastApiError = cascadeRes.error;
         showToast(`Google AI: ${cascadeRes.error}. Exibindo contingência local estruturada.`, 'warning');
       }
     } else if (!apiKey) {
@@ -2728,20 +2785,27 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
       return;
     }
 
-    statusEl.innerHTML = '<span style="color:var(--primary);font-weight:600;">Verificando integridade e conectividade com Google AI...</span>';
+    statusEl.innerHTML = '<span style="color:var(--primary);font-weight:600;">Verificando conectividade e integridade com Google AI...</span>';
 
     const avail = getAvailableGeminiModels();
-    const cleanMod = (selectedModel || 'gemini-3.8-flash').replace(/^models\//, '');
-    const pool = [cleanMod, 'gemini-3.8-flash', ...Object.keys(avail)];
-    pool.sort((a, b) => {
-      if (a === cleanMod) return -1;
-      if (b === cleanMod) return 1;
-      return scoreGeminiModel(b) - scoreGeminiModel(a);
+    let cleanMod = (selectedModel || 'gemini-1.5-flash').replace(/^models\//, '');
+    
+    // Lista de candidatos priorizando modelos estáveis e sem erro 503
+    const basePriority = ['gemini-1.5-flash', 'gemini-3.1-pro-preview', 'gemini-1.5-pro', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+    const pool = [cleanMod, ...basePriority, ...Object.keys(avail)];
+
+    const candidateSet = new Set();
+    const candidates = [];
+    pool.forEach((m) => {
+      if (m && !isGeminiModelBlacklisted(m) && !candidateSet.has(m)) {
+        candidateSet.add(m);
+        candidates.push(m);
+      }
     });
-    const candidates = Array.from(new Set(pool.filter(Boolean)));
 
     let lastErr = '';
-    let had503 = false;
+    let hadErrorOnInitial = false;
+    let initialErrorMsg = '';
 
     for (let i = 0; i < candidates.length; i++) {
       const modToTest = candidates[i];
@@ -2761,22 +2825,23 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         if (res.ok) {
           const latency = Math.round(performance.now() - startTime);
           if (modToTest !== cleanMod) {
-            // O modelo original estava com 503 / sobrecarregado, mas a cascata encontrou um modelo 100% ativo!
+            // O modelo selecionado inicialmente falhou (503 / 404 / 429), mas a migração automática encontrou um modelo operacional
             state.settings.geminiModel = modToTest;
             writeStore(KEYS.SETTINGS, state.settings);
             if (selEl) {
               selEl.value = modToTest;
             }
             statusEl.innerHTML = `
-              <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:8px 12px;color:var(--green);font-size:12.5px;line-height:1.45;">
-                <strong>✓ Conexão Ativa & Operacional!</strong><br>
-                O modelo <code>${cleanMod}</code> estava com pico temporário de demanda (503). O sistema alternou automaticamente para <strong>${modToTest}</strong> (${latency}ms) que respondeu com êxito!
+              <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:9px 12px;color:var(--green);font-size:12.5px;line-height:1.45;">
+                <strong>✓ Conexão Ativa & Migração Automática Realizada!</strong><br>
+                O modelo <code>${cleanMod}</code> retornou instabilidade na Google AI (${esc(initialErrorMsg || 'Carga Alta 503')}).<br>
+                O sistema migrou e ativou automaticamente <strong>${modToTest}</strong> (${latency}ms) para garantir funcionamento 100% contínuo!
               </div>`;
           } else {
             statusEl.innerHTML = `
-              <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:8px 12px;color:var(--green);font-size:12.5px;line-height:1.45;">
+              <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:9px 12px;color:var(--green);font-size:12.5px;line-height:1.45;">
                 <strong>✓ Conexão confirmada com ${esc(modToTest)}!</strong><br>
-                Latência de resposta: ${latency}ms • Motor Homilético 100% pronto.
+                Latência de resposta: ${latency}ms • Motor Homilético 100% operacional.
               </div>`;
           }
           syncGeminiModelsFromGoogle(key, { silent: true });
@@ -2784,24 +2849,27 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         } else {
           const errData = await res.json().catch(() => ({}));
           lastErr = errData?.error?.message || `HTTP ${res.status}`;
-          if (res.status === 503) had503 = true;
-          statusEl.innerHTML = `<span style="color:var(--gold);font-size:12px;">⚠️ ${modToTest} sob demanda. Testando modelo alternativo...</span>`;
+          if (i === 0) {
+            hadErrorOnInitial = true;
+            initialErrorMsg = lastErr;
+          }
+          statusEl.innerHTML = `<span style="color:var(--gold);font-size:12px;">⚠️ ${modToTest} indisponível (${res.status}). Testando modelo alternativo de alta disponibilidade...</span>`;
         }
       } catch (e) {
         lastErr = e.message;
+        if (i === 0) {
+          hadErrorOnInitial = true;
+          initialErrorMsg = lastErr;
+        }
       }
     }
 
-    // Se nenhum modelo respondeu
-    if (had503 || lastErr.includes('high demand') || lastErr.includes('503')) {
-      statusEl.innerHTML = `
-        <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:8px 12px;color:var(--gold);font-size:12.5px;line-height:1.45;">
-          <strong>⚠️ Servidores Google AI sob alta demanda momentânea (Erro 503)</strong><br>
-          Sua chave é legítima e foi validada. O cluster global da Google AI passa por pico de acessos. O Pregador Pro fará tentativas automáticas com auto-recuperação ao gerar o esboço.
-        </div>`;
-    } else {
-      statusEl.innerHTML = `<div style="color:var(--danger);font-size:12.5px;font-weight:700;">Falha de autenticação: ${esc(lastErr || 'Verifique sua chave')}</div>`;
-    }
+    // Se nenhum modelo respondeu (geralmente chave errada ou rede)
+    statusEl.innerHTML = `
+      <div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:9px 12px;color:var(--danger);font-size:12.5px;line-height:1.45;">
+        <strong>Falha ao conectar com a Google AI Studio:</strong><br>
+        ${esc(lastErr || 'Verifique se a chave de API está correta e com faturamento/permissões ativas.')}
+      </div>`;
   }
 
   function openGeminiConfigModal(onDone = null) {
