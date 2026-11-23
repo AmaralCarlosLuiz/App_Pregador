@@ -590,7 +590,9 @@
     voiceRate: 0.96,
     voiceId: '',
     geminiKey: '',
-    geminiModel: 'gemini-2.5-pro',
+    geminiModel: 'gemini-1.5-pro',
+    geminiDiscoveredModels: {},
+    geminiLastModelSync: null,
   };
 
   function applyThemeAndPalette() {
@@ -1510,51 +1512,156 @@
   }
 
   // =========================================================================
-  // MOTOR DE IA GEMINI PRO + CONTINGÊNCIA EXEGÉTICA
+  // MOTOR DE IA GEMINI PRO + CATÁLOGO OFICIAL GOOGLE AI COM AUTO-ATUALIZAÇÃO
   // =========================================================================
-  const GEMINI_MODELS = {
-    'gemini-2.5-pro': 'Gemini 2.5 Pro (Padrão • Máxima Exegese)',
-    'gemini-3-pro-preview': 'Gemini 3 Pro Preview (Raciocínio Avançado)',
-    'gemini-2.5-flash': 'Gemini 2.5 Flash (Resposta Ultrarrápida)',
+  const OFFICIAL_DEFAULT_MODELS = {
+    'gemini-1.5-pro': 'Gemini 1.5 Pro (Padrão Ouro • Máxima Exegese)',
+    'gemini-1.5-flash': 'Gemini 1.5 Flash (Resposta Ultrarrápida)',
+    'gemini-2.0-flash': 'Gemini 2.0 Flash (Nova Geração • Alta Performance)',
+    'gemini-2.0-flash-exp': 'Gemini 2.0 Flash Experimental',
   };
 
+  function getAvailableGeminiModels() {
+    const custom = state.settings.geminiDiscoveredModels || {};
+    return { ...OFFICIAL_DEFAULT_MODELS, ...custom };
+  }
+
+  async function syncGeminiModelsFromGoogle(keyToUse = null, { silent = false } = {}) {
+    const key = (keyToUse || state.settings.geminiKey || '').trim();
+    if (!key) {
+      if (!silent) showToast('Informe uma Chave Gemini válida para sincronizar modelos.', 'warning');
+      return { success: false, reason: 'Chave não informada' };
+    }
+    if (!navigator.onLine) {
+      if (!silent) showToast('Sem conexão à internet para sincronizar modelos do Google.', 'warning');
+      return { success: false, reason: 'Sem internet' };
+    }
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.error?.message || `HTTP ${res.status}`;
+        if (!silent) showToast(`Falha ao sincronizar modelos: ${msg}`, 'error');
+        return { success: false, reason: msg };
+      }
+      const data = await res.json();
+      const rawList = Array.isArray(data?.models) ? data.models : [];
+      const generationModels = rawList.filter((m) => {
+        const methods = m.supportedGenerationMethods || [];
+        const name = (m.name || '').toLowerCase();
+        return (
+          methods.includes('generateContent') &&
+          name.includes('gemini') &&
+          !name.includes('vision') &&
+          !name.includes('embedding') &&
+          !name.includes('aqa')
+        );
+      });
+
+      if (!generationModels.length) {
+        if (!silent) showToast('Nenhum modelo de geração retornado pela Google AI.', 'info');
+        return { success: true, count: 0, newModels: [] };
+      }
+
+      const prevDiscovered = state.settings.geminiDiscoveredModels || {};
+      const updatedDiscovered = { ...prevDiscovered };
+      const newModels = [];
+
+      generationModels.forEach((m) => {
+        const cleanId = (m.name || '').replace(/^models\//, '');
+        const label = m.displayName
+          ? `${m.displayName} (${cleanId})`
+          : `${cleanId} (Google AI)`;
+        if (!OFFICIAL_DEFAULT_MODELS[cleanId] && !prevDiscovered[cleanId]) {
+          newModels.push(cleanId);
+        }
+        updatedDiscovered[cleanId] = label;
+      });
+
+      state.settings.geminiDiscoveredModels = updatedDiscovered;
+      state.settings.geminiLastModelSync = new Date().toISOString();
+      writeStore(KEYS.SETTINGS, state.settings);
+
+      if (newModels.length > 0) {
+        showToast(`🎉 ${newModels.length} novo(s) modelo(s) Google AI detectado(s): ${newModels.slice(0, 2).join(', ')}!`, 'success');
+      } else if (!silent) {
+        showToast(`✓ Catálogo atualizado: ${Object.keys(getAvailableGeminiModels()).length} modelos oficiais disponíveis.`, 'success');
+      }
+      return { success: true, count: generationModels.length, newModels };
+    } catch (e) {
+      if (!silent) showToast(`Erro ao sincronizar modelos: ${e.message}`, 'error');
+      return { success: false, reason: e.message };
+    }
+  }
+
   async function callGeminiJson(prompt, modelId, apiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const cleanModel = (modelId || 'gemini-1.5-pro').replace(/^models\//, '');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.35, responseMimeType: 'application/json' },
+        generationConfig: {
+          temperature: 0.35,
+          responseMimeType: 'application/json',
+        },
       }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData?.error?.message || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
     const data = await res.json();
     let txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     txt = txt.trim().replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    if (!txt) throw new Error('A Google AI retornou resposta vazia.');
     return JSON.parse(txt);
   }
 
   async function generateOutlineWithAi(theme, ref, sermonType) {
     const cleanTheme = theme.trim() || 'Salmo 22 e a Crucificação de Jesus';
-    const cleanRef = ref.trim() || 'Salmos 22 / Mateus 27';
+    const cleanRef = ref.trim() || 'Salmos 22 / Mateus 27:35-50';
     const cleanType = sermonType || 'Expositivo';
     const apiKey = state.settings.geminiKey?.trim();
-    const chosenModel = state.settings.geminiModel || 'gemini-2.5-pro';
+    let chosenModel = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
 
-    const prompt = `Você é um Teólogo e Doutor em Homilética Bíblica Cristã Conservadora.
-Construa um esboço homilético completo com base em:
-- TEMA: "${cleanTheme}"
-- TEXTO BÍBLICO: "${cleanRef}"
-- TIPO DE SERMÃO: "${cleanType}"
-Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
+    // Sanitiza seleções legadas
+    if (chosenModel.includes('gemini-2.5') || chosenModel.includes('gemini-3')) {
+      chosenModel = 'gemini-1.5-pro';
+      state.settings.geminiModel = 'gemini-1.5-pro';
+      writeStore(KEYS.SETTINGS, state.settings);
+    }
+
+    const prompt = `Você é um renomado Teólogo e Doutor em Homilética Bíblica Cristã (ortodoxa, bíblica e conservadora).
+Sua missão é construir um esboço homilético completo, bíblico e exegético, rigorosamente fiel ao texto sagrado fornecido:
+
+- TEMA CENTRAL: "${cleanTheme}"
+- TEXTO BÍBLICO BASE: "${cleanRef}"
+- TIPO HOMILÉTICO: "${cleanType}"
+
+DIRETRIZES DE EXEGESE E HOMILÉTICA OBRIGATÓRIAS:
+1. FIDELIDADE TEXTUAL TOTAL: Todos os 5 pontos, explicações, ilustrações e aplicações devem brotar DIRETAMENTE do texto bíblico "${cleanRef}" e do tema "${cleanTheme}". Se o texto for uma parábola (ex: Mateus 25 talentos), aborde especificamente seus personagens, ações, ensinamentos e advertências. Não use generalismos padronizados.
+2. ESTRUTURA: Forneça exatamente 5 divisões lógicas, sequenciais e progressivas que esgotem a passagem com profunda riqueza bíblica.
+3. CADA PONTO DEVE CONTER:
+   - title: Título homilético marcante numerado (ex: "1. A Soberana Concessão de Talentos e Recursos").
+   - biblicalReference: Os versículos específicos da passagem que sustentam este ponto.
+   - explanation: Exegese bíblica rica do texto, explicando o sentido histórico-gramatical, contexto original e verdade doutrinária.
+   - illustration: Uma ilustração vívida, contemporânea ou histórica, altamente conectada com o ponto.
+   - application: Aplicação prática, desafiadora e pastoral para a vida cristã diária.
+4. INTRODUÇÃO E CONCLUSÃO: Introdução envolvente com gancho contextual da passagem; Conclusão que sintetize e recapitule os 5 pontos; Apelo pastoral ministerial ardente.
+5. CONTEXTO HISTÓRICO E REFERÊNCIAS: Forneça o contexto histórico do livro/passagem e 5 referências bíblicas cruzadas relevantes.
+
+Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 {
-  "title": "Título marcante",
+  "title": "Título marcante para o sermão",
   "biblicalReference": "${cleanRef}",
   "sermonType": "${cleanType}",
-  "historicalContext": "Contexto histórico, autor e público.",
+  "historicalContext": "Contexto histórico, autor, data e público-alvo.",
   "crossReferences": ["Ref 1", "Ref 2", "Ref 3", "Ref 4", "Ref 5"],
-  "introduction": "Introdução impactante.",
+  "introduction": "Introdução homilética impactante.",
   "blocks": [
     {"title": "1. ...", "biblicalReference": "...", "explanation": "...", "illustration": "...", "application": "..."},
     {"title": "2. ...", "biblicalReference": "...", "explanation": "...", "illustration": "...", "application": "..."},
@@ -1563,64 +1670,103 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
     {"title": "5. ...", "biblicalReference": "...", "explanation": "...", "illustration": "...", "application": "..."}
   ],
   "conclusion": "Conclusão sintetizando as 5 divisões.",
-  "appeal": "Apelo pastoral."
+  "appeal": "Apelo pastoral e ministerial."
 }`;
 
+    let lastApiError = null;
+
     if (apiKey && navigator.onLine) {
-      const modelsToTry = chosenModel === 'gemini-2.5-flash'
-        ? ['gemini-2.5-flash']
-        : [chosenModel, 'gemini-2.5-flash'];
+      const modelsToTry = [chosenModel, 'gemini-1.5-flash', 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
       for (const m of modelsToTry) {
         try {
           const parsed = await callGeminiJson(prompt, m, apiKey);
-          return {
-            title: parsed.title || cleanTheme,
-            biblicalReference: parsed.biblicalReference || cleanRef,
-            sermonType: parsed.sermonType || cleanType,
-            historicalContext: parsed.historicalContext || '',
-            crossReferences: Array.isArray(parsed.crossReferences) ? parsed.crossReferences : [],
-            introduction: parsed.introduction || '',
-            blocks: (parsed.blocks || []).map((b, idx) => ({
-              id: uuid(),
-              title: b.title || `${idx + 1}. Ponto`,
-              biblicalReference: b.biblicalReference || cleanRef,
-              explanation: b.explanation || '',
-              illustration: b.illustration || '',
-              application: b.application || '',
-              orderIndex: idx,
-            })),
-            conclusion: parsed.conclusion || '',
-            appeal: parsed.appeal || '',
-            usedModel: `${GEMINI_MODELS[m] ? m.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : m} (Google AI)`,
-            isCloud: true,
-          };
+          if (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length >= 3) {
+            return {
+              title: parsed.title || cleanTheme,
+              biblicalReference: parsed.biblicalReference || cleanRef,
+              sermonType: parsed.sermonType || cleanType,
+              historicalContext: parsed.historicalContext || '',
+              crossReferences: Array.isArray(parsed.crossReferences) ? parsed.crossReferences : [],
+              introduction: parsed.introduction || '',
+              blocks: (parsed.blocks || []).map((b, idx) => ({
+                id: uuid(),
+                title: b.title || `${idx + 1}. Ponto`,
+                biblicalReference: b.biblicalReference || cleanRef,
+                explanation: b.explanation || '',
+                illustration: b.illustration || '',
+                application: b.application || '',
+                orderIndex: idx,
+              })),
+              conclusion: parsed.conclusion || '',
+              appeal: parsed.appeal || '',
+              usedModel: `${m} (Google AI Oficial)`,
+              isCloud: true,
+            };
+          }
         } catch (e) {
+          lastApiError = e.message || String(e);
           console.warn('[Gemini]', m, e);
         }
       }
+      if (lastApiError) {
+        showToast(`Google AI: ${lastApiError}. Exibindo contingência local.`, 'error');
+      }
+    } else if (!apiKey) {
+      showToast('Chave Gemini Pro não configurada. Exibindo estrutura de contingência local.', 'warning');
     }
 
-    // Fallback offline contextual rico
-    return {
-      title: cleanTheme,
-      biblicalReference: cleanRef,
-      sermonType: cleanType,
-      historicalContext: `Passagem sagrada inserida no contexto canônico de ${cleanRef}, revelando a soberania de Deus e o chamado pactual do evangelho.`,
-      crossReferences: [
-        'Salmos 119:105', 'Romanos 8:31-39', 'Isaías 40:28-31', 'Hebreus 4:14-16', '2 Coríntios 12:9-10'
-      ],
-      introduction: `Ao examinarmos ${cleanRef} sob o tema "${cleanTheme}", contemplamos a relevância eterna das Escrituras para restaurar a fé, consolar a alma e alinhar a igreja ao propósito de Cristo.`,
-      blocks: [
+    // Fallback offline inteligente com consciência temática e bíblica
+    const isTalents = /talento|mateus\s*25|mt\s*25/i.test(`${cleanTheme} ${cleanRef}`);
+    let contingencyBlocks;
+    let contingencyIntro;
+    let contingencyHistorical;
+    let contingencyConcl;
+    let contingencyAppeal;
+
+    if (isTalents) {
+      contingencyHistorical = 'Evangelho de Mateus, capítulo 25. Inserido no Sermão Escatológico proferido por Jesus no Monte das Oliveiras, instruindo os discípulos sobre a vigilância ativa, mordomia e prestação de contas antes do Juízo Final.';
+      contingencyIntro = `Na Parábola dos Talentos (Mateus 25.14-30), Jesus confronta a inércia e nos convoca a uma mordomia ativa, fiel e diligente, advertindo que o que recebemos da graça divina deve ser investido para a glória do Reino até a Sua volta.`;
+      contingencyBlocks = [
+        { id: uuid(), title: '1. A Soberana Concessão de Recursos Conforme a Capacidade', biblicalReference: 'Mateus 25:14-15', explanation: 'O Senhor distribui Seus dons e bens com soberania e profundo conhecimento da capacidade de cada servo. Nada nos pertence por mérito; tudo nos é confiado pela graça para ser administrado com diligência.', illustration: 'O proprietário que confia fundos a administradores esperando responsabilidade e visão de Reino.', application: 'Reconheça seus dons, tempo e recursos como concessões divinas que exigem gestão santa e consagrada.', orderIndex: 0 },
+        { id: uuid(), title: '2. A Diligência e Produtividade dos Servos Fiéis', biblicalReference: 'Mateus 25:16-17', explanation: 'Os servos que receberam cinco e dois talentos negociaram imediatamente. A fidelidade do evangelho não é estática ou passiva, mas corajosa, proativa e geradora de frutos espirituais.', illustration: 'O agricultor que não guarda os grãos em saco fechado, mas os semeia com fé na certeza da colheita.', application: 'Não enterre seus dons por comodismo; tome iniciativas práticas para servir na igreja e abençoar vidas.', orderIndex: 1 },
+        { id: uuid(), title: '3. O Perigo do Medo Paralisante e da Distorção de Deus', biblicalReference: 'Mateus 25:18, 24-25', explanation: 'O servo mau escondeu seu talento por medo e acusou o senhor de ser injusto e duro. Uma visão legalista e distorcida do caráter bondoso de Deus gera paralisia ministerial e negligência espiritual.', illustration: 'A bússola guardada no bolso que impede o marinheiro de navegar rumo ao porto seguro.', application: 'Renuncie ao espírito de covardia e ao medo de errar; Deus acolhe corações que se dispõem a arriscar pela fé.', orderIndex: 2 },
+        { id: uuid(), title: '4. A Alegria da Prestação de Contas e a Entrada no Gozo do Senhor', biblicalReference: 'Mateus 25:19-23', explanation: 'O retorno do Senhor é certo. A recompensa divina ("Foste fiel no pouco, sobre o muito te colocarei") não avalia volume absoluto, mas fidelidade e zelo integral em relação ao que foi recebido.', illustration: 'A condecoração solene do soldado leal que guardou seu posto com firmeza durante toda a vigília.', application: 'Viva cada dia com a perspectiva da eternidade: a maior alegria do cristão é ouvir a aprovação de Cristo.', orderIndex: 3 },
+        { id: uuid(), title: '5. A Solene Advertência contra a Omissão e Negligência', biblicalReference: 'Mateus 25:26-30', explanation: 'No Reino de Deus, a inação deliberada é classificada como pecado de infidelidade. A negligência acarreta a perda do que se recebeu e a solene exclusão da comunhão eterna do Mestre.', illustration: 'A ferramenta esquecida no pátio que enferruja e perde sua utilidade no projeto da edificação.', application: 'Examine seu coração: você está multiplicando o evangelho ou enterrando o chamado que Deus lhe entregou?', orderIndex: 4 },
+      ];
+      contingencyConcl = 'A Parábola dos Talentos nos ensina que a salvação pela graça se manifesta em uma vida de responsabilidade e fruto. No grande Dia, o Senhor não aceitará desculpas, mas buscará fidelidade.';
+      contingencyAppeal = 'Não enterre o que Deus colocou em suas mãos. Arrependa-se da omissão e consagre hoje sua vida, talentos e ministério totalmente a Jesus Cristo.';
+    } else {
+      contingencyHistorical = `Passagem sagrada inserida no contexto canônico de ${cleanRef}, revelando a soberania de Deus e o chamado pactual do evangelho.`;
+      contingencyIntro = `Ao examinarmos ${cleanRef} sob o tema "${cleanTheme}", contemplamos a revelação das Escrituras para restaurar a fé, consolar a alma e alinhar a igreja ao propósito de Cristo.`;
+      contingencyBlocks = [
         { id: uuid(), title: `1. O Cenário Revelado em ${cleanRef}`, biblicalReference: `${cleanRef} (Parte 1)`, explanation: `A revelação bíblica parte da realidade humana concreta, mostrando que Deus intervém na história com graça e soberania.`, illustration: 'O arquiteto que analisa o terreno antes de erguer os pilares de sustentação.', application: 'Apresente suas preocupações e lutas diante do Senhor com sinceridade.', orderIndex: 0 },
         { id: uuid(), title: '2. O Fundamento Imutável da Aliança', biblicalReference: `${cleanRef} (Parte 2)`, explanation: `As promessas do Senhor não oscilam com as circunstâncias; estão ancoradas no Seu próprio caráter fiel.`, illustration: 'A rocha firme no litoral que resiste intacta às marés da tempestade.', application: 'Tome decisões apoiado na Palavra de Deus e não na instabilidade dos sentimentos.', orderIndex: 1 },
         { id: uuid(), title: '3. A Centralidade Redentora de Cristo', biblicalReference: 'João 14:6 • Colossenses 1:19-20', explanation: `Toda a Escritura aponta para Jesus. Na cruz e ressurreição encontramos perdão pleno e reconciliação.`, illustration: 'A chave-mestra que abre a cela do prisioneiro e lhe devolve a liberdade.', application: 'Descanse na obra consumada de Cristo e abandone o peso da culpa.', orderIndex: 2 },
         { id: uuid(), title: '4. A Renovação pelo Espírito Santo', biblicalReference: 'Gálatas 5:22-25 • Romanos 12:1-2', explanation: `O evangelho transforma mente, afeições e conduta de dentro para fora pelo poder do Espírito.`, illustration: 'A seiva viva que percorre a árvore e faz brotar frutos saudáveis na estação certa.', application: 'Permita que o Espírito trate áreas secretas e produza arrependimento genuíno.', orderIndex: 3 },
         { id: uuid(), title: '5. Testemunho e Obediência Prática', biblicalReference: 'Mateus 5:14-16 • Tiago 1:22', explanation: `A proclamação pastoral conduz à ação prática no lar, no trabalho e na comunhão da igreja.`, illustration: 'A candeia colocada no alto para iluminar todo o ambiente ao redor.', application: 'Viva esta mensagem nesta semana através do perdão, serviço e testemunho cristão.', orderIndex: 4 },
-      ],
-      conclusion: `A mensagem de ${cleanRef} assegura que a Palavra de Deus nunca volta vazia e cumpre o propósito soberano em Cristo.`,
-      appeal: 'Se você deseja renovar sua aliança com Deus hoje, entregue seu coração a Cristo em oração.',
-      usedModel: apiKey ? 'Motor Contextual Integrado (Contingência Offline)' : 'Motor Contextual Integrado (Configure sua Chave Gemini Pro)',
+      ];
+      contingencyConcl = `A mensagem de ${cleanRef} assegura que a Palavra de Deus nunca volta vazia e cumpre o propósito soberano em Cristo.`;
+      contingencyAppeal = 'Se você deseja renovar sua aliança com Deus hoje, entregue seu coração a Cristo em oração.';
+    }
+
+    return {
+      title: cleanTheme,
+      biblicalReference: cleanRef,
+      sermonType: cleanType,
+      historicalContext: contingencyHistorical,
+      crossReferences: isTalents
+        ? ['Lucas 19:11-27', 'Romanos 14:12', '1 Coríntios 4:1-2', '2 Timóteo 4:7-8', '1 Pedro 4:10']
+        : ['Salmos 119:105', 'Romanos 8:31-39', 'Isaías 40:28-31', 'Hebreus 4:14-16', '2 Coríntios 12:9-10'],
+      introduction: contingencyIntro,
+      blocks: contingencyBlocks,
+      conclusion: contingencyConcl,
+      appeal: contingencyAppeal,
+      usedModel: lastApiError
+        ? `Contingência Offline Local (Falha Google AI: ${lastApiError})`
+        : 'Contingência Offline Local (Configure a Chave Pro)',
       isCloud: false,
+      hasError: Boolean(lastApiError),
+      errorMessage: lastApiError || '',
     };
   }
 
@@ -2221,7 +2367,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
   // =========================================================================
   function openAiModal(onApplyToEditor = null) {
     const hasKey = Boolean(state.settings.geminiKey?.trim());
-    const modelName = state.settings.geminiModel || 'gemini-2.5-pro';
+    const modelName = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
     const outline = state.ai.outline;
 
     openModal(
@@ -2232,7 +2378,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
           <div>
             <h3 class="modal-title">Assistente Homilético IA</h3>
             <span class="mini-badge ${hasKey ? '' : 'offline'}" id="ai-key-badge">
-              ${hasKey ? `${esc(modelName)} Ativo` : 'Configurar Gemini 2.5 Pro'}
+              ${hasKey ? `${esc(modelName)} Ativo` : 'Configurar Gemini Pro'}
             </span>
           </div>
         </div>
@@ -2251,6 +2397,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       <div id="ai-tab-body">
         ${state.ai.activeTab === 'outline' ? `
           <div class="chips-scroll" style="margin-bottom:10px;">
+            <button class="chip" data-preset="A Parábola dos Talentos: Fidelidade e Mordomia no Reino|Mateus 25:14-30|Expositivo">Mt 25 Talentos</button>
             <button class="chip" data-preset="Entre Salmo 22 e a Crucificação de Jesus|Salmos 22 / Mateus 27:35-50|Expositivo">Sl 22 & Cruz</button>
             <button class="chip" data-preset="Salvos pelo Mérito de Cristo|Efésios 2:1-10|Expositivo">Efésios 2</button>
             <button class="chip" data-preset="Mais que Vencedores em Cristo|Romanos 8:31-39|Expositivo">Romanos 8</button>
@@ -2271,10 +2418,19 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             </div>
           </div>
           <button id="ai-generate-btn" class="btn btn-purple btn-block" ${state.ai.isLoading ? 'disabled' : ''}>
-            ${state.ai.isLoading ? '⏳ Gemini Construindo Esboço (5 Tópicos)...' : '✨ Gerar Esboço com Gemini Pro (5 Tópicos)'}
+            ${state.ai.isLoading ? '⏳ Gemini Construindo Esboço Exegético (5 Tópicos)...' : '✨ Gerar Esboço com Gemini Pro (5 Tópicos)'}
           </button>
           ${outline ? `
             <div class="card" style="margin-top:16px;border-color:rgba(139,92,246,0.4);">
+              ${!outline.isCloud ? `
+                <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);padding:10px 14px;border-radius:12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                  <div style="font-size:13px;color:var(--gold);">
+                    <strong>⚠️ Modo Contingência Local:</strong>
+                    ${outline.errorMessage ? `Falha na Google AI (${esc(outline.errorMessage)}).` : 'Chave Pro não configurada.'}
+                  </div>
+                  <button class="btn btn-xs btn-gold" id="ai-fix-key-btn">⚙️ Configurar Chave Pro</button>
+                </div>
+              ` : ''}
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
                 <span class="tag ${outline.isCloud ? 'tag-green' : 'tag-gold'}">✨ ${esc(outline.usedModel)}</span>
                 <span class="tag tag-blue">${esc(outline.sermonType)}</span>
@@ -2334,6 +2490,10 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
       (sheet) => {
         sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
         sheet.querySelector('#ai-config-btn').onclick = () => openGeminiConfigModal(() => openAiModal(onApplyToEditor));
+        const fixKeyBtn = sheet.querySelector('#ai-fix-key-btn');
+        if (fixKeyBtn) {
+          fixKeyBtn.onclick = () => openGeminiConfigModal(() => openAiModal(onApplyToEditor));
+        }
         sheet.querySelectorAll('[data-ai-tab]').forEach((btn) => {
           btn.onclick = () => {
             state.ai.activeTab = btn.dataset.aiTab;
@@ -2413,10 +2573,11 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             openAiModal(onApplyToEditor);
             try {
               const apiKey = state.settings.geminiKey?.trim();
+              const chosenMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
               if (apiKey && navigator.onLine) {
                 const res = await callGeminiJson(
                   `Crie 3 ilustrações práticas em Português para o tema "${ctx}". Retorne JSON: {"illustrations": ["...", "...", "..."]}`,
-                  state.settings.geminiModel || 'gemini-2.5-pro',
+                  chosenMod,
                   apiKey
                 );
                 state.ai.illustrations = res.illustrations || [];
@@ -2444,10 +2605,11 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             openAiModal(onApplyToEditor);
             try {
               const apiKey = state.settings.geminiKey?.trim();
+              const chosenMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
               if (apiKey && navigator.onLine) {
                 const res = await callGeminiJson(
                   `Analise 3 palavras-chave em Grego ou Hebraico de "${pas}". Retorne JSON: {"insights":[{"word":"","transliteration":"","language":"","strongNumber":"","meaning":"","theologicalInsight":""}]}`,
-                  state.settings.geminiModel || 'gemini-2.5-pro',
+                  chosenMod,
                   apiKey
                 );
                 state.ai.lexical = res.insights || [];
@@ -2468,41 +2630,74 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
   }
 
   function openGeminiConfigModal(onDone = null) {
+    const curMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
+    const avail = getAvailableGeminiModels();
+
     openModal(
       `
       <div class="modal-header">
-        <h3 class="modal-title">✨ Motor Gemini 2.5 Pro • Configuração</h3>
+        <h3 class="modal-title">✨ Motor Gemini Pro • Modelos Oficiais Google AI</h3>
         <button class="icon-btn-ghost" data-close-modal>✕</button>
       </div>
       <p style="font-size:13.5px;color:var(--text-muted);margin:0 0 12px;">
-        Base configurada: <strong>Gemini 2.5 Pro</strong>. Cole sua API Key do <strong>aistudio.google.com/apikey</strong> (ela fica salva com segurança no aparelho).
+        Modelos oficiais Google AI com auto-atualização contínua. Obtenha sua chave gratuita em <strong>aistudio.google.com/apikey</strong>.
       </p>
-      <label class="editor-section-label">Modelo Base</label>
-      <select id="gem-model-sel" class="select-field" style="margin-bottom:12px;">
-        ${Object.entries(GEMINI_MODELS).map(([k, v]) => `<option value="${k}" ${state.settings.geminiModel === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
-      </select>
+      <label class="editor-section-label">Modelo Homilético Ativo</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <select id="gem-model-sel" class="select-field" style="flex:1;">
+          ${Object.entries(avail).map(([k, v]) => `<option value="${k}" ${curMod === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline" id="gem-sync-btn" title="Buscar novos modelos lançados pelo Google em tempo real" style="white-space:nowrap;padding:0 12px;">
+          🔄 Sincronizar
+        </button>
+      </div>
       <label class="editor-section-label">Gemini API Key (AIza...)</label>
       <input id="gem-key-inp" type="password" class="input-field" placeholder="Cole sua chave aqui..." value="${esc(state.settings.geminiKey || '')}" style="margin-bottom:10px;">
       <div id="gem-test-status" style="font-size:13px;margin-bottom:12px;"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-        <button class="btn btn-outline" id="gem-test-btn">📡 Testar Chave</button>
-        <button class="btn btn-purple" id="gem-save-btn">Salvar</button>
+      <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:11.5px;color:var(--text-muted);" id="gem-last-sync-label">
+          ${state.settings.geminiLastModelSync ? `Sincronizado: ${new Date(state.settings.geminiLastModelSync).toLocaleDateString('pt-BR')} ${new Date(state.settings.geminiLastModelSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Modelos base oficiais'}
+        </span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" id="gem-test-btn">📡 Testar Conexão</button>
+          <button class="btn btn-purple" id="gem-save-btn">Salvar</button>
+        </div>
       </div>
       `,
       (sheet) => {
         sheet.querySelectorAll('[data-close-modal]').forEach((b) => (b.onclick = closeModal));
+
+        sheet.querySelector('#gem-sync-btn').onclick = async () => {
+          const key = sheet.querySelector('#gem-key-inp').value.trim();
+          const out = sheet.querySelector('#gem-test-status');
+          out.innerHTML = '<span style="color:var(--primary);">Buscando novos modelos na Google AI...</span>';
+          const res = await syncGeminiModelsFromGoogle(key, { silent: false });
+          if (res.success) {
+            const updated = getAvailableGeminiModels();
+            const sel = sheet.querySelector('#gem-model-sel');
+            const selectedVal = sel.value;
+            sel.innerHTML = Object.entries(updated).map(([k, v]) => `<option value="${k}" ${selectedVal === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
+            out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${res.count || Object.keys(updated).length} modelos oficiais disponíveis e sincronizados!</span>`;
+            const lbl = sheet.querySelector('#gem-last-sync-label');
+            if (lbl) lbl.textContent = 'Sincronizado agora';
+          } else {
+            out.innerHTML = `<span style="color:var(--danger);">Falha ao sincronizar: ${esc(res.reason)}</span>`;
+          }
+        };
+
         sheet.querySelector('#gem-test-btn').onclick = async () => {
           const key = sheet.querySelector('#gem-key-inp').value.trim();
           const mod = sheet.querySelector('#gem-model-sel').value;
           const out = sheet.querySelector('#gem-test-status');
           if (!key) {
-            out.innerHTML = '<span style="color:var(--danger);">Informe uma chave válida.</span>';
+            out.innerHTML = '<span style="color:var(--danger);">Informe uma chave válida do Google AI Studio.</span>';
             return;
           }
           out.innerHTML = 'Testando conexão com Google AI...';
           try {
+            const cleanMod = mod.replace(/^models\//, '');
             const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${encodeURIComponent(key)}`,
+              `https://generativelanguage.googleapis.com/v1beta/models/${cleanMod}:generateContent?key=${encodeURIComponent(key)}`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2510,7 +2705,17 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
               }
             );
             if (res.ok) {
-              out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ Conexão confirmada com ${esc(mod)}!</span>`;
+              out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ Conexão confirmada com ${esc(cleanMod)}!</span>`;
+              // Auto-sincroniza o catálogo de modelos em segundo plano
+              syncGeminiModelsFromGoogle(key, { silent: true }).then((syncRes) => {
+                if (syncRes.success) {
+                  const updated = getAvailableGeminiModels();
+                  const sel = sheet.querySelector('#gem-model-sel');
+                  if (sel) {
+                    sel.innerHTML = Object.entries(updated).map(([k, v]) => `<option value="${k}" ${cleanMod === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
+                  }
+                }
+              });
             } else {
               const err = await res.json().catch(() => ({}));
               out.innerHTML = `<span style="color:var(--danger);">Erro ${res.status}: ${esc(err?.error?.message || 'Chave inválida')}</span>`;
@@ -2519,6 +2724,7 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
             out.innerHTML = `<span style="color:var(--danger);">Erro de rede: ${esc(e.message)}</span>`;
           }
         };
+
         sheet.querySelector('#gem-save-btn').onclick = () => {
           state.settings.geminiKey = sheet.querySelector('#gem-key-inp').value.trim();
           state.settings.geminiModel = sheet.querySelector('#gem-model-sel').value;
@@ -5863,6 +6069,29 @@ Crie EXATAMENTE 5 divisões homiléticas. Retorne ESTRITAMENTE um JSON válido:
         state.settings = { ...DEFAULT_SETTINGS, ...idbSettings };
         writeStore(KEYS.SETTINGS, state.settings);
       }
+    }
+
+    // Sanitização e migração de modelos Gemini legados
+    if (
+      !state.settings.geminiModel ||
+      state.settings.geminiModel.includes('gemini-2.5') ||
+      state.settings.geminiModel.includes('gemini-3')
+    ) {
+      state.settings.geminiModel = 'gemini-1.5-pro';
+      writeStore(KEYS.SETTINGS, state.settings);
+    }
+
+    // Auto-sincronização periódica em background de novos modelos lançados pelo Google
+    if (state.settings.geminiKey && navigator.onLine) {
+      setTimeout(() => {
+        const lastSync = state.settings.geminiLastModelSync
+          ? new Date(state.settings.geminiLastModelSync).getTime()
+          : 0;
+        const twelveHoursMs = 12 * 60 * 60 * 1000;
+        if (Date.now() - lastSync > twelveHoursMs) {
+          syncGeminiModelsFromGoogle(state.settings.geminiKey, { silent: true });
+        }
+      }, 2500);
     }
     if (!localStorage.getItem(KEYS.DELETED_IDS)) {
       const idbDeleted = await readIdbFallback(KEYS.DELETED_IDS);
