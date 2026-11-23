@@ -590,7 +590,7 @@
     voiceRate: 0.96,
     voiceId: '',
     geminiKey: '',
-    geminiModel: 'gemini-1.5-pro',
+    geminiModel: 'gemini-3.8-flash',
     geminiDiscoveredModels: {},
     geminiLastModelSync: null,
   };
@@ -1512,18 +1512,19 @@
   }
 
   // =========================================================================
-  // MOTOR DE IA GEMINI PRO + CATÁLOGO OFICIAL GOOGLE AI COM AUTO-ATUALIZAÇÃO
+  // MOTOR DE IA GEMINI PRO + CATÁLOGO EXCLUSIVO DE MODELOS ATIVOS GOOGLE AI
   // =========================================================================
   const OFFICIAL_DEFAULT_MODELS = {
-    'gemini-1.5-pro': 'Gemini 1.5 Pro (Padrão Ouro • Máxima Exegese)',
-    'gemini-1.5-flash': 'Gemini 1.5 Flash (Resposta Ultrarrápida)',
-    'gemini-2.0-flash': 'Gemini 2.0 Flash (Nova Geração • Alta Performance)',
-    'gemini-2.0-flash-exp': 'Gemini 2.0 Flash Experimental',
+    'gemini-3.8-flash': 'Gemini 3.8 Flash (Padrão Oficial • Recomendado Google)',
   };
 
   function getAvailableGeminiModels() {
-    const custom = state.settings.geminiDiscoveredModels || {};
-    return { ...OFFICIAL_DEFAULT_MODELS, ...custom };
+    const custom = state.settings.geminiDiscoveredModels;
+    // Se já sincronizado com o Google, exibe EXCLUSIVAMENTE os modelos ativos retornados para a chave
+    if (custom && Object.keys(custom).length > 0) {
+      return custom;
+    }
+    return { ...OFFICIAL_DEFAULT_MODELS };
   }
 
   async function syncGeminiModelsFromGoogle(keyToUse = null, { silent = false } = {}) {
@@ -1564,29 +1565,37 @@
         return { success: true, count: 0, newModels: [] };
       }
 
-      const prevDiscovered = state.settings.geminiDiscoveredModels || {};
-      const updatedDiscovered = { ...prevDiscovered };
+      // Substitui o catálogo por EXCLUSIVAMENTE os modelos retornados e ativos da Google API
+      const currentGoogleModels = {};
       const newModels = [];
 
       generationModels.forEach((m) => {
         const cleanId = (m.name || '').replace(/^models\//, '');
         const label = m.displayName
           ? `${m.displayName} (${cleanId})`
-          : `${cleanId} (Google AI)`;
-        if (!OFFICIAL_DEFAULT_MODELS[cleanId] && !prevDiscovered[cleanId]) {
+          : `${cleanId} (Google AI Oficial)`;
+        if (!state.settings.geminiDiscoveredModels?.[cleanId]) {
           newModels.push(cleanId);
         }
-        updatedDiscovered[cleanId] = label;
+        currentGoogleModels[cleanId] = label;
       });
 
-      state.settings.geminiDiscoveredModels = updatedDiscovered;
+      state.settings.geminiDiscoveredModels = currentGoogleModels;
       state.settings.geminiLastModelSync = new Date().toISOString();
+
+      // Se o modelo ativo não estiver na lista retornada, migra para o modelo mais atual
+      if (!currentGoogleModels[state.settings.geminiModel]) {
+        const preferred = currentGoogleModels['gemini-3.8-flash']
+          ? 'gemini-3.8-flash'
+          : Object.keys(currentGoogleModels)[0];
+        state.settings.geminiModel = preferred;
+      }
       writeStore(KEYS.SETTINGS, state.settings);
 
       if (newModels.length > 0) {
-        showToast(`🎉 ${newModels.length} novo(s) modelo(s) Google AI detectado(s): ${newModels.slice(0, 2).join(', ')}!`, 'success');
+        showToast(`🎉 ${newModels.length} novo(s) modelo(s) atual(is) detectado(s): ${newModels.slice(0, 2).join(', ')}!`, 'success');
       } else if (!silent) {
-        showToast(`✓ Catálogo atualizado: ${Object.keys(getAvailableGeminiModels()).length} modelos oficiais disponíveis.`, 'success');
+        showToast(`✓ Catálogo atualizado: exibindo apenas os ${Object.keys(currentGoogleModels).length} modelos ativos da sua chave.`, 'success');
       }
       return { success: true, count: generationModels.length, newModels };
     } catch (e) {
@@ -1596,7 +1605,7 @@
   }
 
   async function callGeminiJson(prompt, modelId, apiKey) {
-    const cleanModel = (modelId || 'gemini-1.5-pro').replace(/^models\//, '');
+    const cleanModel = (modelId || 'gemini-3.8-flash').replace(/^models\//, '');
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(url, {
       method: 'POST',
@@ -1626,12 +1635,17 @@
     const cleanRef = ref.trim() || 'Salmos 22 / Mateus 27:35-50';
     const cleanType = sermonType || 'Expositivo';
     const apiKey = state.settings.geminiKey?.trim();
-    let chosenModel = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
+    let chosenModel = (state.settings.geminiModel || 'gemini-3.8-flash').replace(/^models\//, '');
 
-    // Sanitiza seleções legadas
-    if (chosenModel.includes('gemini-2.5') || chosenModel.includes('gemini-3')) {
-      chosenModel = 'gemini-1.5-pro';
-      state.settings.geminiModel = 'gemini-1.5-pro';
+    // Sanitiza se ainda estiver com modelos legados/depreciados
+    if (
+      chosenModel.includes('1.5') ||
+      chosenModel.includes('2.0') ||
+      chosenModel.includes('2.5') ||
+      chosenModel.includes('3-pro')
+    ) {
+      chosenModel = 'gemini-3.8-flash';
+      state.settings.geminiModel = 'gemini-3.8-flash';
       writeStore(KEYS.SETTINGS, state.settings);
     }
 
@@ -1676,11 +1690,24 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     let lastApiError = null;
 
     if (apiKey && navigator.onLine) {
-      const modelsToTry = [chosenModel, 'gemini-1.5-flash', 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
-      for (const m of modelsToTry) {
+      // Lista de modelos dinâmicos disponíveis
+      const avail = getAvailableGeminiModels();
+      const modelsToTry = [
+        chosenModel,
+        'gemini-3.8-flash',
+        ...Object.keys(avail)
+      ].filter((v, i, a) => a.indexOf(v) === i && !v.includes('1.5') && !v.includes('2.0') && !v.includes('2.5'));
+
+      for (let i = 0; i < modelsToTry.length; i++) {
+        const m = modelsToTry[i];
         try {
           const parsed = await callGeminiJson(prompt, m, apiKey);
           if (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length >= 3) {
+            // Sucesso! Atualiza o modelo ativo se o anterior foi alterado
+            if (state.settings.geminiModel !== m) {
+              state.settings.geminiModel = m;
+              writeStore(KEYS.SETTINGS, state.settings);
+            }
             return {
               title: parsed.title || cleanTheme,
               biblicalReference: parsed.biblicalReference || cleanRef,
@@ -1706,6 +1733,21 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         } catch (e) {
           lastApiError = e.message || String(e);
           console.warn('[Gemini]', m, e);
+
+          // AUTO-HEALING: Detecta se o Google recomendou um novo modelo na mensagem de erro
+          const match = lastApiError.match(/(?:use|to)\s+models\/([a-zA-Z0-9_.-]+)/i);
+          if (match && match[1]) {
+            const recommended = match[1];
+            if (!modelsToTry.includes(recommended)) {
+              showToast(`⚡ Auto-Recuperação: Google indicou ${recommended}. Tentando agora...`, 'info');
+              modelsToTry.splice(i + 1, 0, recommended);
+              // Registra o modelo sugerido pela Google no catálogo
+              state.settings.geminiDiscoveredModels = state.settings.geminiDiscoveredModels || {};
+              state.settings.geminiDiscoveredModels[recommended] = `${recommended} (Google AI Oficial)`;
+              state.settings.geminiModel = recommended;
+              writeStore(KEYS.SETTINGS, state.settings);
+            }
+          }
         }
       }
       if (lastApiError) {
@@ -2573,7 +2615,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             openAiModal(onApplyToEditor);
             try {
               const apiKey = state.settings.geminiKey?.trim();
-              const chosenMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
+              const chosenMod = (state.settings.geminiModel || 'gemini-3.8-flash').replace(/^models\//, '');
               if (apiKey && navigator.onLine) {
                 const res = await callGeminiJson(
                   `Crie 3 ilustrações práticas em Português para o tema "${ctx}". Retorne JSON: {"illustrations": ["...", "...", "..."]}`,
@@ -2605,7 +2647,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             openAiModal(onApplyToEditor);
             try {
               const apiKey = state.settings.geminiKey?.trim();
-              const chosenMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
+              const chosenMod = (state.settings.geminiModel || 'gemini-3.8-flash').replace(/^models\//, '');
               if (apiKey && navigator.onLine) {
                 const res = await callGeminiJson(
                   `Analise 3 palavras-chave em Grego ou Hebraico de "${pas}". Retorne JSON: {"insights":[{"word":"","transliteration":"","language":"","strongNumber":"","meaning":"","theologicalInsight":""}]}`,
@@ -2630,24 +2672,24 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
   }
 
   function openGeminiConfigModal(onDone = null) {
-    const curMod = (state.settings.geminiModel || 'gemini-1.5-pro').replace(/^models\//, '');
+    const curMod = (state.settings.geminiModel || 'gemini-3.8-flash').replace(/^models\//, '');
     const avail = getAvailableGeminiModels();
 
     openModal(
       `
       <div class="modal-header">
-        <h3 class="modal-title">✨ Motor Gemini Pro • Modelos Oficiais Google AI</h3>
+        <h3 class="modal-title">✨ Motor Gemini Pro • Modelos Ativos Google AI</h3>
         <button class="icon-btn-ghost" data-close-modal>✕</button>
       </div>
       <p style="font-size:13.5px;color:var(--text-muted);margin:0 0 12px;">
-        Modelos oficiais Google AI com auto-atualização contínua. Obtenha sua chave gratuita em <strong>aistudio.google.com/apikey</strong>.
+        Exibindo apenas modelos oficiais suportados e ativos para a sua chave. Obtenha sua chave em <strong>aistudio.google.com/apikey</strong>.
       </p>
       <label class="editor-section-label">Modelo Homilético Ativo</label>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <select id="gem-model-sel" class="select-field" style="flex:1;">
           ${Object.entries(avail).map(([k, v]) => `<option value="${k}" ${curMod === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
         </select>
-        <button class="btn btn-outline" id="gem-sync-btn" title="Buscar novos modelos lançados pelo Google em tempo real" style="white-space:nowrap;padding:0 12px;">
+        <button class="btn btn-outline" id="gem-sync-btn" title="Consultar modelos ativos da sua chave na Google AI em tempo real" style="white-space:nowrap;padding:0 12px;">
           🔄 Sincronizar
         </button>
       </div>
@@ -2656,7 +2698,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
       <div id="gem-test-status" style="font-size:13px;margin-bottom:12px;"></div>
       <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center;">
         <span style="font-size:11.5px;color:var(--text-muted);" id="gem-last-sync-label">
-          ${state.settings.geminiLastModelSync ? `Sincronizado: ${new Date(state.settings.geminiLastModelSync).toLocaleDateString('pt-BR')} ${new Date(state.settings.geminiLastModelSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Modelos base oficiais'}
+          ${state.settings.geminiLastModelSync ? `Sincronizado: ${new Date(state.settings.geminiLastModelSync).toLocaleDateString('pt-BR')} ${new Date(state.settings.geminiLastModelSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Catálogo ativo'}
         </span>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-outline" id="gem-test-btn">📡 Testar Conexão</button>
@@ -2670,14 +2712,13 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
         sheet.querySelector('#gem-sync-btn').onclick = async () => {
           const key = sheet.querySelector('#gem-key-inp').value.trim();
           const out = sheet.querySelector('#gem-test-status');
-          out.innerHTML = '<span style="color:var(--primary);">Buscando novos modelos na Google AI...</span>';
+          out.innerHTML = '<span style="color:var(--primary);">Consultando modelos ativos na Google AI...</span>';
           const res = await syncGeminiModelsFromGoogle(key, { silent: false });
           if (res.success) {
             const updated = getAvailableGeminiModels();
             const sel = sheet.querySelector('#gem-model-sel');
-            const selectedVal = sel.value;
-            sel.innerHTML = Object.entries(updated).map(([k, v]) => `<option value="${k}" ${selectedVal === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
-            out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${res.count || Object.keys(updated).length} modelos oficiais disponíveis e sincronizados!</span>`;
+            sel.innerHTML = Object.entries(updated).map(([k, v]) => `<option value="${k}" ${state.settings.geminiModel === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
+            out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ Exibindo apenas os ${res.count || Object.keys(updated).length} modelos ativos para sua chave!</span>`;
             const lbl = sheet.querySelector('#gem-last-sync-label');
             if (lbl) lbl.textContent = 'Sincronizado agora';
           } else {
@@ -2706,7 +2747,7 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             );
             if (res.ok) {
               out.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ Conexão confirmada com ${esc(cleanMod)}!</span>`;
-              // Auto-sincroniza o catálogo de modelos em segundo plano
+              // Auto-sincroniza o catálogo e filtra apenas modelos atuais
               syncGeminiModelsFromGoogle(key, { silent: true }).then((syncRes) => {
                 if (syncRes.success) {
                   const updated = getAvailableGeminiModels();
@@ -6071,13 +6112,15 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
       }
     }
 
-    // Sanitização e migração de modelos Gemini legados
+    // Sanitização e migração de modelos Gemini legados para gemini-3.8-flash
     if (
       !state.settings.geminiModel ||
-      state.settings.geminiModel.includes('gemini-2.5') ||
-      state.settings.geminiModel.includes('gemini-3')
+      state.settings.geminiModel.includes('1.5') ||
+      state.settings.geminiModel.includes('2.0') ||
+      state.settings.geminiModel.includes('2.5') ||
+      state.settings.geminiModel.includes('3-pro')
     ) {
-      state.settings.geminiModel = 'gemini-1.5-pro';
+      state.settings.geminiModel = 'gemini-3.8-flash';
       writeStore(KEYS.SETTINGS, state.settings);
     }
 
