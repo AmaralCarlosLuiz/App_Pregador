@@ -981,28 +981,113 @@ body.theme-light .tag-blue {
 }
 
 /* ==========================================================================
-   EDITOR DE SERMÕES
+   EDITOR DE SERMÕES (RESPONSIVO COM BLINDAGEM MOBILE)
    ========================================================================== */
 .editor-topbar {
   position: sticky;
   top: 0;
   z-index: 25;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 10px 14px;
   margin: -16px -16px 16px;
   background: var(--glass);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.editor-topbar-left #ed-back-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.editor-title-group {
+  min-width: 0;
+  flex: 1;
+}
+
+.editor-header-title {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.editor-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.editor-topbar-actions #ed-save-top-btn {
+  flex: 1;
+  min-height: 38px;
+  justify-content: center;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.editor-topbar-actions #ed-pulpit-btn {
+  flex: 1.2;
+  min-height: 38px;
+  justify-content: center;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.editor-topbar-actions .icon-btn {
+  flex-shrink: 0;
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (min-width: 860px) {
   .editor-topbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     margin: -26px -32px 20px;
     padding: 12px 32px;
+  }
+
+  .editor-topbar-left {
+    width: auto;
+    flex: 1;
+  }
+
+  .editor-topbar-actions {
+    width: auto;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .editor-topbar-actions #ed-save-top-btn,
+  .editor-topbar-actions #ed-pulpit-btn {
+    flex: initial;
+    min-height: 34px;
+  }
+
+  .editor-topbar-actions .icon-btn {
+    min-width: 34px;
+    min-height: 34px;
   }
 }
 
@@ -1169,11 +1254,9 @@ body.theme-light .tag-blue {
 
 .pulpit-topbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 20px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 14px;
   background: rgba(0, 0, 0, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -1181,6 +1264,48 @@ body.theme-light .tag-blue {
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+}
+
+.pulpit-topbar-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.pulpit-topbar-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.pulpit-topbar-strip::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .pulpit-topbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 24px;
+  }
+  .pulpit-topbar-main {
+    width: auto;
+    gap: 16px;
+  }
+  .pulpit-topbar-strip {
+    width: auto;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
 }
 
 .pulpit-overlay.pulpit-amber .pulpit-topbar {
