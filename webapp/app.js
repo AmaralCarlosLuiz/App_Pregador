@@ -2408,9 +2408,9 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
     const fs = state.settings.pulpitFont || 22;
 
     overlay.innerHTML = `
-      <!-- Topbar Fixa e Elegante -->
+      <!-- Topbar Fixa e Elegante com 2 Camadas Perfeitamente Alinhadas no Mobile -->
       <header class="pulpit-topbar">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="pulpit-topbar-main">
           <button class="btn btn-sm btn-outline" id="pulpit-exit-btn" title="Atalho: Esc">← Sair</button>
           
           <div class="pulpit-timer-badge">
@@ -2419,36 +2419,37 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
             <button class="btn btn-xs btn-outline" id="pulpit-timer-toggle" style="padding:2px 8px;min-height:28px;" title="Atalho: T">${state.pulpit.timerRunning ? '⏸' : '▶'}</button>
             <button class="btn btn-xs btn-outline" id="pulpit-timer-reset" style="padding:2px 8px;min-height:28px;" title="Reiniciar cronômetro">↺</button>
           </div>
+
+          <button class="btn btn-sm btn-emerald" id="pulpit-finish-btn" style="min-height:34px;">✓ Concluir</button>
         </div>
 
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="pulpit-topbar-strip">
           <!-- Teleprompter Auto-Scroll -->
-          <button class="pulpit-autoscroll-btn ${state.pulpit.autoScroll ? 'active' : ''}" id="pulpit-btn-autoscroll" title="Atalho: Espaço">
-            ${state.pulpit.autoScroll ? '⏸ Pausar' : '▶ Auto-Rolagem'}
-          </button>
-          <button class="btn btn-xs btn-outline" id="pulpit-speed-btn" title="Alterar velocidade de rolagem" style="min-height:34px;padding:4px 10px;">
-            ${state.pulpit.autoScrollSpeed || 1}x
-          </button>
+          <div style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">
+            <button class="pulpit-autoscroll-btn ${state.pulpit.autoScroll ? 'active' : ''}" id="pulpit-btn-autoscroll" title="Atalho: Espaço">
+              ${state.pulpit.autoScroll ? '⏸ Pausar' : '▶ Auto-Rolagem'}
+            </button>
+            <button class="btn btn-xs btn-outline" id="pulpit-speed-btn" title="Alterar velocidade de rolagem" style="min-height:34px;padding:4px 10px;">
+              ${state.pulpit.autoScrollSpeed || 1}x
+            </button>
+          </div>
 
           <!-- Ajuste de Fonte Sem Perder o Ponto de Leitura -->
-          <div class="pulpit-font-box">
+          <div class="pulpit-font-box" style="flex-shrink:0;">
             <button class="btn btn-xs btn-outline" id="pulpit-font-dec" style="min-height:30px;padding:2px 8px;">A-</button>
             <span id="pulpit-font-indicator" style="font-size:13px;font-weight:800;min-width:38px;text-align:center;">${fs}px</span>
             <button class="btn btn-xs btn-outline" id="pulpit-font-inc" style="min-height:30px;padding:2px 8px;">A+</button>
           </div>
 
           <!-- Tema Visual -->
-          <button class="btn btn-xs btn-outline" id="pulpit-theme-cycle" style="min-height:34px;">
+          <button class="btn btn-xs btn-outline" id="pulpit-theme-cycle" style="min-height:34px;flex-shrink:0;">
             ${state.settings.pulpitTheme === 'amber' ? '📜 Sépia' : state.settings.pulpitTheme === 'light' ? '☀️ Claro' : '🌙 OLED'}
           </button>
 
           <!-- Largura Adaptativa Automática / Foco -->
-          <button class="btn btn-xs btn-outline" id="pulpit-width-toggle" title="Alternar largura (Fluida / Foco / Tela Cheia)" style="min-height:34px;">
+          <button class="btn btn-xs btn-outline" id="pulpit-width-toggle" title="Alternar largura (Fluida / Foco / Tela Cheia)" style="min-height:34px;flex-shrink:0;">
             ${state.settings.pulpitWidth === 'focus' ? '↔ Foco' : state.settings.pulpitWidth === 'full' ? '↔ 100%' : '↔ Fluida'}
           </button>
-
-          <!-- Concluir Ministração -->
-          <button class="btn btn-xs btn-emerald" id="pulpit-finish-btn" style="min-height:34px;">✓ Concluir</button>
         </div>
       </header>
 
@@ -3732,17 +3733,17 @@ Retorne ESTRITAMENTE um JSON válido sem nenhum caractere fora do bloco JSON:
 
     root.innerHTML = `
       <div class="editor-topbar">
-        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-          <button class="btn btn-xs btn-outline" id="ed-back-btn">← Voltar</button>
-          <div style="min-width:0;">
-            <div id="ed-header-title" style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.title)}</div>
+        <div class="editor-topbar-left">
+          <button class="btn btn-sm btn-outline" id="ed-back-btn">← Voltar</button>
+          <div class="editor-title-group">
+            <div id="ed-header-title" class="editor-header-title">${esc(s.title)}</div>
             <div id="ed-save-status" class="editor-status">✓ Salvo automaticamente</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <div class="editor-topbar-actions">
           <button class="btn btn-sm btn-emerald" id="ed-save-top-btn" title="Salvar Sermão">💾 Salvar</button>
           <button class="icon-btn" id="ed-bible-btn" title="Consultar Bíblia">📖</button>
-          <button class="icon-btn" id="ed-ai-btn" title="Assistente Gemini Pro">✨</button>
+          <button class="icon-btn" id="ed-ai-btn" title="Assistente Gemini">✨</button>
           <button class="icon-btn" id="ed-del-top-btn" title="Excluir Sermão" style="color:var(--danger);border-color:rgba(239,68,68,0.4);">🗑️</button>
           <button class="btn btn-sm btn-gold" id="ed-pulpit-btn">🎤 Púlpito</button>
         </div>
